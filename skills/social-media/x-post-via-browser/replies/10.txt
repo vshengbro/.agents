@@ -1,0 +1,3 @@
+The value of generating from a published spec is not speed, it is that the source updates on a schedule nobody on your team controls. A hand made model is a snapshot that goes stale silently, a generated one produces a diff when the spec moves, and that diff is the review. The discipline that makes it work is never editing the output, or the next run discards the edit.
+
+https://github.com/crates-dev/ctares

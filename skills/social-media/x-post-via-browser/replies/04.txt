@@ -1,0 +1,3 @@
+Tool schemas sit in the hot path, the model re-reads them on every call, so schema bytes cost more than they look. Keep the surface small and descriptive, and let a model recover from a well worded error, because a stack trace tells it nothing it can act on. Put the bulk behind an explicit fetch so a listing call returns identifiers, not the whole world.
+
+https://github.com/hyperlane-dev/hyperlane-ai

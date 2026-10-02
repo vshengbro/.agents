@@ -232,6 +232,8 @@ every call site checks it.
 | `scripts/verify_post.py` | Proves one post landed: author, text prefix, link card. |
 | `scripts/whose_posts.py` | What is on screen, split by author. |
 | `scripts/run_queue_tick.py` | Idempotent queue runner — one item per invocation, for a cron series. Verifies on the timeline **before** recording an item as posted, so a click that did not land stays queued instead of being counted as done. |
+| `scripts/run_project_day.py` | One project per invocation: its zh/en/ja/ko versions in order, `--gap` seconds apart. Records the project only after all four verify, so a failed version retries the whole project rather than losing a language. |
+| `scripts/engage_feed.py` | Home feed: click the home tab, like what is worth liking, then reply once per post up to a target. Reads the feed live and dedupes by status id. |
 | `scripts/verify_no_unsafe_posting.py` | The commit gate. `--self-test` proves every rule fires. |
 
 ```bash
@@ -293,16 +295,74 @@ what fails in the DOM path below: a dead end in the composer is not an argument
 for introducing a channel the user has closed.
 
 The cost of that ruling is written down here so the next run does not re-derive
-it. The reply path is the one place this skill cannot complete unattended, and
-the reason is specific, not a general one about automation.
+it.
 
-## Why the reply path stops where it does
+## The reply path works, and it was the script that was broken
 
-Measured on this build, 2026-10-01, on the live timeline. The reply box opens
-fine — that part works, and a probe that reports otherwise is measuring the
-wrong thing. It is a visible `[data-testid="tweetTextarea_0"]` inside a
-`[role="dialog"]`, empty, labelled 回复. The failure is one step later, and it
-is the input channel:
+Revised 2026-10-02. `post_reply.py` now opens a reply box, types with real key
+events, sends, and reads the reply back off the timeline. Four replies
+published and verified live, one of them carrying all the fixes below. Nothing
+here needed the API, a real pointer, or the OS keyboard.
+
+The 2026-10-01 finding — "X refuses synthetic input" — was **four script bugs,
+not a wall in X**. Each one produced a silent failure, and each one looked
+exactly like the next. This is the record, because the shape repeats:
+
+| what the script said | what was true |
+|---|---|
+| `NOT SENDING - None` | the box had opened. `REPLY_POINT` returns `JSON.stringify(...)`, a STRING, and `js()` wrapped it as `{"_raw": ...}`, so `pt.get("opened")` was always `None` |
+| `LEN 470 want 476 exact=False` | the text was correct. X renders each newline as an element, so a 6-newline source reads back 6 characters short — an exact compare can never pass |
+| `NOT VERIFIED - no reply under the target` | it had landed. A sent reply renders as its own TOP-LEVEL article; the replied-to name is plain text, so the target id was nowhere in the article the template searched |
+| `NOT VERIFIED` with the reply sitting at the top | the script scrolled DOWN to reach the target and never came back up. A new reply appears at the TOP of the timeline |
+
+The lesson worth keeping: **every one of these was reported as a refusal to do
+something X had actually done.** X never once refused input. Check what the
+script measured before concluding what X did — and note the specific trap, which
+is the most reusable part: a template that returns `JSON.stringify(...)` while
+its sibling templates return objects is enough to make a working path look
+completely dead.
+
+Three things that make it work, all measured:
+
+- **Identify the reply box by the dialog that appeared, not by the editor
+  count.** The main composer is already in any page-wide list of editables.
+- **Type with real key events, one per character**, and let `char` carry the
+  characters no key can produce (em dash, CJK). `insertText` lights the button
+  up while the handler behind it still sees an empty draft.
+- **Find the send button by walking up from the editor that took the text**,
+  inside that dialog. The first enabled `tweetButton` on the page belongs to
+  whatever composer happened to be on screen.
+
+Two behaviours that are correct and should not be "fixed":
+
+- **A reply box that already holds text is refused, not reused.** That draft is
+  not ours to delete, and clearing it is the one thing this skill forbids.
+  Close the box and open a fresh one instead.
+- **A reply must carry a repository from `org_repos.OWNERS`**, or it is refused
+  before a character is typed. A reply that links someone else's project is not
+  promotion of this account's work.
+
+## Replies are written, not generated at send time
+
+`replies/*.txt` holds the reply bodies. They are written in advance because the
+publisher checks them — the owner rule, the length, and the stray-dotted-token
+rule — and a reply composed on the fly has not passed any of them. `X_REPLY_DIR`
+overrides the location.
+
+Two rules about that directory, both learned by breaking them:
+
+- **One reply per post, deduped by status id.** The feed is virtualised: a post
+  stays in the DOM at the same offset long after the loop scrolls past it, so
+  without dedupe three of four replies go to the same first match.
+- **Never re-post a reply text to reach a count.** If the directory holds fewer
+  replies than the target, the honest answer is the smaller number.
+
+## Why the measured dead ends still hold
+
+The activation attempts below all fail, and none of them is in the working path
+— the working path dispatches mousedown/mouseup/click on the control, which
+does open the box, and then types with key events. They are recorded because
+they are the routes that read as "X ignores automation".
 
 | activation tried | result |
 |---|---|

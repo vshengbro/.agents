@@ -1,0 +1,3 @@
+Per token cost is the least interesting axis. The real one is who owns the tail, since an API call carries a queue and a network hop you cannot shrink, while a local model trades that for memory bandwidth and batch size on your own machine. Running it yourself also lets you pin the prompt format and the tool call grammar, which is where most of the control lives.
+
+https://github.com/hyperlane-dev/hyperlane-ai

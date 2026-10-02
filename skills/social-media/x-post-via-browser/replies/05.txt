@@ -1,0 +1,3 @@
+A virtual DOM re-renders and then diffs because it never knew what changed. A signal graph records the dependency edge at the moment of read, so the update set is exactly the set of observers and there is no diff pass left to get wrong. The cost moves from a scan every frame to bookkeeping on every write, and the new failure mode is writing inside a read.
+
+https://github.com/euv-dev/euv

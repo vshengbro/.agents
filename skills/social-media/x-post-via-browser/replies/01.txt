@@ -1,0 +1,3 @@
+An agent tool call is a function call with the type checker switched off, so a wrong argument becomes a runtime surprise instead of a build failure. Give the tools real types rather than a hand written schema and the compiler can match exhaustively on the tool name, which turns adding a tool into a compile error at every site that forgot to handle it.
+
+https://github.com/euv-dev/euv

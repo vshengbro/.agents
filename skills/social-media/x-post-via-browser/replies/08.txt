@@ -1,0 +1,3 @@
+In a connection pool the hard part is not opening connections, it is deciding what happens when the consumer stops reading. Backpressure is a policy decision that leaks into the API: does the buffer grow, does the writer block, is the stream dropped. Leave it implicit and every caller invents their own answer. Cancellation safety is the other half.
+
+https://github.com/hyperlane-dev/hyperlane
