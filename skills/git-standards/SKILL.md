@@ -1,6 +1,6 @@
 ---
 name: git-standards
-description: 'Git commit + PR routing + text conventions for eastspire-owned repos. **Route by change type, not by repo: docs / config / frontend-style / comment-only changes commit straight to the default branch with no PR; only changes to executable code need a PR (branch → push → PR → merge → delete branch). `.css`/`.scss`/`.less` count as presentation, but a `.tsx` with a changed handler is still a PR. A comment-only edit to a `.rs` file is a docs change; a statement change is a code change. Mechanical classifier: `scripts/classify_change.py` (DIRECT_PUSH | NEEDS_PR).** **All commits and PR descriptions must be written in English** (no Chinese in commit message subject/body, no Chinese in PR title/body, per user preference) — enforced by `scripts/verify_english_only.py`, not just documented. **All commits must use the canonical author identity from `~/.gitconfig` (`eastspire <root@ltpp.vip>`, the personal account of the user) — never a bot identity, never per-commit `-c user.email=…` or `GIT_AUTHOR_EMAIL` overrides (see §7).** Commit subject MUST follow Conventional Commits v1.0.0: `<type>(<scope>): <subject>` where type ∈ {feat, fix, refactor, perf, docs, test, build, ci, chore, style, revert} and scope is the skill name (singular or short area). Subject ≤ 72 chars, imperative mood, no trailing period, no all-caps. Body wrapped at 72 cols, explain *what* and *why* not *how*, use bullet lists for multi-point changes. PR body uses 4-section template: Summary / Changes / Verification / Notes. Footer MUST include `🤖 Generated with [Hermes](https://...)` line (drop if not applicable). **`git commit --no-verify` is FORBIDDEN in every repo you own** — every repository under your personal account, and every repository under every organization you belong to. The list is enumerated live from the GitHub API on each commit, never hardcoded, so a new org or repo is covered automatically. The only exemption is a repo GitHub confirms is **not** yours (upstream clones), and forks under your own account stay enforced. Owned repos are guarded by a `prepare-commit-msg` hook that git does NOT let `--no-verify` suppress, so a bypassing commit is still blocked; every API failure mode resolves to ENFORCED, never to a free pass — when a gate fires, fix the code, never bypass (see §3.6, `scripts/guard_no_verify.py`). Triggers: git commit, commit message, PR body, PR description, Conventional Commits, git push, gh pr create, commit prefix, commit type, chore:, feat:, fix:, refactor:, docs:, ci:, 文档直推, 代码 PR, 注释改动, 前端样式, css 提交, 需要 PR 还是直接提交, doc vs code, direct push, delete branch after merge, git author, user.email, user.name, eastspire, no-verify, 绕过 hook, 跳过校验, 跳过提交校验, skip hook, bypass pre-commit, 绕过提交前校验.'
+description: 'Git commit + PR routing + text conventions for eastspire-owned repos. **Route by change type, not by repo: docs / config / frontend-style / comment-only changes commit straight to the default branch with no PR; only changes to executable code need a PR (branch → push → PR → merge → delete branch). `.css`/`.scss`/`.less` count as presentation, but a `.tsx` with a changed handler is still a PR. A comment-only edit to a `.rs` file is a docs change; a statement change is a code change. Mechanical classifier: `scripts/classify_change.py` (DIRECT_PUSH | NEEDS_PR).** **All commits and PR descriptions must be written in English** (no Chinese in commit message subject/body, no Chinese in PR title/body, per user preference) — enforced by `scripts/verify_english_only.py`, not just documented. **All commits must use the canonical author identity read live from `~/.gitconfig` (currently `vshengbro <root@ltpp.vip>`, the personal account of the user — renamed from `eastspire` on 2026-10-08; the GitHub login is unchanged) — never a bot identity, never per-commit `-c user.email=…` or `GIT_AUTHOR_EMAIL` overrides (see §7).** Commit subject MUST follow Conventional Commits v1.0.0: `<type>(<scope>): <subject>` where type ∈ {feat, fix, refactor, perf, docs, test, build, ci, chore, style, revert} and scope is the skill name (singular or short area). Subject ≤ 72 chars, imperative mood, no trailing period, no all-caps. Body wrapped at 72 cols, explain *what* and *why* not *how*, use bullet lists for multi-point changes. PR body uses 4-section template: Summary / Changes / Verification / Notes. Footer MUST include `🤖 Generated with [Hermes](https://...)` line (drop if not applicable). **`git commit --no-verify` is FORBIDDEN in every repo you own** — every repository under your personal account, and every repository under every organization you belong to. The list is enumerated live from the GitHub API on each commit, never hardcoded, so a new org or repo is covered automatically. The only exemption is a repo GitHub confirms is **not** yours (upstream clones), and forks under your own account stay enforced. Owned repos are guarded by a `prepare-commit-msg` hook that git does NOT let `--no-verify` suppress, so a bypassing commit is still blocked; every API failure mode resolves to ENFORCED, never to a free pass — when a gate fires, fix the code, never bypass (see §3.6, `scripts/guard_no_verify.py`). Triggers: git commit, commit message, PR body, PR description, Conventional Commits, git push, gh pr create, commit prefix, commit type, chore:, feat:, fix:, refactor:, docs:, ci:, 文档直推, 代码 PR, 注释改动, 前端样式, css 提交, 需要 PR 还是直接提交, doc vs code, direct push, delete branch after merge, git author, user.email, user.name, eastspire, no-verify, 绕过 hook, 跳过校验, 跳过提交校验, skip hook, bypass pre-commit, 绕过提交前校验.'
 license: MIT
 ---
 # git-standards — English-only commit + PR conventions
@@ -625,7 +625,7 @@ contribution nobody asked for. The hook does not apply there, and the agent
 follows the upstream project's own conventions instead.
 
 The exemption is about the *hook and the rules*, **not** about basic git
-hygiene. English commit subjects, the `eastspire <root@ltpp.vip>` author
+hygiene. English commit subjects, the `vshengbro <root@ltpp.vip>` author
 identity (§7), and never committing `__pycache__` / `dist/` / `target/`
 (§4 pitfall 10) still apply when working on an external repo. Only the
 project-specific verifiers — the rust-standards audit, the staged-file
@@ -741,7 +741,7 @@ wrong — the audit script is the source of truth, not your reading of it.
 12. **Cleaning branches on the wrong remote (source vs fork)** — when the user says "clean up branches under org X", they mean source repos (`X/<repo>`), not your personal fork (`<user>/<repo>`). Run `git remote -v` to confirm: `origin` = fork, `upstream` = source. Cross-check the target org on GitHub before deleting. Verified 2026-08-29: deleted a branch on `eastspire/euv-docs` thinking it was the source, but the source was `euv-dev/euv-docs` (no such branch there). `docs-pages/*` has never had a fork concept (single remote), so the "source vs fork" question is moot for that org — `git remote -v` will only show `origin = docs-pages/<repo>`. The pitfall still applies to `euv-dev`/`hyperlane-dev`/`crates-dev`/third-party repos, and to the legacy Track 2 fork layout.
 13. **Resetting `master` to a stale local tip before push** — direct-push repos get commits straight onto `master`, and other sessions often leave working-tree noise (`git status` shows 6+ modified files unrelated to yours). Flow: `git diff --stat` to identify YOUR files, `git add <only-yours>` precisely, then commit. If `master` is ahead of `origin/master` with commits that aren't yours, do NOT push blindly: `git fetch origin master && git rebase origin/master` (or, to take only your own commit: `git checkout master && git reset --hard origin/master && git cherry-pick <your-sha> && git push origin master && git branch -D <branch>`). For conflicts use `git show <sha>:<file> > /tmp/v && cp /tmp/v <file> && git add` to take your version verbatim.
 14. **Routing by repo instead of by change type** — the current rule (§3.3a) is: docs / config / frontend-style / comment-only → direct push; code → PR. Three failure modes to avoid in both directions. (a) Assuming a `.rs` / `.sh` / `.toml` edit always needs a PR — a comment-only or dependency-bump change does not. (b) Assuming "it's just docs" because most of a diff is prose — one changed code line anywhere sends the whole change through a PR (§3.3a.3, 从严). (c) Reading "frontend style" as "any file in a frontend repo" — only the stylesheet direct-pushes; a `.tsx` with a changed handler is still a PR (§3.3a.1a). Run `scripts/classify_change.py` rather than eyeballing it.
-15. **Per-commit author identity override** — the commit author must come from `~/.gitconfig`'s `[user]` block (`git config --global user.name "eastspire"` + `user.email "root@ltpp.vip"`); never use `git -c user.email=… commit`, `GIT_AUTHOR_EMAIL=… git commit`, or `git commit --amend --author=…` (see §7). Verified 2026-09-27: a `chore: bump version` commit on `euv-dev/euv` was authored as `eastspire@users.noreply.github.com` because of a forgotten `-c` override, which leaks the GitHub-anonymized address into history and doesn't match the canonical identity the user wants on every commit.
+15. **Per-commit author identity override** — the commit author must come from `~/.gitconfig`'s `[user]` block (`git config --global user.name "vshengbro"` + `user.email "root@ltpp.vip"`); never use `git -c user.email=… commit`, `GIT_AUTHOR_EMAIL=… git commit`, or `git commit --amend --author=…` (see §7). Verified 2026-09-27: a `chore: bump version` commit on `euv-dev/euv` was authored as `eastspire@users.noreply.github.com` because of a forgotten `-c` override, which leaks the GitHub-anonymized address into history and doesn't match the canonical identity the user wants on every commit.
 16. **The classifier exited 2 on a brand-new file** — a path that exists on disk but not in the base ref has no `base:path` blob, and `read_blob` raised, aborting the WHOLE run so even the other paths went unclassified. It presented as "the script is broken" when it was one missing guard. Fixed by testing `git cat-file -e <base>:<path>` (does the BASE REF have this path) instead of `git ls-files` (does the INDEX have it) — a *staged* new file is already in `ls-files`, so the ls-files test never fired and the crash survived the first attempt at the fix. Layer A / A′ now reach a verdict before any base read, and a new code file gets an empty pre-image (→ NEEDS_PR) instead of a traceback. Verified 2026-09-27: new `.md` / `.css` / `.yml` / `.rs` all classify correctly and `permissions: write-all` still warns on a brand-new workflow.
 17. **Commit or PR text contained Chinese** — §1/§2/§7 stated the English-only rule in prose, and two PRs were still opened with Chinese titles and Chinese bodies on 2026-09-28. The failure is not ignorance of the rule — the rule was already in the file when it was violated. Prose has no enforcement point. Run `python3 scripts/verify_english_only.py commit <msgfile> --repo .` before committing and `… pr "<title>" --body <file>` before `gh pr create`; exit 1 is the gate. Quoting the user's Chinese instruction verbatim in the commit body is still a violation — translate it.
 18. **`bash` reported `exit=126` on a fresh script** — "Permission denied", which reads like a path or filesystem problem but is a missing execute bit. `chmod +x scripts/verify_english_only.py` before first use.
@@ -765,7 +765,7 @@ route:    docs / config / frontend-style / comment-only  → default branch, NO 
           any executable code line (.js/.ts/.tsx/.rs/.py) → branch + PR, then --squash --delete-branch
           mixed                         → PR (从严), never split
           binary / generated / lockfile → PR
-author:   git config --global user.name  "eastspire"
+author:   git config --global user.name  "vshengbro"
           git config --global user.email "root@ltpp.vip"
           (never -c user.email=… or GIT_AUTHOR_EMAIL, see §7)
 check:    python3 ~/.agents/skills/git-standards/scripts/classify_change.py
@@ -818,7 +818,7 @@ User rule (recorded 2026-09-27):
 ### 7.1 The required identity
 
 ```
-name:     eastspire
+name:     vshengbro    (renamed from "eastspire" on 2026-10-08; GitHub login unchanged)
 email:    root@ltpp.vip
 scope:    --global (in ~/.gitconfig)
 ```
@@ -826,14 +826,14 @@ scope:    --global (in ~/.gitconfig)
 ### 7.2 One-time setup on a fresh machine
 
 ```bash
-git config --global user.name  "eastspire"
+git config --global user.name  "vshengbro"
 git config --global user.email "root@ltpp.vip"
 ```
 
 Verify:
 
 ```bash
-git config --global --get user.name    # eastspire
+git config --global --get user.name    # vshengbro
 git config --global --get user.email   # root@ltpp.vip
 ```
 
@@ -857,12 +857,13 @@ so verification goes after the commit but before the push:
 
 ```bash
 git log -1 --format='%an <%ae>'
-# MUST print exactly:  eastspire <root@ltpp.vip>
+# MUST print exactly the global identity, e.g.:  vshengbro <root@ltpp.vip>
 
-# machine-readable for hooks / CI
+# machine-readable for hooks / CI — expected values read LIVE from global config
+exp_n=$(git config --global user.name); exp_e=$(git config --global user.email)
 git log -1 --format='%an%n%ae' | { read an; read ae;
-  [ "$an" = "eastspire" ] && [ "$ae" = "root@ltpp.vip" ] || {
-    echo "REJECT: commit author is $an <$ae>, expected eastspire <root@ltpp.vip>" >&2; exit 1;
+  [ "$an" = "$exp_n" ] && [ "$ae" = "$exp_e" ] || {
+    echo "REJECT: commit author is $an <$ae>, expected $exp_n <$exp_e>" >&2; exit 1;
   }
 }
 ```
@@ -879,7 +880,8 @@ Merge commits opened via `gh pr merge --squash` keep the **author** of the
 squashed commits and set the **committer** to the GitHub user who clicked
 merge — that is correct and expected. The identity rule applies to the
 **author** field, which is the human who wrote the change. The committer
-field is the GitHub machine identity, and remains `eastspire <root@ltpp.vip>`
+field is the GitHub machine identity, and remains the global-config author
+(`vshengbro <root@ltpp.vip>`)
 in practice because the user is the one clicking merge.
 
 ### 7.6 What about bot commits?

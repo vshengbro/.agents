@@ -58,12 +58,30 @@ CJK_RANGES = (
     ("Yi Syllables", 0xA000, 0xA48F),
 )
 
-CANONICAL_NAME = "eastspire"
-CANONICAL_EMAIL = "root@ltpp.vip"
 TYPES = (
     "feat fix refactor perf docs test build ci chore style revert".split()
 )
 MAX_SUBJECT = 72
+
+
+def canonical_identity() -> tuple[str, str]:
+    """Expected author identity, read LIVE from the global git config.
+
+    §7 makes ~/.gitconfig the single source of truth, so this gate must read
+    it rather than hold a second hardcoded copy: the user renamed the global
+    user.name (eastspire -> vshengbro, 2026-10-08) and a hardcoded constant
+    kept demanding the retired name. An unset global identity fails loudly
+    (§7.7) instead of falling back to any remembered value.
+    """
+    def _get(key: str) -> str:
+        try:
+            return subprocess.run(
+                ["git", "config", "--global", key],
+                capture_output=True, text=True, check=False,
+            ).stdout.strip()
+        except OSError:
+            return ""
+    return _get("user.name"), _get("user.email")
 
 
 def find_non_english(text: str) -> list:
@@ -152,12 +170,18 @@ def check_commit_message(text: str, label: str = "commit message") -> list:
 
 
 def check_author(repo: Path | None, explicit: str | None) -> list:
+    exp_name, exp_email = canonical_identity()
+    if not exp_name or not exp_email:
+        return [
+            "author: global git identity is unset (user.name / user.email) — "
+            "set it once in ~/.gitconfig (§7.2); the gate refuses to guess (§7.7)"
+        ]
     out = []
     if explicit:
-        if explicit != CANONICAL_EMAIL:
+        if explicit != exp_email:
             out.append(
                 "author: commit email {!r} is not the canonical personal account "
-                "{!r} (§7 — no per-commit override)".format(explicit, CANONICAL_EMAIL)
+                "{!r} (§7 — no per-commit override)".format(explicit, exp_email)
             )
         return out
     if repo is None:
@@ -173,13 +197,13 @@ def check_author(repo: Path | None, explicit: str | None) -> list:
         ).stdout.strip()
     except OSError as exc:  # pragma: no cover - defensive
         return ["author: could not read git config: {}".format(exc)]
-    if got != CANONICAL_EMAIL:
+    if got != exp_email:
         out.append(
             "author: repo author is {!r}, expected the canonical personal account "
-            "{!r} (§7)".format(got or "<unset>", CANONICAL_EMAIL)
+            "{!r} (§7)".format(got or "<unset>", exp_email)
         )
-    if name != CANONICAL_NAME:
-        out.append("author: user.name is {!r}, expected {!r} (§7)".format(name or "<unset>", CANONICAL_NAME))
+    if name != exp_name:
+        out.append("author: user.name is {!r}, expected {!r} (§7)".format(name or "<unset>", exp_name))
     return out
 
 
