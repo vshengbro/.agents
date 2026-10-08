@@ -94,6 +94,42 @@ browser before the first real-profile launch, reopen after. `hermes browser
 close-profile` does it, but it is DESTRUCTIVE (loses unsaved tabs) and the agent must
 ask first. `browser.real_profile_autoclose: true` only arms the *offer*.
 
+### 4. The lock error has two escape routes that do NOT quit Chrome
+
+`Login Data` / `Login Data For Account` / `Web Data` are held with a hot write lock
+by a running Chrome, and their failed online backup fails the whole launch — but
+they are exactly what the no-password-exposure plugin deletes from the snapshot
+anyway. Two ways past, in order of preference:
+
+1. **Local patch (permanent, installed on this machine)**: `hermes_cli/browser_connect.py::_mirror_profile_auth`
+   skips the three password DBs when the plugin is enabled (`plugins.enabled` in
+   config.yaml, `NO_PASSWORD_EXPOSURE_DISABLE` respected). Cookies still mirror
+   lock-aware and a Cookies failure still fails closed, so sessions stay signed in
+   and nothing secret is copied. Needs a Hermes restart to take effect — a running
+   session holds the old module in memory.
+2. **No-restart path**: launch Chrome yourself on the copy dir and let the tool
+   re-attach. `_real_profile_cdp()` reuses a surviving Chrome on the snapshot dir
+   via `DevToolsActivePort` WITHOUT snapshotting:
+
+   ```bash
+   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+     --user-data-dir="$HOME/.hermes/browser-profile/chrome" \
+     --remote-debugging-port=0 --headless=new --no-first-run --no-default-browser-check \
+     --disable-background-networking --disable-component-update --disable-default-apps \
+     --disable-hang-monitor --disable-popup-blocking --disable-prompt-on-repost \
+     --disable-sync --disable-features=Translate --no-startup-window &
+   ```
+
+   Wait for `DevToolsActivePort` to appear, then call the browser tool — it
+   attaches without touching the locked DBs. This Chrome is untracked by Hermes:
+   kill it yourself when done
+   (`pkill -f "user-data-dir=$HOME/.hermes/browser-profile/chrome"`).
+
+   **Keep it alive for the whole browser session.** Killing it mid-task breaks
+   the tool's cached CDP endpoint, and the next call re-runs the full launch —
+   which hits the locked-snapshot error again in any process that still has the
+   old module in memory. Kill it only when the task is fully finished.
+
 ## Verify like this, not by "config looks right"
 
 ```bash

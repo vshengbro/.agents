@@ -52,6 +52,8 @@ Default to angle #1 in initial response; offer #2 and #3 as alt-versions alongsi
 4. **Don't ask "want me to post it?"** after delivering the draft — just stop. User will say so explicitly.
 5. **Verify the GitHub URL** — don't guess `<owner>/<repo>` from the crate name alone. If unsure, `gh repo view` it.
 6. **Don't switch languages silently** — Chinese user prompt + English draft is fine (Rust audience), but if the user wrote in Chinese AND asks for a Chinese audience, switch accordingly.
+7. **Version numbers are dotted tokens** — "0.28.12" in the copy hits the X linkify trap (editor rewrites any dotted token; mangled readback). Keep versions out of the tweet body; the ONLY dotted token allowed is the one intended URL.
+8. **No xurl auth ≠ draft-only** — if `xurl auth status` shows no apps, the established posting path is the real-profile browser (`hermes-real-profile-browser` + `browser-automation-user-boundaries`), not handing the draft back. Only fall back to copy-paste delivery if the browser path is also blocked.
 
 ## Project → skill lookup (verified)
 
