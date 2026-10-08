@@ -17,6 +17,46 @@
 
 set -euo pipefail
 
+# ===================================================================
+# Route gate — runs FIRST for EVERY repo (not just Rust ones).
+#
+# git-standards §3.3a: docs / config / frontend-style / comment-only commit
+# straight to the default branch; executable code goes through a PR. The
+# classifier computed that verdict but nothing consumed it — the rule lived in
+# prose in four skills plus a script nobody ran. Observed 2026-10-09: a
+# one-line CSS deletion in euv went out as PR #300 when the rule says
+# presentation direct-pushes.
+#
+# Placed ABOVE the Rust-repo detection on purpose: that check returns early for
+# non-Rust repos and for an empty staging area, so a gate below it would never
+# see a docs-only commit — which is exactly the case this rule governs.
+#
+# The CLI is called directly rather than through a symlink: this file IS the
+# live hook (core.hooksPath points at ~/.agents/hooks, whose pre-commit is a
+# symlink to this one), and git-standards §3.6.5/pitfall 21 records exactly this
+# trap — an edit to a same-looking file elsewhere protects nothing.
+# ===================================================================
+
+ROUTE_GATE=""
+for candidate in \
+    "$HOME/.agents/skills/git-standards/scripts/route_gate.py" \
+    "$HOME/.hermes/skills/git-standards/scripts/route_gate.py"; do
+    if [[ -f "$candidate" ]]; then
+        ROUTE_GATE="$candidate"
+        break
+    fi
+done
+
+if [[ -n "$ROUTE_GATE" ]]; then
+    if ! python3 "$ROUTE_GATE" --repo "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"; then
+        echo "" >&2
+        echo "pre-commit hook: FAIL — route gate (git-standards §3.3a)" >&2
+        echo "Docs / config / frontend-style / comment-only changes commit straight to the" >&2
+        echo "default branch. Executable code needs a branch + PR." >&2
+        exit 1
+    fi
+fi
+
 # -------------------------------------------------------------------
 # Locate helpers (HOOK_DIR-relative, not cwd-relative)
 # -------------------------------------------------------------------

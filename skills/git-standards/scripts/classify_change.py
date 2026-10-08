@@ -100,6 +100,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import style_blocks  # noqa: E402  (sibling module, resolved above)
+
 # --------------------------------------------------------------------------
 # language profiles
 # --------------------------------------------------------------------------
@@ -663,6 +666,33 @@ def classify_file(repo: Path, path: str, base: str, staged: bool) -> dict:
     # which returned above before the base blob was read).
     if is_style(path):
         _set_style(res, path)
+        return res
+
+    # 4c. Layer A'' — CSS embedded in a host language.
+    #
+    # A stylesheet does not have to live in a `.css` file. The euv framework
+    # declares all of its rules as `class! { pub c_xxx { prop: value; } }`
+    # inside Rust, so classifying by extension sent a one-line presentation
+    # edit to NEEDS_PR (observed 2026-10-09 on PR #300: deleting
+    # `border-left: 2px solid var(--border)` from `c_app_nav` was reported as a
+    # code change because the declaration wraps a `format!` call).
+    #
+    # The user rule is about the changed line being presentation, not about the
+    # file's extension, so the extension test alone was never the real test.
+    # `style_blocks` re-applies the same test Layer A' applies to `.css` — a
+    # parser reads selectors and declarations, nothing executes — to a file
+    # that happens to be written in Rust or TypeScript.
+    style_removed, style_added = style_blocks.changed_declarations(diff_text)
+    style_verdict = style_blocks.classify_style_container(
+        lex, code_sequence, path, pre, post,
+        pre_changed=style_removed, post_changed=style_added)
+    if style_verdict:
+        setverdict("presentation", "DIRECT_PUSH",
+                   "presentation-only style container: %s. Every declaration is read by a "
+                   "parser and nothing executes, so this commits straight to the default "
+                   "branch per the frontend-style rule"
+                   % style_verdict["evidence"][0])
+        res["evidence"] = style_verdict["evidence"]
         return res
 
     # 5. Layer B — content decides
