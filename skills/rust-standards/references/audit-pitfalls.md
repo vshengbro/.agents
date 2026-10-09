@@ -3260,3 +3260,11 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 6. **glob 链断裂时 §6.1 仍是唯一答案**:tcplane `utils/thread/fn.rs` 收不到 lib.rs 的 import,因为 `utils/mod.rs` 和 `utils/thread/mod.rs` 没有 `use super::*;`,且 fn.rs 自己也缺。**正解不是把 import 塞到子 mod.rs**(那触发 check 28 双报:§6.1 子 mod.rs 不得直接 import std + §6.2 mod.rs 里 use 必须 pub use),而是补齐链条:lib.rs 持 import,两级 mod.rs 各补 `use super::*;`,fn.rs 补 `use super::*;`。
 7. **fixer 部分应用不可自愈**:sub-file rewrite 全落盘、root import 按序写入的架构下,中途崩溃 = 已改写的现场等不到 import,而重跑时 verifier 已报 0 hits → 不再生成 plan → 永不修复。恢复路径只有 rustc 坐标 loop(编译错误列出全部缺 import 的 bare name,按 crate 补齐再编译)。教训:root import 应先于 sub-file rewrite 落盘,或 plan 可重入。
 8. **R6.3 清扫的连锁反应**:root 追加单行 `use std::...;` 会立刻触发 check 43(§6.6 同根聚合,实测 17 个 root)→ 聚合成单条 brace form;签名从 `std::error::Error` 变 bare 后 doc `# Returns` 字面量失配触发 check 37(§2.2 Layer 4,实测 6+3 处)→ doc 同步改。**清扫类 fixer 的完工定义永远是被牵连 check 全部归零,不是目标 check 单独归零。**
+
+## §98 doc_comment_audit.py 会往 tests/ 树写 doc 注释,与 §14.5 对打(2026-10-09 实测)
+
+1. **症状**: `rust_pre_commit.py` 在 tests/ 内有改动的仓上永远 loop 不收敛 —— Phase 1 的 `doc_comment_audit.py` 给 tests/ 内的 helper fn(无 `#[test]` 属性的自由函数,如 `start_server_with`)和 `#[test]` fn 体内的嵌套 fn 补写 `/// Body of the ...` doc 块;Phase 2 的 check 28(`verify_no_test_comments.py`,§14.5 tests/ 零注释)立刻把它们全报出来;下一轮 Phase 1 又写回去。3 轮迭代后 FAIL 出局。实测 hyperlane 仓 `core/tests/server/fn.rs` 被注入 19 处违规。
+2. **根因**: fixer 的豁免逻辑 `_scan_test_regions` 只跳过 `#[cfg(test)]` mod 块和紧跟 `#[test]`/`#[tokio::test]` 属性的 fn,**不按路径豁免 tests/ 目录**;而 verifier 侧(`verify_doc_comment_format.py` / `verify_no_test_comments.py`)对整个 tests/ 树免疫。fixer 制造 verifier 必报的违规 = 三函数契约撕裂的变体(§73-75 同类)。
+3. **临时绕行**: 任务 diff 触及 tests/ 时用 `rust_pre_commit.py --no-fix`(跳过全部 Phase 1 fixer),并在提交前 `git restore --worktree <被污染的 tests 文件>` 把 fixer 写入的 doc 块退掉 —— staged 版本不受污染,commit hook(`staged_file_gate.py` 不跑 fixer)能正常过。
+4. **修复方向(未做)**: `doc_comment_audit.py` 应在文件发现阶段就排除 `**/tests/**`,与 `verify_doc_comment_format.py` 的 tests/ 豁免对齐。修之前任何触及 tests/ 的改动都走上面的绕行路径。
+5. **关联发现(版本 bump 触发 §13.7 重排)**: dep entry 的排序键含 entry 全文字符数,所以 `hyperlane = "21.7.8"` → `"21.12.0"` 这种纯版本号改动会改变排序键,要求 entry 在 dep 块内移位(hyperlane-quick-start playground 实测 2 处)。**修法不是手排,是跑 `fix_dep_order.py --write`** —— 它按 verifier 同一套 parser 重排,跑完 verify_dep_order 归零。
