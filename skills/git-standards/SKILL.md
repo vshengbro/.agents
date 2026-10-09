@@ -565,6 +565,41 @@ Pitfalls specific to the direct-push route:
   doc comment that no longer matches the function is worse than no comment.
   Reading your own diff before pushing is still expected.
 
+#### 3.3a.7 User override — explicit direct-push instruction
+
+When the user explicitly says "直接push主分支" / "不要PR" / "直接提交" for a
+change that would otherwise route to PR, the user's explicit instruction wins.
+This is a deliberate override, not a mistake to be corrected.
+
+**Record the override in the commit body** so future audits understand why the
+routing was bypassed:
+
+```bash
+git commit -m "feat(server): infer route path type via impl AsRef<str> parameter
+
+- core/src/server/impl.rs: route<S, P> → route<S> with impl AsRef<str>
+- Update all 42 call sites to single-generic turbofish
+- Bump version to 21.12.0
+
+User override: direct push to master (no PR) per explicit instruction"
+```
+
+**When this applies:**
+- User says "完成之后升级小版本直接push主分支" (after completion, bump minor
+  version and push directly to master)
+- User says "不要PR" / "直接提交" for a specific change
+- User says "紧急修复直接push" for a hotfix
+
+**When this does NOT apply:**
+- User is silent about routing — default to §3.3a rules
+- User says "先PR看看" — PR is the default
+- The change is a breaking API change with no user override — PR is still
+  required
+
+**Verification:** The commit body must contain the phrase "User override:
+direct push to master" (or similar explicit acknowledgment) to distinguish
+from accidental routing mistakes.
+
 ### 3.3b Why the file extension cannot be the test
 
 An earlier draft of this rule classified by extension — "`.rs`/`.ts`/`.py` =

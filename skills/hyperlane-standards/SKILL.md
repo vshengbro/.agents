@@ -72,6 +72,8 @@ Monorepo 全部 8 个 package(7 个 member + 根 shim)共享一个 version 号(�
 
 CI sync 行为: master merge → `sync_workspace_version` job 跑 → 在 master 上追加 `chore: sync all package versions to X.Y.Z` commit → 7 个 member `Cargo.toml` + 根 `[workspace.dependencies]` 内 path-dep `version` 全部同步(根包用 `version.workspace = true`,不需改)。等这个自动 commit 出现后再认为 release 完成。
 
+**User override for direct push**: When the user explicitly says "完成之后升级小版本直接push主分支" (after completion, bump minor version and push directly to master), the PR workflow is bypassed. Record the override in the commit body ("User override: direct push to master per explicit instruction"). This is a deliberate routing decision, not a mistake. Verified 2026-10-09: hyperlane + quick-start API change and version bump were pushed directly to master per user instruction.
+
 **发布前必须手动在本地跑 `crate sync`**(`crate-cli` 提供),因为 PR 上 CI 不跑 sync:
 - hyperlane 的 `[workspace.dependencies]` 字段中 path-dep 的 `version` 行,例如 `http-type = { path = "type", version = "X.Y.Z" }`,在 PR merge 时可能 stale,CI publish job 会因 resolver 找不到而失败。
 - 解决方案:开 PR 前在本地 `crate sync`(从 `crate-cli` 装的),然后 `git diff --stat` 看到 `Cargo.toml` 外的额外 diff 是预期的,**不要**手改或回退。
