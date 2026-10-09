@@ -3,11 +3,17 @@
 
 Three sub-rules, each owned by a different file kind:
 
-  lib.rs    a private `use` of a std / external / sibling-crate item must be
-            `pub use` instead. A private import cannot be seen by any sub-file,
-            so a sub-file that needs the same type has to re-import it, which
-            §6.4 forbids. Publishing the import at the crate root is what lets
-            `use super::*;` carry the symbol down.
+  lib.rs    no visibility demand from this check. A private `use` at the
+            crate root reaches every descendant through `use super::*;`
+            chains (Rust visibility: private items are visible within the
+            defining module AND its descendants — verified against rustc
+            2026-10-08). Whether the root import must ALSO be `pub use`
+            (because another crate names the symbol) is §18's question,
+            answered with real cross-crate reader analysis, not this
+            check's. An earlier version of this rule demanded `pub use`
+            on the premise that private imports are invisible to
+            sub-files; that premise is false and the demand actively
+            contradicted §18's minimum-exposure rule, so it was removed.
 
   mod.rs    the strict three-stage layout, no comments and no blank-line
             separators anywhere in the body:
@@ -54,6 +60,10 @@ USE = re.compile(r"^\s*((?:pub(?:\([^)]*\))?\s+)?)use\s+(.*?);\s*$")
 MOD_DECL = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(r#)?(\w+)\s*;")
 CFG_TEST = re.compile(r"^\s*#\[cfg\(test\)\]")
 SUPER_STAR = re.compile(r"^\s*use\s+super\s*::\s*\*\s*;\s*$")
+PUB_ITEM = re.compile(
+    r"^\s*(pub(?:\([^)]*\))?)\s+(?:async\s+|unsafe\s+|const\s+)*"
+    r"(?:const|fn|struct|enum|trait|type|static)\s+([A-Za-z_]\w*)"
+)
 
 
 def list_rs_files(root: Path) -> list[Path]:
@@ -169,29 +179,173 @@ def _workspace_members(manifest_text: str) -> list[str]:
     return re.findall(r"[\"`]([^\"`]+)[\"`]", match.group(1))
 
 
+def _module_file(src_dir: Path, name: str):
+    """Resolve a module name to its file (`const.rs` or `const/mod.rs`)."""
+    for candidate in (src_dir / f"{name}.rs", src_dir / name / "mod.rs"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _exported_symbols(body: str) -> list[str]:
+    """Symbol names a `use` body brings in (all pub items for a glob)."""
+    return [body.split("::")[-1].strip()] if not body.endswith("::*") else []
+
+
+def _used_by_subfile(lib_path: Path, body: str) -> bool:
+    """True when a sub-file actually names a symbol this import provides.
+
+    §6.1 only justifies `pub use` when a sub-file needs the item through
+    `use super::*;`. When nothing consumes it, the private import is the
+    correct form: publishing it is what produces `unused_imports`. The old
+    check flagged every private module import regardless of use, so fixing
+    the reported violation added a compiler warning.
+    """
+    src_dir = lib_path.parent
+    head = body.split("::", 1)[0].strip().strip("{}").strip()
+    module_name = head[2:] if head.startswith("r#") else head
+    if not module_name or not module_name.isidentifier():
+        return True  # cannot prove it is unused — keep reporting
+    module_file = _module_file(src_dir, module_name)
+    if module_file is None:
+        return True
+    if body.endswith("::*"):
+        items = [
+            (m.group(1), m.group(2))
+            for m in (
+                PUB_ITEM.match(l)
+                for l in module_file.read_text(errors="replace").splitlines()
+            )
+            if m
+        ]
+        # `pub use r#x::*` can only re-export items that are themselves `pub`.
+        # When every item is `pub(crate)`, rustc emits "glob import doesn't
+        # reexport anything with visibility `pub` because no imported item is
+        # public enough" — so demanding `pub use` here trades a clean build for
+        # a warning. The private `use` is both correct and warning-free: a
+        # private binding in a parent is visible to its descendants, so
+        # `use super::*;` in a sub-file still resolves the symbols.
+        if items and not any(vis == "pub" for vis, _ in items):
+            return False
+        symbols = [name for _, name in items]
+    else:
+        symbols = _exported_symbols(body)
+    if not symbols:
+        return True
+    pattern = re.compile(r"\b(" + "|".join(re.escape(s) for s in symbols) + r")\b")
+    for other in src_dir.rglob("*.rs"):
+        if other in (lib_path, module_file):
+            continue
+        if pattern.search(other.read_text(errors="replace")):
+            return True
+    return False
+
+
 def audit_lib_rs(path: Path, lines: list[str]) -> list[str]:
-    """Private `use` of a non-local item must be `pub use` (§6.1)."""
+    """No per-file visibility demand: private root `use` reaches descendants.
+
+    Kept as the lib.rs entry point so the dispatcher's file-kind routing
+    stays intact; the former private-use -> pub-use demand was removed
+    (see module docstring). §6.4's no-re-import rule is enforced by the
+    sub-file check below, not here.
+    """
+    return []
+
+
+# A `use` of a crate, or of `std` / `core` / `alloc`. The path is spelled out
+# rather than derived from Cargo.toml so the rule does not move when a
+# dependency is added.
+IMPORT_HEAD = re.compile(
+    r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+"
+    r"(std|core|alloc|log|serde|tokio|wasm_bindgen|web_sys|js_sys|"
+    r"[a-z_][a-z0-9_]*)\s*::"
+)
+STDLIKE = {"std", "core", "alloc"}
+# `super`, `self` and `crate` are how the chain is threaded through a tree, with
+# or without a `pub` prefix - `pub(crate) use super::dom_ops::*;` is the
+# mechanism, not a bypass of it.
+CHAIN_PREFIXES = {"super", "self", "crate"}
+# The outermost `mod.rs` of a tree is where §6.1 wants the imports: directly
+# under `src/` for a crate, or directly under `tests/` for a test directory,
+# which has no lib of its own. Everything deeper should reach them through the
+# `use super::*;` chain instead of re-importing at each level.
+OUTERMOST_PARENTS = {"src", "tests"}
+
+
+def _sibling_modules(directory: Path) -> set[str]:
+    """Module names a sibling directory declares, which are not crates."""
+    names = set()
+    if not directory.is_dir():
+        return names
+    for entry in directory.iterdir():
+        if entry.is_dir():
+            if (entry / "mod.rs").is_file():
+                names.add(entry.name)
+            if (entry / "lib.rs").is_file():
+                names.add(entry.name)
+        elif entry.suffix == ".rs" and entry.stem not in ("mod", "lib", "main"):
+            names.add(entry.stem.lstrip("r#"))
+    return names
+
+
+def _is_proc_macro_crate(path: Path) -> bool:
+    """True when the crate this file belongs to is a proc-macro crate.
+
+    rustc forbids a proc-macro crate from exporting anything but its own
+    attributes, so §6.1's "put it in the outermost lib.rs" has no spelling
+    that compiles. The manifest is the only place that fact is written down,
+    and it sits at the crate root rather than beside `src/`, so the search
+    walks up until one is found.
+    """
+    for parent in path.parents:
+        manifest = parent / "Cargo.toml"
+        if manifest.is_file():
+            return bool(
+                re.search(r"^proc-macro\s*=\s*true", manifest.read_text(errors="replace"), re.M)
+            )
+    return False
+
+
+def audit_sub_mod_rs_imports(path: Path, lines: list[str]) -> list[str]:
+    """A sub-mod.rs must not carry its own crate import (§6.1 / §6.3).
+
+    Nothing else in the file catches this: the three-stage layout check is about
+    ordering, and the lib.rs rule is about `pub` vs private. So a sub `mod.rs`
+    could grow `use std::collections::HashMap;` and every check still passed -
+    which is exactly how the four engine test directories and one example page
+    ended up importing on their own.
+
+    Sibling modules are exempt, and must be: `use view::*;` inside a sub
+    `mod.rs` is the propagation mechanism §6.1 asks for, not a bypass of it.
+
+    A `proc-macro` crate is exempt too, because the hoisting §6.1 asks for is
+    impossible there. rustc refuses to let a proc-macro crate export anything
+    but its own attributes: ``pub use std::path::Path;`` in its lib.rs is
+    E0658, "proc-macro crate types currently cannot export any items other
+    than functions tagged with #[proc_macro] ...". The sub `mod.rs` is then
+    the only place the import can live, and the alternative is not a tidier
+    spelling - it is a crate that does not compile. euv-lowcode/macros is the
+    live case.
+    """
+    if path.parent.name in OUTERMOST_PARENTS:
+        return []
+    if _is_proc_macro_crate(path):
+        return []
+    siblings = _sibling_modules(path.parent)
     violations = []
-    siblings = _workspace_member_names(path)
     for idx, raw in enumerate(lines, 1):
-        m = USE.match(raw)
-        if m is None:
+        match = IMPORT_HEAD.match(raw)
+        if not match:
             continue
-        visibility, body = m.group(1).strip(), m.group(2).strip()
-        if visibility:  # pub / pub(crate) — already published
+        name = match.group(1)
+        if name in CHAIN_PREFIXES:
             continue
-        first = body.split("::", 1)[0].strip().strip("{}").strip()
-        # `use self::` / `use super::` / `use crate::` are local to this module
-        if first in ("self", "super", "crate"):
-            continue
-        # §6.1 group 6: a private glob of a workspace member is the documented
-        # spelling, not a violation.
-        if first in siblings:
+        if name in siblings or name.lstrip("r#") in siblings:
             continue
         violations.append(
-            f"{path}:{idx}: private `use {body}` in lib.rs cannot reach any "
-            f"sub-file (§6.1); publish it as `pub use {body};` so sub-files get "
-            f"it through `use super::*;`"
+            f"{path}:{idx}: a sub-mod.rs imports `{name}::` "
+            f"directly (§6.1) - put it in the outermost lib.rs / mod.rs "
+            f"and reach it through `use super::*;`"
         )
     return violations
 
@@ -294,7 +448,7 @@ def audit_one(path: Path) -> list[str]:
     if "tests" in path.parts or not _is_under_src(path):
         return []
     if _is_mod_rs(path):
-        return audit_mod_rs(path, lines)
+        return audit_mod_rs(path, lines) + audit_sub_mod_rs_imports(path, lines)
     if path.name == "lib.rs":
         return audit_lib_rs(path, lines)
     if _is_keyword_file(path):

@@ -49,18 +49,36 @@ Design notes
   `finally` block.
 - `verify_lib_rs_doc_comment` is only meaningful for `lib.rs`; running it
   on any other file name is meaningless work, so it is skipped.
+- Files are checked in a `multiprocessing.Pool`: the per-file work (25+
+  CPU-bound verifier passes, twice — worktree and HEAD baseline) is
+  embarrassingly parallel, and a mega-commit of several hundred files
+  otherwise takes >10 minutes serially. Verdicts and report order are
+  identical to the serial loop (`Pool.map` preserves input order, and the
+  JOBS=1 path runs the very same worker function). Override the worker
+  count with STAGED_FILE_GATE_JOBS; 1 forces the serial path.
+- The staged `git diff --name-status` listing is computed ONCE per run and
+  the HEAD contents of every rename/split source are prefetched ONCE —
+  the serial version re-ran two full diff listings plus the source fetches
+  for EVERY file, which dominated the runtime on large commits.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import multiprocessing
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
-SUFFIX = ".head-baseline"
+# The baseline temp file must keep a `.rs` suffix: every verifier entry point
+# starts with `if path.suffix != ".rs" ... return []` (see
+# verify_const_visibility.audit_one), so a temp named `foo.rs.head-baseline`
+# silently audits to ZERO findings and every legacy violation in the touched
+# file is then reported as "introduced by this commit" -- the exact
+# legacy-debt blindness this gate exists to avoid. Insert the marker BEFORE the
+# extension so the basename still parses as Rust.
+SUFFIX = ".head-baseline.rs"
 
 # Minimum Jaccard overlap for a staged new file to be treated as a split of
 # a staged-deleted source. Conservative on purpose: a wrong pairing would hide
@@ -94,6 +112,45 @@ VERIFIERS = {
     # pipeline over `git diff origin/master HEAD`, with no per-file script for
     # the gate to drive, so the hook could not enforce it. Same gap as §1.4.
     "verify_no_production_panic": "production panic!/expect/unwrap R11.4",
+    # R11.5. Same gap as §1.4 and R11.4 above: the rule ran in the audit
+    # but had no entry here, so a panicking lombok getter on a public
+    # `Option<Copy>` field would have been committed without the hook
+    # noticing. A rule enforced in one caller and not the other is not a
+    # rule.
+    "verify_no_panicking_option_getter": "panicking lombok getter on Option field R11.5",
+    # §12. Found by cross-referencing every audit CHECKS template against this
+    # whitelist rather than fixing the verifiers the audit happened to name.
+    # This one exposes `audit_one` and acts on `.rs`, so registration is real
+    # coverage: verified 0 on the clean tree and 1 with an `#[inline]`
+    # planted in engine/src/lib.rs. The other audit-only rules (dep order,
+    # section blanks, fn-body blank lines, ...) do not qualify — they either
+    # lack `audit_one` or are Cargo.toml rules the gate never reaches.
+    "verify_no_wasm_inline": "no #[inline] in a wasm crate §12",
+    # These five were audit-only until now. Found by cross-referencing every
+    # audit CHECKS template against this whitelist: a rule the audit runs but
+    # the hook does not is not enforced at commit time, it is only found by
+    # whoever remembers to run the full gate. Each one below exposes
+    # `audit_one(path)` and operates on `.rs`, so registration is real
+    # coverage rather than a silent no-op -- both conditions were verified
+    # before adding them here.
+    "verify_mod_visibility": "mod.rs mod declaration must be bare 6.2",
+    "verify_no_allow_lints": "#[allow(...)] in production 14",
+    "verify_explicit_type_annotations": "explicit type annotations for let bindings 5.1",
+    "verify_let_type_annotations": "all let bindings have explicit type annotation 5.1",
+    "verify_closure_type_annotations": "closure parameters have explicit type annotation 5.2",
+    # Added 2026-10-02. The rule ran in the audit but had no `audit_one` and
+    # no entry here, so every `std::fs::create_dir_all(...)` written into a
+    # sub-file passed the hook silently -- the same gap as §1.4 and R11.4.
+    # Found by planting `std::fs::read` in a test file and watching the gate
+    # report 0 while the script on its own reported 1. `audit_one` reads only
+    # the path it is handed, so the gate's before/after baselines compare.
+    "verify_no_qualified_std_path": "qualified std:: path in a sub-file (hoist to lib.rs / outermost mod.rs)",
+    # Added 2026-10-07 (§18). `audit_one` gates on the file name, so only a
+    # staged const.rs / static.rs can trip it; the self-test proves the
+    # adapter returns findings on a violating file and [] on fn.rs.
+    "verify_pub_group_order": "pub items grouped before pub(crate)/private in const.rs/static.rs §18",
+    "verify_const_visibility": "pub const/static needs an external reader §18",
+    "verify_no_pub_in_tests": "single-reader tests/ items never need pub §18",
 }
 
 # Verifiers that only make sense for a specific file name.
@@ -117,20 +174,21 @@ def load_verifier(scripts_dir: Path, name: str):
     try:
         spec.loader.exec_module(module)
     except Exception as error:  # noqa: BLE001 - a broken verifier must not
-        print(f"  ! cannot import {name}.py: {error}", file=sys.stderr)
-        return None
+        return f"  ! cannot import {name}.py: {error}"
     return module
 
 
-def audit(module, path: Path) -> list[str]:
+def audit(module, path: Path, warnings: list[str]) -> list[str]:
     """Run a verifier's per-file check, tolerating a missing entry point."""
+    if path is None:
+        return []
     audit_one = getattr(module, "audit_one", None)
     if audit_one is None:
         return []
     try:
         return list(audit_one(path))
     except Exception as error:  # noqa: BLE001
-        print(f"  ! {module.__name__}.audit_one failed: {error}", file=sys.stderr)
+        warnings.append(f"  ! {module.__name__}.audit_one failed: {error}")
         return []
 
 
@@ -143,62 +201,37 @@ def git(repo_root: Path, *args: str) -> tuple[int, str]:
     return result.returncode, result.stdout
 
 
-def head_content(repo_root: Path, rel: str) -> str | None:
-    """File content at HEAD, or None when the file is new / untracked.
+def parse_staged_listing(listing: str) -> tuple[dict[str, str], list[str]]:
+    """Parse one `git diff --cached --name-status -M` listing.
 
-    A staged rename makes `HEAD:<newpath>` fail even though the file is not
-    new: the content lives at the OLD path in HEAD. Without this lookup the
-    baseline is `None`, `before` becomes `[]`, and every pre-existing
-    violation in the renamed file is counted as "introduced by this commit"
-    — which is exactly the legacy-debt blindness the gate exists to avoid.
+    Returns (renames, sources): renames maps a staged rename's NEW path to
+    its OLD path; sources is the de-duplicated, order-preserving list of
+    OLD paths from D and R entries (the split-baseline candidates). The
+    serial version derived the same two structures by re-running the full
+    listing per file; one parse feeds every file.
     """
-    code, out = git(repo_root, "show", f"HEAD:{rel}")
-    renamed = head_content_of_rename_source(repo_root, rel)
-    split = head_content_of_split_source(repo_root, rel)
-    if code == 0 and out is not None:
-        if split is None:
-            return out
-        # Union baseline. A file that was MODIFIED may still have received
-        # code from a sibling that this commit deleted (the §1.3d move case:
-        # `class/display/fn.rs` existed in HEAD but was only a partial file,
-        # and the rest arrived from the deleted `class/fn.rs`). Baselining
-        # against the partial HEAD copy alone makes the moved-in debt look
-        # brand new. Concatenating the sources gives the gate the full
-        # pre-commit content set; the caller still diffs per-verifier
-        # violation COUNTS, so real new findings are still reported.
-        return out + "\n" + split
-    if renamed is not None:
-        return renamed
-    return split
-
-
-def head_content_of_rename_source(repo_root: Path, rel: str) -> str | None:
-    """Content at HEAD of the path a staged rename moved away from."""
-    code, out = git(
-        repo_root,
-        "diff",
-        "--cached",
-        "--name-status",
-        "--find-renames",
-        "-M",
-    )
-    if code != 0:
-        return None
-    for line in out.splitlines():
+    renames: dict[str, str] = {}
+    sources: list[str] = []
+    seen: set[str] = set()
+    for line in listing.splitlines():
         parts = line.split("\t")
-        if len(parts) < 3 or parts[0][:1] != "R":
-            continue
-        old_path, new_path = parts[1], parts[2]
-        if new_path != rel:
-            continue
-        found, content = git(repo_root, "show", f"HEAD:{old_path}")
-        if found == 0:
-            return content
-        return None
-    return None
+        status = parts[0][:1] if parts else ""
+        if status == "R" and len(parts) >= 3:
+            old_path, new_path = parts[1], parts[2]
+            # Git never emits two renames to the same new path; first wins.
+            renames.setdefault(new_path, old_path)
+            if old_path not in seen:
+                seen.add(old_path)
+                sources.append(old_path)
+        elif status == "D" and len(parts) >= 2:
+            old_path = parts[1]
+            if old_path not in seen:
+                seen.add(old_path)
+                sources.append(old_path)
+    return renames, sources
 
 
-def head_content_of_split_source(repo_root: Path, rel: str) -> str | None:
+def split_baseline(ctx: dict, rel: str) -> str | None:
     """Best-effort HEAD baseline for a file created by SPLITTING another file.
 
     A staged move is often recorded as `D old` + `N x A new` rather than a
@@ -219,6 +252,7 @@ def head_content_of_split_source(repo_root: Path, rel: str) -> str | None:
     Returns None (i.e. "treat as a new file") whenever the pairing is
     ambiguous, which keeps the gate strict in the doubtful case.
     """
+    repo_root: Path = ctx["repo_root"]
     target = repo_root / rel
     if not target.is_file():
         return None
@@ -235,41 +269,17 @@ def head_content_of_split_source(repo_root: Path, rel: str) -> str | None:
     if target_dir in {".", ""}:
         target_dir = ""
 
-    code, out = git(
-        repo_root,
-        "diff",
-        "--cached",
-        "--name-status",
-        "--find-renames",
-        "-M",
-        "--diff-filter=ADR",
-    )
-    if code != 0 or not out.strip():
-        return None
-
     current_lines = set(_content_lines(target.read_text(errors="replace")))
     if not current_lines:
         return None
 
+    head_cache: dict[str, str] = ctx["head_cache"]
     best: tuple[float, str] | None = None
-    for line in out.splitlines():
-        parts = line.split("\t")
-        status = parts[0][:1] if parts else ""
-        if status == "D" and len(parts) >= 2:
-            # D<TAB>old
-            old_path = parts[1]
-        elif status == "R" and len(parts) >= 3:
-            # R0xx<TAB>old<TAB>new -- the old path is still a live source:
-            # one source file split into several targets is recorded as a
-            # rename to exactly ONE of them, so the other targets have no
-            # baseline of their own.
-            old_path = parts[1]
-        else:
-            continue
+    for old_path in ctx["sources"]:
         if not _same_or_nested_dir(old_path, target_dir):
             continue
-        found, content = git(repo_root, "show", f"HEAD:{old_path}")
-        if found != 0 or not content:
+        content = head_cache.get(old_path)
+        if not content:
             continue
         old_lines = set(_content_lines(content))
         if not old_lines:
@@ -320,6 +330,101 @@ def materialise(target: Path, text: str) -> Path:
     return tmp
 
 
+def baseline_for(ctx: dict, rel: str) -> str | None:
+    """File content at HEAD, or None when the file is new / untracked.
+
+    A staged rename makes `HEAD:<newpath>` fail even though the file is not
+    new: the content lives at the OLD path in HEAD. Without this lookup the
+    baseline is `None`, `before` becomes `[]`, and every pre-existing
+    violation in the renamed file is counted as "introduced by this commit"
+    — which is exactly the legacy-debt blindness the gate exists to avoid.
+    """
+    repo_root: Path = ctx["repo_root"]
+    code, out = git(repo_root, "show", f"HEAD:{rel}")
+    split = split_baseline(ctx, rel)
+    if code == 0 and out is not None:
+        if split is None:
+            return out
+        # Union baseline. A file that was MODIFIED may still have received
+        # code from a sibling that this commit deleted (the §1.3d move case:
+        # `class/display/fn.rs` existed in HEAD but was only a partial file,
+        # and the rest arrived from the deleted `class/fn.rs`). Baselining
+        # against the partial HEAD copy alone makes the moved-in debt look
+        # brand new. Concatenating the sources gives the gate the full
+        # pre-commit content set; the caller still diffs per-verifier
+        # violation COUNTS, so real new findings are still reported.
+        return out + "\n" + split
+    old_path = ctx["renames"].get(rel)
+    if old_path is not None:
+        # A failed prefetch (missing entry) maps to None, exactly like the
+        # serial version's `git show` failure path.
+        return ctx["head_cache"].get(old_path)
+    return split
+
+
+# ---------------------------------------------------------------------------
+# Worker plumbing — one module load per PROCESS, then files map over the pool.
+# ---------------------------------------------------------------------------
+
+_CTX: dict = {}
+
+
+def _init_worker(ctx: dict) -> None:
+    """Pool initializer: load verifiers once per worker, stash shared state."""
+    global _CTX
+    modules: dict[str, object] = {}
+    load_errors: list[str] = []
+    for name in VERIFIERS:
+        if ctx["only"] and name not in ctx["only"]:
+            continue
+        module = load_verifier(ctx["scripts_dir"], name)
+        if isinstance(module, str):
+            load_errors.append(module)
+        elif module is not None:
+            modules[name] = module
+    _CTX = {**ctx, "modules": modules, "load_errors": load_errors}
+
+
+def _check_file(rel: str) -> tuple[list[str], int, list[str]]:
+    """Run every verifier on one staged file; return (report, delta, warnings).
+
+    Side-effect free apart from the per-file baseline temp (unique name,
+    removed in `finally`), so it is safe to run in a worker process.
+    """
+    ctx = _CTX
+    warnings: list[str] = []
+    report: list[str] = []
+    repo_root: Path = ctx["repo_root"]
+    working = repo_root / rel
+    if not working.is_file():
+        report.append(f"    - {rel}: staged but missing from worktree, skipped")
+        return report, 0, warnings
+
+    baseline = baseline_for(ctx, rel)
+    baseline_path: Path | None = None
+    if baseline is not None:
+        try:
+            baseline_path = materialise(working, baseline)
+        except OSError as error:
+            warnings.append(f"  ! cannot stage baseline for {rel}: {error}")
+            baseline_path = None
+
+    total_new = 0
+    for name, module in ctx["modules"].items():
+        required_name = FILE_SCOPED.get(name)
+        if required_name and working.name != required_name:
+            continue
+        before = audit(module, baseline_path, warnings) if baseline_path else []
+        after = audit(module, working, warnings)
+        if len(after) > len(before):
+            delta = len(after) - len(before)
+            total_new += delta
+            report.append(
+                f"    - {rel}: +{delta} new ({name} — {VERIFIERS[name]})"
+            )
+    return report, total_new, warnings
+
+
 def parse_args(argv: list[str]) -> tuple[Path, list[str]]:
     args = argv[1:]
     if not args:
@@ -336,6 +441,19 @@ def parse_args(argv: list[str]) -> tuple[Path, list[str]]:
             raise ValueError("not a git repository, or git failed")
         files = [line for line in out.splitlines() if line.strip()]
     return root, files
+
+
+def _jobs(file_count: int) -> int:
+    """Worker count: STAGED_FILE_GATE_JOBS wins, else one per core, capped."""
+    raw = os.environ.get("STAGED_FILE_GATE_JOBS", "").strip()
+    if raw:
+        try:
+            value = int(raw)
+            if value > 0:
+                return min(value, file_count)
+        except ValueError:
+            pass
+    return min(file_count, os.cpu_count() or 4)
 
 
 def main() -> int:
@@ -358,12 +476,11 @@ def main() -> int:
     if scripts_dir is None:
         return die("rust-standards skill scripts not found")
 
-    rs_files = [f for f in staged if f.endswith(".rs")]
+    rs_files = [f for f in dict.fromkeys(staged) if f.endswith(".rs")]
     if not rs_files:
         print("staged_file_gate: no staged .rs files, nothing to check")
         return 0
 
-    modules: dict[str, object] = {}
     # Fixture support: run a subset of the gate's verifiers so one rule's
     # fixture is not masked by another rule's findings.  Unset in normal
     # use, so the gate always runs the full set.
@@ -372,15 +489,47 @@ def main() -> int:
         for part in os.environ.get("STAGED_FILE_GATE_ONLY_VERIFIERS", "").split(",")
         if part.strip()
     }
+
+    # Load every verifier once in the parent as well: import failures are
+    # reported exactly once (not once per worker), and a fully broken
+    # scripts dir dies here instead of inside a pool worker.
+    usable = 0
     for name in VERIFIERS:
         if only and name not in only:
             continue
         module = load_verifier(scripts_dir, name)
-        if module is not None:
-            modules[name] = module
-
-    if not modules:
+        if isinstance(module, str):
+            print(module, file=sys.stderr)
+        elif module is not None:
+            usable += 1
+    if usable == 0:
         return die("no verifier could be imported")
+
+    # One staged listing for the whole run; the serial version re-ran it
+    # (twice!) per file. Rename map + split candidates come from the same
+    # text, and every source's HEAD content is prefetched once.
+    code, listing = git(
+        repo_root, "diff", "--cached", "--name-status", "--find-renames", "-M"
+    )
+    renames: dict[str, str] = {}
+    sources: list[str] = []
+    if code == 0:
+        renames, sources = parse_staged_listing(listing)
+
+    head_cache: dict[str, str] = {}
+    for old_path in sources:
+        found, content = git(repo_root, "show", f"HEAD:{old_path}")
+        if found == 0 and content:
+            head_cache[old_path] = content
+
+    ctx = {
+        "repo_root": repo_root,
+        "scripts_dir": scripts_dir,
+        "renames": renames,
+        "sources": sources,
+        "head_cache": head_cache,
+        "only": only,
+    }
 
     print("============================================================")
     print("staged_file_gate: new-violation gate (staged vs HEAD)")
@@ -389,40 +538,63 @@ def main() -> int:
     print(f"  .rs files: {len(rs_files)}")
     print("============================================================")
 
+    jobs = _jobs(len(rs_files))
+    results: list[tuple[list[str], int, list[str]]]
+
+    # Baseline temps survive for the whole run now: a worker no longer
+    # unlinks its own baseline, because repo-wide verifiers (e.g.
+    # verify_no_panicking_option_getter rglob the tree once per file) would
+    # otherwise read a sibling worker's baseline in the exact window between
+    # materialise and unlink and crash with ENOENT — nondeterministically.
+    # Any stale temp from a previously killed run is swept up front, and
+    # every temp this run may have created is removed at the end, whichever
+    # path (pool, serial fallback, exception) produced it.
+    for stale in repo_root.rglob(f"*{SUFFIX}"):
+        if "/target/" not in str(stale):
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+    try:
+        if jobs <= 1:
+            _init_worker(ctx)
+            results = [_check_file(rel) for rel in rs_files]
+        else:
+            try:
+                with multiprocessing.Pool(
+                    processes=jobs,
+                    initializer=_init_worker,
+                    initargs=(ctx,),
+                ) as pool:
+                    chunksize = max(1, len(rs_files) // (jobs * 4))
+                    # map preserves input order, so the report is byte-identical
+                    # to the serial loop's.
+                    results = pool.map(_check_file, rs_files, chunksize)
+            except Exception as error:  # noqa: BLE001 - a pool failure must not
+                print(  # block the commit; fall back to the serial path
+                    f"  ! worker pool unavailable ({error}), running serially",
+                    file=sys.stderr,
+                )
+                _init_worker(ctx)
+                results = [_check_file(rel) for rel in rs_files]
+    finally:
+        for rel in rs_files:
+            target = repo_root / rel
+            tmp = target.with_name(target.name + SUFFIX)
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
+
     total_new = 0
     report: list[str] = []
-
-    for rel in rs_files:
-        working = repo_root / rel
-        if not working.is_file():
-            report.append(f"    - {rel}: staged but missing from worktree, skipped")
-            continue
-
-        baseline = head_content(repo_root, rel)
-        baseline_path: Path | None = None
-        if baseline is not None:
-            try:
-                baseline_path = materialise(working, baseline)
-            except OSError as error:
-                print(f"  ! cannot stage baseline for {rel}: {error}", file=sys.stderr)
-                baseline_path = None
-
-        try:
-            for name, module in modules.items():
-                required_name = FILE_SCOPED.get(name)
-                if required_name and working.name != required_name:
-                    continue
-                before = audit(module, baseline_path) if baseline_path else []
-                after = audit(module, working)
-                if len(after) > len(before):
-                    delta = len(after) - len(before)
-                    total_new += delta
-                    report.append(
-                        f"    - {rel}: +{delta} new ({name} — {VERIFIERS[name]})"
-                    )
-        finally:
-            if baseline_path is not None and baseline_path.exists():
-                baseline_path.unlink()
+    warnings: list[str] = []
+    for lines, delta, file_warnings in results:
+        report.extend(lines)
+        total_new += delta
+        warnings.extend(file_warnings)
+    for line in dict.fromkeys(warnings):
+        print(line, file=sys.stderr)
 
     if total_new == 0:
         print("\n  0 new violations — commit allowed")

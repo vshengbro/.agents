@@ -31,14 +31,22 @@ def list_rs_files(root: Path) -> list[Path]:
         [
             "find",
             str(root),
+            # Prune the whole build directory by name prefix, not just the
+            # literal `target`: CARGO_TARGET_DIR may be `target-pg`,
+            # `target.linux`, etc., and generated code in there is not
+            # subject to §6.5. Measured: 3 spurious findings in
+            # `target-pg/debug/build/serde-*/out/private.rs`.
+            "-path",
+            "*/target*",
+            "-prune",
+            "-o",
+            "-path",
+            "*/.cargo/registry",
+            "-prune",
+            "-o",
             "-name",
             "*.rs",
-            "-not",
-            "-path",
-            "*/target/*",
-            "-not",
-            "-path",
-            "*/.cargo/registry/*",
+            "-print",
         ],
         capture_output=True,
         text=True,

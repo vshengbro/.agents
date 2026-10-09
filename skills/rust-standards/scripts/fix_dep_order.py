@@ -169,18 +169,22 @@ def serialize_block(items: list[dict]) -> str:
     True, emit ONE extra blank line (the boundary blank). Otherwise just
     one newline (entry terminator).
 
-    Block ends with exactly one trailing newline (the last entry's
-    terminator)."""
+    The LAST entry honours `followed_by_blank` too. That flag is exactly
+    what distinguishes "this group ended and the next `[section]` header
+    follows" from "this group ended at end-of-file", and §13.7.2a requires
+    exactly one blank line at that boundary. The previous version emitted a
+    bare `"\n"` for the last entry unconditionally, so every run of this
+    fixer silently DELETED the blank line before the following section
+    header — the serializer/verifier contract mismatch the skill documents
+    for §74. A block whose last entry is the file's last line has
+    `followed_by_blank=False`, so end-of-file is still a single newline.
+    """
     out_parts: list[str] = []
-    for i, it in enumerate(items):
+    for it in items:
         out_parts.append("\n".join(it["lines"]))
-        is_last = i == len(items) - 1
-        # Always end the entry with one newline. If followed_by_blank
-        # and not the last entry, add another newline (a single blank
-        # line separates this entry from the next).
-        if is_last:
-            out_parts.append("\n")
-        elif it["followed_by_blank"]:
+        # One newline always terminates the entry; a second one is the
+        # blank line that separates this entry from whatever follows.
+        if it["followed_by_blank"]:
             out_parts.append("\n\n")
         else:
             out_parts.append("\n")

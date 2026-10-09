@@ -153,13 +153,121 @@ def _scan_test_regions(lines: list[str]) -> set[int]:
     return inside_cfg_test
 
 
+def _blank_string_bodies(lines: list[str]) -> list[str]:
+    """Return the lines with every string body blanked, offsets preserved.
+
+    A `fn` inside a string is not a Rust item. WGSL and GLSL shader source
+    is kept in `const` items as raw strings, and a plain line scan reports
+    every shader function as an undocumented Rust function — a finding no
+    source edit can satisfy. Blanking the bodies makes those lines
+    invisible to the pattern while keeping every other offset intact.
+    """
+    out = list(lines)
+    raw_delim = ""       # '#' * n while inside a raw string
+    normal = False        # inside a normal "..." literal
+    for i, line in enumerate(lines):
+        chars = list(line)
+        j, n = 0, len(line)
+        while j < n:
+            c = line[j]
+            if raw_delim:
+                if line.startswith('"' + raw_delim, j):
+                    for k in range(j, j + len(raw_delim) + 1):
+                        chars[k] = " "
+                    j += len(raw_delim) + 1
+                    raw_delim = ""
+                    continue
+                chars[j] = " "
+                j += 1
+                continue
+            if normal:
+                if c == "\\":
+                    chars[j] = " "
+                    if j + 1 < n:
+                        chars[j + 1] = " "
+                    j += 2
+                    continue
+                if c == '"':
+                    chars[j] = " "
+                    normal = False
+                    j += 1
+                    continue
+                if c != "\n":
+                    chars[j] = " "
+                j += 1
+                continue
+            # not inside a literal: look for an opener
+            if c == "r" and j + 1 < n and line[j + 1] in "#\"":
+                k = j + 1
+                hashes = 0
+                while k < n and line[k] == "#":
+                    hashes += 1
+                    k += 1
+                if k < n and line[k] == '"':
+                    delim = "#" * hashes
+                    end = len(delim) + 1
+                    close = line.find('"' + delim, k + 1)
+                    if close >= 0:
+                        for m in range(j, close + end):
+                            chars[m] = " "
+                        j = close + end
+                    else:
+                        for m in range(j, n):
+                            chars[m] = " "
+                        j = n
+                        raw_delim = delim
+                    continue
+            if c == '"':
+                chars[j] = " "
+                normal = True
+                j += 1
+                continue
+            j += 1
+        out[i] = "".join(chars)
+    return out
+
+
 def _find_fn_locs(lines: list[str]) -> list[int]:
+    code_only = _blank_string_bodies(lines)
     out: list[int] = []
-    for i, ln in enumerate(lines):
+    for i, ln in enumerate(code_only):
         if ln.lstrip().startswith("//"):
             continue
         if _FN_PATTERN.match(ln):
             out.append(i)
+    return out
+
+
+def _multiline_attr_lines(lines: list[str]) -> set[int]:
+    """0-based indices of the lines that belong to a multi-line attribute.
+
+    One forward pass. An attribute opens on a line whose code starts with
+    `#[` or `#![` and stays open while brackets remain unbalanced; every
+    line of that span is recorded.
+
+    Deciding this during the backward walk is impossible: walking up from a
+    function, the attribute's closing `)]` is encountered before the `#[`
+    that opened it. Guessing instead from "the line ends with `)` or `}`"
+    fires on every function body's closing brace, so an undocumented fn
+    sitting below a documented one had the neighbour's doc block attributed
+    to it and was never reported at all.
+    """
+    out: set[int] = set()
+    depth = 0
+    in_attr = False
+    for i, line in enumerate(lines):
+        s = line.lstrip()
+        opens_attr = s.startswith("#[") or s.startswith("#![")
+        if not in_attr and not opens_attr:
+            continue
+        # An attribute can close on its own opening line (`#[component]`),
+        # so record the line and then let the bracket delta decide whether
+        # anything after it is still part of the attribute.
+        out.add(i)
+        depth += line.count("[") + line.count("(") + line.count("{")
+        depth -= line.count("]") + line.count(")") + line.count("}")
+        depth = max(0, depth)
+        in_attr = depth > 0
     return out
 
 
@@ -169,12 +277,22 @@ def _extract_doc_block(lines: list[str], below_idx: int) -> tuple[int, int] | No
 
     Attribute lines (`#[...]`) between the doc block and the fn are
     skipped, since idiomatic Rust places doc comments above attributes.
+
+    The skip is bracket-aware. `#[prologue_macros(` ... `)]` is one
+    attribute spread over several lines — rustfmt produces exactly that
+    shape once the arguments exceed the line width — and the closing
+    `)]` does not itself start with `#[`. Treating the attribute as a
+    single line made every such fn read as "missing `///` doc comment"
+    even though its doc block was present and correctly formatted.
     """
+    continuations = _multiline_attr_lines(lines)
     j = below_idx - 1
-    while j >= 0 and (
-        lines[j].strip() == "" or lines[j].lstrip().startswith("#[")
-    ):
-        j -= 1
+    while j >= 0:
+        s = lines[j].strip()
+        if s == "" or j in continuations or s.startswith("#[") or s.startswith("#!["):
+            j -= 1
+            continue
+        break
     if j < 0 or not lines[j].lstrip().startswith("///"):
         return None
     end = j
@@ -269,7 +387,19 @@ def _fn_signature_types(lines: list[str], fn_idx: int) -> tuple[str, list[str], 
     params_list = [p.strip() for p in _split_top_commas(params_str)]
     raw_types: list[str] = []
     for p in params_list:
-        if p in {"", "&self", "&mut self", "self", "mut self"}:
+        # `self` IS part of the signature and §2.2 documents it: an audit
+        # check requires `- `&Self` - ...` for `&self` / `&mut self` and
+        # `- `Self` - ...` for a by-value `self`. Dropping it from the
+        # signature list made the documented form unmatchable, so the
+        # existing correct doc line was reported as a violation while the
+        # only way to silence it was to delete the parameter from the docs.
+        if p in {"&self", "&mut self"}:
+            raw_types.append("&Self")
+            continue
+        if p in {"self", "mut self"}:
+            raw_types.append("Self")
+            continue
+        if p == "":
             continue
         colon = p.find(":")
         if colon == -1:
@@ -277,16 +407,70 @@ def _fn_signature_types(lines: list[str], fn_idx: int) -> tuple[str, list[str], 
         else:
             raw_types.append(p[colon + 1:].strip())
     after = sig[k:]
-    m2 = re.search(r"->\s*([^{=;]+)", after)
-    ret_str = ""
-    if m2:
-        ret_raw = m2.group(1).strip().rstrip(",")
-        ret_raw = re.sub(r"\{.*$", "", ret_raw, flags=re.DOTALL).strip()
-        ret_clean = ret_raw.split("where")[0].split(";")[0].strip()
-        ret_str = ret_clean
-        if ret_clean in ("()", "Self", ""):
-            ret_str = ""
-    return name, raw_types, ret_str
+    ret_str = _extract_return_type(after)
+    if ret_str:
+        return name, raw_types, ret_str
+    return name, raw_types, ""
+
+
+def _extract_return_type(after: str) -> str:
+    """Return the literal return type that follows the signature's `->`.
+
+    Bracket-aware on purpose. The previous regex was `->\\s*([^{=;]+)`,
+    whose character class excluded `=`, so any signature whose return type is
+    `impl Future<Output = T>` — the idiom this codebase uses everywhere,
+    since check 27 bans `impl Trait` in *parameters* only — was truncated to
+    the unmatchable literal `impl Future<Output`. Layer 4 then demanded a doc
+    type equal to that fragment, so the finding was unfixable.
+
+    Scanning stops at the first top-level `{`, `;`, or `where`, and for an
+    `impl Trait` return a trailing top-level `+ Bound` suffix is dropped: it
+    is a bound, not part of the type, exactly as a `where T: Bound` clause is
+    already ignored. `-> impl Display` still yields `impl Display`, matching
+    the contract recorded in audit-pitfalls §65.
+    """
+    m = re.search(r"->", after)
+    if not m:
+        return ""
+    rest = after[m.end():]
+    depth = 0
+    out: list[str] = []
+    i = 0
+    while i < len(rest):
+        ch = rest[i]
+        if ch in "<([":
+            # `(` and `[` must be tracked alongside `<`: a return type such
+            # as `([f32; 4], [f32; 4])` contains a `;` inside the array
+            # length, and treating that `;` as a statement terminator cut
+            # the type to `([f32`, producing a Layer 4 finding no doc edit
+            # could ever satisfy. `{` is deliberately NOT an opener here —
+            # at depth zero it is the function body, and the scan must stop
+            # there.
+            depth += 1
+        elif ch in ">)]":
+            depth = max(0, depth - 1)
+        elif depth == 0:
+            if ch == "{" or ch == ";":
+                break
+            if rest.startswith("where", i) and (i == 0 or not rest[i - 1].isalnum()):
+                break
+        out.append(ch)
+        i += 1
+    ret = "".join(out).strip().rstrip(",").strip()
+    if ret.startswith("impl "):
+        # drop a top-level `+ Bound` suffix, keeping `+` inside generics
+        depth = 0
+        for idx, ch in enumerate(ret):
+            if ch == "<":
+                depth += 1
+            elif ch == ">":
+                depth = max(0, depth - 1)
+            elif ch == "+" and depth == 0:
+                ret = ret[:idx].strip()
+                break
+    if ret in ("()", "Self", ""):
+        return ""
+    return ret
 
 
 def _fn_signature_full_legacy(lines: list[str], fn_idx: int) -> tuple[str, list[str], str]:
@@ -374,7 +558,11 @@ def audit_one(path: Path) -> list[str]:
         has_returns = bool(re.search(r"^\s*///\s*#\s*Returns\s*$", doc_text, re.MULTILINE))
 
         # Layer 2 — section completeness (presence checks).
-        if norm_param_types and not has_args:
+        #
+        # A receiver (`self` / `&Self`) is not an argument the caller passes,
+        # so it never obliges an `# Arguments` section on its own. Filtering
+        # it here keeps that true now that `_fn_signature_types` reports it.
+        if [t for t in norm_param_types if t not in ("Self", "&Self")] and not has_args:
             violations.append(
                 f"{path}:{fn_idx + 1}: fn `{name}` has non-self params but "
                 f"missing `# Arguments` section (§2.2)"
@@ -442,6 +630,18 @@ def audit_one(path: Path) -> list[str]:
         # Layer 4 (cont.) — every seen arg type must appear in the
         # raw signature param types (set comparison; order-insensitive
         # since the signature is the source of truth, not the doc).
+        #
+        # `self` is matched but not REQUIRED. §2.2 documents an `&self`
+        # receiver as `- `&Self` - ...`, and that literal is now accepted —
+        # previously `&self` was dropped from the signature entirely, so the
+        # spec's own documented form matched nothing and was reported as a
+        # violation, leaving "delete the parameter from the docs" as the only
+        # way to go green. It is deliberately kept out of the coverage set
+        # below: a receiver is not an argument a caller passes, and making it
+        # mandatory would flag every undocumented method in every repo
+        # (measured: +69 in this workspace, +158 in euv) without the spec
+        # ever having required it of Layer 4.
+        SELF_TYPES = {"&Self", "Self"}
         if seen_arg_types:
             sig_type_set = {t.strip() for t in raw_param_types}
             for doc_type in seen_arg_types:
@@ -456,8 +656,9 @@ def audit_one(path: Path) -> list[str]:
             # must appear at least once in the doc block (set
             # semantics — `fn f(a: u32, b: u32)` requires only one
             # `- `u32` - ...` line in the doc, not two).
+            required = sig_type_set - SELF_TYPES
             sig_type_seen = {t for t in seen_arg_types if t in sig_type_set}
-            missing = sig_type_set - sig_type_seen
+            missing = required - sig_type_seen
             if missing:
                 violations.append(
                     f"{path}:{fn_idx + 1}: fn `{name}` `# Arguments` does not "

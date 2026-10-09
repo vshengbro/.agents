@@ -41,7 +41,13 @@ import re
 import sys
 from pathlib import Path
 
-PANIC = re.compile(r"(?<![A-Za-z0-9_])(?:panic!\s*\(|\.expect\s*\(|\.unwrap\s*\()")
+# The `\s*\(` right after the method name is what keeps `unwrap_or(..)`,
+# `expect_err(..)` and friends out. A leading lookbehind is NOT needed and
+# was actively harmful: it sits in front of the `.`, so the only way to match
+# was to start at a dot not preceded by an identifier character. That made
+# `x.unwrap()` and `y.expect(..)` invisible while still flagging `f().unwrap()`,
+# i.e. the rule was blind to the most common way Rust code panics.
+PANIC = re.compile(r"(?:panic!\s*\(|\.expect\s*\(|\.unwrap\s*\()")
 
 # audit-pitfalls #41: the get_X wrapper idiom.
 TRY_UNWRAP = re.compile(
@@ -122,9 +128,23 @@ def audit_one(path: Path, root: Path | None = None) -> list[str]:
 
 
 def _infer_root(path: Path) -> Path:
+    """Nearest ancestor that reads as a crate root.
+
+    The crate root must stay ABOVE any `tests/` component, because
+    `_exempt_path` derives its exemption from `path.relative_to(root).parts`
+    and a test file is only recognisable while the `tests` segment survives
+    that subtraction. Falling back to `path.parent` for a test file strips
+    `tests` away and makes every test look like production code.
+
+    Previously the walk only matched a directory literally named `src`, which
+    no path under `tests/` ever has, so every integration test in a crate was
+    reported as a new production panic.
+    """
     for candidate in [path.parent, *path.parents]:
         if candidate.name == "src":
             return candidate.parent
+        if (candidate / "src").is_dir() or (candidate / "Cargo.toml").is_file():
+            return candidate
     return path.parent
 
 

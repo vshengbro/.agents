@@ -83,6 +83,36 @@ LET_NO_ANNOT = re.compile(
 )
 
 
+# `let <name> = move |<params>| { ... }` — a capturing closure binding.
+#
+# §5.1 asks for an explicit type on every `let`, but a `move` closure's type
+# is not nameable in Rust: it captures, so it is never a `fn` pointer and
+# there is no syntax that spells the type out. All three "obvious" fixes fail
+# to compile (measured 2026-10-01 on euv's `example/src/page/canvas` and
+# `ui/src/component/nav`):
+#
+#   * `Box<dyn FnMut(Event)>`  -> E0507 cannot move out of a value captured
+#     in an `FnMut` closure, when the binding is consumed by a macro that
+#     wraps it in an inner `move` closure.
+#   * `impl FnMut(Event)`      -> E0562 `impl Trait` is not allowed in the
+#     type of a variable binding (arguments and return types only).
+#   * `fn(..)` pointer / alias -> impossible, the closure captures.
+#
+# So demanding a type here is unsatisfiable rather than merely discouraged.
+# The closure PARAMETERS stay covered by §5.2, which
+# `verify_closure_type_annotations.py` checks independently.
+#
+# A closure WITHOUT `move` can usually be given a `fn(..)` pointer type and is
+# therefore still reported — that boundary is deliberate. Verified on
+# `macros/src/html/fn.rs`, where a non-`move` closure took
+# `let push_merged: fn(&mut HtmlAttrs, ..) = |..| { .. };` cleanly.
+MOVE_CLOSURE_BINDING = re.compile(
+    r"^\s*let\s+(?:mut\s+)?[a-zA-Z_][a-zA-Z0-9_]*"
+    r"(?:\s*:\s*[^=]+?)?"
+    r"\s*=\s*move\s*\|"
+)
+
+
 def _list_rs_files(root: Path) -> list[Path]:
     r = subprocess.run(
         ["find", str(root), "-name", "*.rs",
@@ -155,6 +185,136 @@ def _has_type_annotation(pat: str) -> bool:
     return False
 
 
+_RAW_OPEN_RE = re.compile(r'r(#*)"')
+
+
+def _line_mask_state(
+    line: str,
+    in_block_comment: bool,
+    in_raw: str,
+    in_str: str,
+) -> tuple[bool, bool, str, str]:
+    """Scan ONE line left to right, returning (masked, in_block, in_raw, in_str).
+
+    `in_raw` is the raw-string closer (`"` + `#`*h) while inside a raw
+    string, else "".  `in_str` is the quote character of an unterminated
+    plain string/char literal, else "".
+
+    This is a real character-level state machine rather than a set of
+    per-line regex probes.  The earlier regex version derived the
+    "does this plain string continue to the next line" answer from
+    ``line.split("//", 1)[0]``, which collapses a DOC COMMENT line to
+    the empty string: in
+
+        /// `App::mount("#app", ...)`.
+        pub const DEFAULT_CODE: &str = r##"use ...
+
+    the `//` at the very start made body == "", the terminator probe
+    could never match, `in_str` latched on, and the `r##"` raw string on
+    the next line was never recognised.  Everything after that was
+    scanned as ordinary Rust, so a `let add_event = ...` living inside
+    the user-facing template string was reported as a real §5.1
+    violation.  Comments are now skipped structurally, before any
+    literal handling, so a quote inside a comment can never desync
+    the scanner.
+    """
+    masked = False
+    i = 0
+    n = len(line)
+    # A line that BEGINS inside a literal is masked even when empty:
+    # the blank line 4 of a `r#"..."#` body is still raw-string content.
+    if in_raw or in_str:
+        masked = True
+    while i < n:
+        ch = line[i]
+        # --- inside a raw string: only the exact closer ends it ---
+        if in_raw:
+            masked = True
+            idx = line.find(in_raw, i)
+            if idx < 0:
+                return masked, in_block_comment, in_raw, in_str
+            i = idx + len(in_raw)
+            in_raw = ""
+            continue
+        # --- inside an unterminated plain string/char: scan to the closer ---
+        if in_str:
+            masked = True
+            j = i
+            while j < n:
+                if line[j] == "\\":
+                    j += 2
+                    continue
+                if line[j] == in_str:
+                    break
+                j += 1
+            if j >= n:
+                return masked, in_block_comment, in_raw, in_str
+            in_str = ""
+            i = j + 1
+            continue
+        # --- inside a block comment: only `*/` ends it ---
+        if in_block_comment:
+            idx = line.find("*/", i)
+            if idx < 0:
+                return masked, in_block_comment, in_raw, in_str
+            in_block_comment = False
+            i = idx + 2
+            continue
+        # --- line comment: the rest of the line is not source ---
+        if ch == "/" and i + 1 < n and line[i + 1] == "/":
+            break
+        if ch == "/" and i + 1 < n and line[i + 1] == "*":
+            in_block_comment = True
+            i += 2
+            continue
+        # --- raw string opener: r"..", r#"..#, r##"..## ---
+        if ch == "r" or (ch == "b" and i + 1 < n and line[i + 1] == "r"):
+            j = i + 1 if ch == "r" else i + 2
+            m = _RAW_OPEN_RE.match(line, j)
+            if m:
+                closer = '"' + m.group(1)
+                masked = True
+                k = m.end()
+                idx = line.find(closer, k)
+                if idx < 0:
+                    return masked, in_block_comment, closer, in_str
+                i = idx + len(closer)
+                continue
+        # --- plain string / char literal ---
+        if ch in ('"', "'") or (ch == "b" and i + 1 < n and line[i + 1] in ('"', "'")):
+            j = i + 1 if ch == "b" else i
+            quote = line[j]
+            if quote == "'":
+                # `'a` is a lifetime or pivot far more often than a char
+                # literal.  Only treat it as a literal when the content is
+                # exactly one char (optionally escaped) closed on this line;
+                # `impl<'a> Parser<'a> {` must NOT be read as a char.
+                if j + 1 < n and line[j + 1] == "\\":
+                    k = j + 2
+                    while k < n and line[k] != "'":
+                        k += 1
+                elif j + 2 < n and line[j + 1] not in ("'", "\\") and line[j + 2] == "'":
+                    k = j + 2
+                else:
+                    i = j + 1
+                    continue
+            else:
+                k = j + 1
+                while k < n and line[k] != quote:
+                    if line[k] == "\\":
+                        k += 1
+                    k += 1
+            if k < n and line[k] == quote:
+                masked = True
+                i = k + 1
+                continue
+            # unterminated on this line -> spans to the next line
+            masked = True
+            return masked, in_block_comment, in_raw, quote
+        i += 1
+    return masked, in_block_comment, in_raw, in_str
+
+
 def _string_literal_lines(text: str) -> set[int]:
     """Line numbers that live INSIDE a string/char literal.
 
@@ -164,41 +324,75 @@ def _string_literal_lines(text: str) -> set[int]:
     is shader source, not a Rust `let` binding, so §5.1 does not apply
     to it.  Scanning those lines produced 104 phantom violations.
 
-    Tracks raw strings (any `r` / `r#`..`r##` hash count) and ordinary
-    strings, so multi-line and single-line literals are both covered.
+    The same applies to user-facing template constants: this repo's
+    `application/service/euv_playground/const.rs` ships a whole
+    Leptos app as `EUV_PLAYGROUND_DEFAULT_CODE: &str = r##"..."##`,
+    complete with its own `fn app()` and `let add_event = ...`.
+
     Doc comments are NOT masked: they are Rust source position, and the
-    doc-format verifier is the one that owns them.
+    doc-format verifier is the one that owns them.  Comments never
+    desync the scanner -- see `_line_mask_state`.
+    """
+    masked: set[int] = set()
+    in_block_comment = False
+    in_raw = ""
+    in_str = ""
+    for idx, line in enumerate(text.splitlines(), start=1):
+        line_masked, in_block_comment, in_raw, in_str = _line_mask_state(
+            line, in_block_comment, in_raw, in_str
+        )
+        if line_masked:
+            masked.add(idx)
+    return masked
+
+
+def _quote_macro_lines(text: str) -> set[int]:
+    """Line numbers that live INSIDE a `quote!` / `quote_spanned!` body.
+
+    A proc-macro crate's `quote!` block is the SOURCE TEXT SHIPPED TO THE
+    USER'S CRATE, not this crate's own Rust. A binding such as
+
+        let _ = #function_expr(#stream, #context).await;
+
+    interpolates a `syn::Expr` the user supplied, so its type is unknowable
+    at expansion time: the hook it calls returns `Status`, not `()`, and the
+    only "compliant" annotation `let _: () = ...` fails to compile inside
+    every downstream crate that writes such a hook. §5.1 therefore does not
+    apply here for the same reason it does not apply to a shader embedded in
+    a raw string — the binding is not a binding of this workspace.
+
+    Measured 2026-10-01 on hyperlane/macros: 2 phantom violations that could
+    only be "fixed" by changing macro output.
     """
     lines = text.splitlines()
     masked: set[int] = set()
-    in_raw = False
-    raw_close = ""
-    in_str = False
+    depth = 0
     for idx, line in enumerate(lines, start=1):
-        if in_raw:
+        body = line.split("//", 1)[0]
+        if depth > 0:
             masked.add(idx)
-            if raw_close in line:
-                in_raw = False
+            depth += body.count("{") - body.count("}")
+            if depth <= 0:
+                depth = 0
             continue
-        if in_str:
-            masked.add(idx)
-            # a plain string ends on this line unless it escapes the newline
-            if re.search(r'(?<!\\)"', line.split("//", 1)[0]):
-                in_str = False
+        m = re.search(r"\bquote(?:_spanned)?!\s*[({]", body)
+        if not m:
             continue
-        m = re.search(r'r(#*)"', line)
-        if m:
-            in_raw = True
-            raw_close = '"' + m.group(1)
-            masked.add(idx)
-            if raw_close in line[m.end():]:
-                in_raw = False
+        masked.add(idx)
+        if m.group(0).rstrip("! \t(").endswith("(") or body[m.end() - 1] == "(":
+            # `quote!(...)` form: balanced by parens, not braces
+            depth = 0
+            paren = 1
+            for ch in body[m.end():]:
+                if ch == "(":
+                    paren += 1
+                elif ch == ")":
+                    paren -= 1
+            if paren <= 0:
+                continue
+            depth = 1
             continue
-        if '"' in line:
-            masked.add(idx)
-            body = line.split("//", 1)[0]
-            if not re.search(r'(?<!\\)"\s*($|;|\)|,)', body):
-                in_str = True
+        depth = body.count("{") - body.count("}")
     return masked
 
 
@@ -209,8 +403,9 @@ def audit_one(path: Path) -> list[str]:
         return []
     violations: list[str] = []
     string_lines = _string_literal_lines(text)
+    masked_lines = string_lines | _quote_macro_lines(text)
     for i, line in enumerate(text.splitlines(), start=1):
-        if i in string_lines:
+        if i in masked_lines:
             continue
         # Skip `if let` / `while let` pattern guards
         stripped = line.lstrip()
@@ -221,6 +416,10 @@ def audit_one(path: Path) -> list[str]:
             continue
         m = LET_NO_ANNOT.match(line)
         if not m:
+            continue
+        # A `move` closure binding has no nameable type — see
+        # MOVE_CLOSURE_BINDING. §5.2 covers its parameters.
+        if MOVE_CLOSURE_BINDING.match(line):
             continue
         pat = m.group("pat").strip()
         if _has_type_annotation(pat):
