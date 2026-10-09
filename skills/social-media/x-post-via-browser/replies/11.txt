@@ -1,3 +1,0 @@
-Abstraction is not free because every boundary forces a representation, and crossing one may mean re-laying out the data. A cache friendly struct behind a boxed trait object pays a pointer chase per access and gives up the inlining the compiler would have done. Keep the hot path concrete and abstract only where polymorphism is used, since the boundary and the layout boundary are the same line.
-
-https://github.com/euv-dev/euv

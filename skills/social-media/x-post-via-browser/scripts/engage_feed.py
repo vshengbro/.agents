@@ -37,8 +37,6 @@ HERE = Path(__file__).resolve().parent
 LIKE = HERE / "like_posts.py"
 REPLY = HERE / "post_reply.py"
 WHOSE = HERE / "whose_posts.py"
-REPLY_DIR = Path(os.environ.get(
-    "X_REPLY_DIR", str(HERE.parent / "replies")))
 
 # The vocabulary that makes a post worth engaging with. Shared with
 # like_posts.py on purpose: a like and a reply should agree about what this
@@ -132,26 +130,11 @@ GO_HOME = """(() => {
 })()"""
 
 AT_TOP = "(window.scrollY < 40 ? 'TOP' : 'SCROLLED ' + window.scrollY)"
-COUNT = """(() => {
-  const seen = new Set();
-  for (const a of document.querySelectorAll('article')) {
-    const st = [...a.querySelectorAll("a[href*='/status/']")]
-      .find(x => x.getAttribute('href').split('/').pop()
-                && !/\\/(analytics|photo|video|retweets|likes)/.test(
-                      x.getAttribute('href')));
-    if (st) seen.add(st.getAttribute('href').split('/').pop());
-  }
-  return JSON.stringify({n: seen.size, y: Math.round(window.scrollY)});
-})()"""
 
 
 def js(c, tpl):
     r = c.js(tpl, wait=25, retries=5)
     return json.loads(r) if isinstance(r, str) else r
-
-
-def replies_available() -> list[Path]:
-    return sorted(REPLY_DIR.glob("*.txt")) if REPLY_DIR.exists() else []
 
 
 def collect(c, me, done, want, rounds=10):
@@ -185,8 +168,6 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("port", nargs="?", default="9240")
     ap.add_argument("--likes", type=int, default=12)
-    ap.add_argument("--replies", type=int, default=36)
-    ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--suggest", type=int, default=0, metavar="N",
                     help="print up to N candidate posts as JSON and exit — "
                          "the caller composes the reply live and sends it "
@@ -201,20 +182,6 @@ def main() -> int:
                          "that carry no repository link")
     args = ap.parse_args()
     port = args.port
-
-    # The canned reply pool only gates the classic loop. The live-composition
-    # modes (--suggest / --reply-to) must work even when no pool exists —
-    # pre-written content is forbidden there by design.
-    classic = not args.suggest and not args.reply_to
-    files = replies_available()
-    if classic and len(files) < args.replies and not args.dry_run:
-        print(f"only {len(files)} replies written, asked for {args.replies} — "
-              f"the queue is shorter than the target. Writing a reply per post "
-              f"that arrives on its own is the only honest way to fill it.")
-    if classic and not files and not args.dry_run:
-        print("no reply directory — nothing to say. See the skill for what a "
-              "reply must carry before one may be written.")
-        return 1
 
     C.set_port(int(port))
 
@@ -291,86 +258,15 @@ def main() -> int:
         for line in (rc.stdout + rc.stderr).strip().splitlines()[-14:]:
             print("  " + line, flush=True)
 
-    # 3. replies, one per post, each read live and bound to its target
-    #
-    # `done` is what makes this one reply per post rather than three replies to
-    # the same one. The feed is virtualised: a post stays in the DOM at the
-    # same offset long after the loop has scrolled past it, so the same first
-    # matching article comes back into view on every pass and three of four
-    # replies went to the same target. Remember the status ids this run has
-    # already answered and skip them.
-    liked, replied, said = 0, 0, 0
-    done, text_offset = load_state()
-    stalls = 0
-    while replied < args.replies and said < len(files) and stalls < 4:
-        rows = js(c, READ)
-        if not isinstance(rows, list):
-            print("could not read the feed:", str(rows)[:120], flush=True)
-            break
-        target = next((r for r in rows
-                       if r.get("who") != me and r.get("text")
-                       and any(w in r["text"].lower() for w in TOPICS)
-                       and not any(w in r["text"].lower() for w in BLOCK)
-                       and r.get("sid") and r["sid"] not in done), None)
-        if not target:
-            # Nothing new worth answering in view: scroll for more, and give up
-            # rather than loop — the feed may simply have run out for now.
-            before = js(c, COUNT)
-            c.js("window.scrollBy(0, 2200); true", wait=20, retries=3)
-            time.sleep(3.5)
-            after = js(c, COUNT)
-            grew = False
-            if isinstance(before, dict) and isinstance(after, dict):
-                # n is a count, never a string; a string here means the read
-                # failed and comparing it to an int would raise instead of
-                # counting as "no growth".
-                n0, n1 = before.get("n"), after.get("n")
-                grew = (isinstance(n0, int) and isinstance(n1, int)
-                        and n1 > n0)
-            if not grew:
-                stalls += 1
-            continue
-
-        body_file = files[(text_offset + said) % len(files)]
-        said += 1
-        # Mark the target before typing, not after: a reply that fails to
-        # verify has still consumed the post's one answer, and re-picking it
-        # would spend the next reply text on the same target. Persisting the
-        # mark — and the text rotation — is what keeps a later RUN from
-        # answering the same post again with the same text.
-        done.add(target["sid"])
-        save_state(done, text_offset + said)
-        print(f"\nreply {replied + 1}/{args.replies} -> "
-              f"@{target['who']} {target['sid']} "
-              f"[{body_file.name}]", flush=True)
-        print(f"  {target['text'][:100]}", flush=True)
-        if args.dry_run:
-            replied += 1
-            continue
-
-        # post_reply.py refuses a reply that names a repository this account
-        # does not own, and refuses to send unless the text in the reply box
-        # matches the file. Its own words are the result; do not work around
-        # a refusal.
-        rc = subprocess.run(
-            [sys.executable, str(REPLY), port, target["sid"], str(body_file)],
-            capture_output=True, text=True, timeout=900)
-        tail = (rc.stdout + rc.stderr).strip().splitlines()[-12:]
-        for line in tail:
-            print("  " + line, flush=True)
-        if any("VERIFIED reply by" in ln for ln in tail):
-            replied += 1
-            stalls = 0
-            c.js("window.scrollTo(0, 0); true", wait=20, retries=3)
-            time.sleep(2)
-        else:
-            print("  not verified — not counted", flush=True)
-            stalls += 1
-
-    print(f"\nengagement: {replied}/{args.replies} replies, "
-          f"{said} reply texts considered", flush=True)
+    # No --suggest and no --reply-to: likes only. Replies are composed live
+    # by the caller and sent through --reply-to; the pre-written pool loop
+    # was removed the day canned content was forbidden, so a bare run cannot
+    # accidentally ship a file someone wrote weeks ago.
+    print("\nengagement: likes done; no reply requested (use --suggest to "
+          "collect candidates, --reply-to to send a composed reply)",
+          flush=True)
     c.close()
-    return 0 if replied >= args.replies else 1
+    return 0
 
 
 if __name__ == "__main__":
