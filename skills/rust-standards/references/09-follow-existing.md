@@ -30,7 +30,7 @@ fn parse<T: FromStr>(input: T) -> Result<T, Error> {
 
 **不允许在 `fn` 签名直接写 `<T: Bound>`,必须挪到 `where T: Bound { ... }`**。
 
-**§9.2a 豁免(2026-10-09 user 钦定)**:当 `impl Trait` 作为参数类型**用于推断**(inference shim)而非约束时,允许 `fn f(x: impl AsRef<str>)`。这是 pub API 设计模式,不是约束写法 —— 目的是让调用方免写第二个 turbofish 参数(如 `route::<S>(path)` 而非 `route::<S, P>(path)`)。**返回位置的 `impl Trait` 一直允许**(RPIT),参数位置只允许 `impl AsRef<str>` / `impl Into<String>` 等标准转换 trait,不允许 `impl Iterator` / `impl Read` 等约束性 trait。
+**§9.2a 参数位 `impl Trait`（2026-10-09 user 钦定）**：**参数位置**的 `impl Trait` 是推断 shim（inference shim），不是约束写法 —— 允许 `fn f(x: impl AsRef<str>)`。目的是让调用方免写第二个 turbofish 参数（如 `route::<S>(path)` 而非 `route::<S, P>(path)`）。**非参数位置**（返回类型、类型别名、结构体字段等）的 `impl Trait` 仍禁止，必须用 `where` 显式声明。返回位置的 `impl Trait`（RPIT）一直允许，因为它不占用泛型参数槽位。
 
 ## 9.3 impl 块排列顺序(同一文件内多个 impl 时)
 

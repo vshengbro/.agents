@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
-"""§9.2 — fn parameters must not use `impl Trait`.
+"""§9.2 — non-parameter `impl Trait` must use `where`.
 
-Rule (2026-09-26 user tightening):
+Rule (2026-09-26 user tightening; 2026-10-09 user refinement):
 
-    fn f(x: impl AsRef<str>)          # forbidden
-    fn f<T>(x: T) where T: AsRef<str> # required
+    fn f(x: impl AsRef<str>)          # allowed (parameter position, §9.2a)
+    fn f<T>(x: T) where T: AsRef<str> # also allowed
+    type X = impl Trait;              # forbidden (not a parameter)
+    fn f() -> impl Trait { ... }      # allowed (RPIT, not §9.2)
 
-`impl Trait` in argument position is an opaque type chosen by the *caller* at
-each call site.  That defeats the "every function names its bounds explicitly"
-property §9.2 is about: a `-> impl Trait` return still hides a bound from the
-caller, but an `impl Trait` *parameter* additionally forbids the caller from
-naming the type at all, so the bound can never be stated anywhere.
+§9.2a (2026-10-09 user approved): parameter-position `impl Trait` is an
+INFERENCE SHIM, not a constraint.  It frees the caller from a second
+turbofish parameter (e.g. `route::<S>(path)` instead of `route::<S, P>(path)`).
+Any trait may appear in parameter position — the exemption is positional,
+not trait-name-based.
 
-§9.2a exemption (2026-10-09 user approved): parameter-position `impl AsRef<str>`
-or `impl Into<String>` used as an INFERENCE SHIM (not a constraint) is allowed.
-This is a pub-API design pattern that frees the caller from a second turbofish
-parameter (e.g. `route::<S>(path)` instead of `route::<S, P>(path)`).  The
-exemption covers ONLY the standard conversion traits `AsRef<str>` and
-`Into<String>`; constraint traits (`impl Iterator`, `impl Read`, etc.) remain
-forbidden.
+Non-parameter positions (type aliases, struct fields, etc.) still require
+explicit `where` bounds.
 
 Deliberately NOT reported:
-  - `-> impl Trait` in return position (that is idiomatic and is not §9.2)
+  - `impl Trait` in parameter position (§9.2a inference shim)
+  - `-> impl Trait` in return position (RPIT, idiomatic, not §9.2)
   - `impl Trait` inside a `where` clause bound (a legal, explicit spelling)
   - occurrences inside `#[cfg(test)]` blocks and files under `tests/`
   - occurrences in comments, doc comments, string literals and raw strings
-  - §9.2a inference-shim `impl AsRef<str>` / `impl Into<String>` parameters
 
 Exit code: 0 = compliant, 1 = violations, 2 = usage error.
 """
@@ -175,19 +172,10 @@ def audit_one(path: Path) -> list[str]:
                 if RETURN_IMPL.search(head) or (RETURN_IMPL.search(lines[k]) and
                                                 lines[k].index("->") < m.start()):
                     continue
-                # §9.2a: inference-shim `impl AsRef<str>` / `impl Into<String>`
-                # in parameter position is allowed (2026-10-09 user approved).
-                impl_text = m.group(0)
-                if "AsRef<str>" in impl_text or "Into<String>" in impl_text:
-                    continue
-                raw_lines = raw.splitlines()
-                stripped = raw_lines[k].strip() if k < len(raw_lines) else lines[k].strip()
-                violations.append(
-                    f"{path}:{k + 1}: `impl Trait` in a fn parameter is forbidden "
-                    f"(§9.2) — declare the bound explicitly instead: "
-                    f"{stripped[:90]!r}"
-                )
-                break
+                # §9.2a: parameter-position `impl Trait` is an inference shim,
+                # not a constraint.  Any trait is allowed here (2026-10-09 user
+                # approved).  Only non-parameter positions are checked.
+                continue
         idx = end + 1
     return violations
 
