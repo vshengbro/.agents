@@ -169,10 +169,14 @@ def _masked_spans(line: str) -> str:
 
 
 def _list_rs_files(root: Path) -> list[Path]:
+    # Build directory pruned by name PREFIX: CARGO_TARGET_DIR may be
+    # `target-pg` etc., and generated code there is not subject to §5.2.
+    # Measured: 4 spurious findings in `target-pg/debug/build/...`.
     r = subprocess.run(
-        ["find", str(root), "-name", "*.rs",
-         "-not", "-path", "*/target/*",
-         "-not", "-path", "*/.cargo/registry/*"],
+        ["find", str(root),
+         "-path", "*/target*", "-prune", "-o",
+         "-path", "*/.cargo/registry", "-prune", "-o",
+         "-name", "*.rs", "-print"],
         capture_output=True, text=True,
     )
     return [Path(line) for line in r.stdout.strip().splitlines() if line]

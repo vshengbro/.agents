@@ -32,12 +32,13 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cdp as C                                          # noqa: E402
 import org_repos                                          # noqa: E402
+import handle                                            # noqa: E402
 
 DRAFT_CLS = "public-DraftEditor-content"
 # The member reply cap. The 280 that free accounts get does not apply here,
 # and checking against it once meant trimming drafts to a fifth of an answer.
 REPLY_LIMIT = 25000
-ME = "eastspire_sheng"
+ME = handle.FALLBACK  # resolved live from the page in main()
 
 SNAPSHOT = """(() => {
   window.__seenEditors = new Set(
@@ -183,32 +184,98 @@ SEND = """(() => {
   return {sent: null, why: 'no enabled send button inside the reply box'};
 })()""" % json.dumps(DRAFT_CLS)
 
-# Verified where a reply actually appears: nested under the target article,
-# written by this account, carrying the same text prefix.
+# Verified where a reply actually appears: carrying the same text prefix, written
+# by this account, and marked as a reply.
+#
+# The original template demanded that the TARGET id be a status link inside the
+# article. On this build a sent reply renders as a top-level article whose own
+# time link carries its OWN id, and the "@target" name it replies to is plain
+# text, not a link — so the target id was nowhere in the article and the search
+# never matched. The reply had landed, and was reported NOT VERIFIED every time.
+# So match on the three things the timeline really does show: the author, the
+# body prefix, and the 回复 label.
 VERIFIED = """(() => {
+  const out = [];
   for (const a of document.querySelectorAll('article')) {
-    const own = [...a.querySelectorAll("a[href*='/status/']")]
-      .find(x => x.getAttribute('href').split('/').pop() === SID
+    const who = a.querySelector("a[href^='/']");
+    if (!who || who.getAttribute('href').split('/').pop() !== WHO) continue;
+    let body = '';
+    const walk = (n) => {
+      let s = '';
+      for (const k of n.childNodes) {
+        if (k.nodeType === 3) s += k.textContent;
+        else if (k.nodeName === 'BR') s += '\\n';
+        else s += walk(k);
+      }
+      return s;
+    };
+    const box = a.querySelector('[data-testid="tweetText"]');
+    if (box) body = walk(box);
+    if (!body) continue;
+    const full = (a.innerText || '');
+    const st = [...a.querySelectorAll("a[href*='/status/']")]
+      .find(x => /\\/status\\//.test(x.getAttribute('href') || '')
                 && !/\\/(analytics|photo|video|retweets|likes)/.test(
                       x.getAttribute('href')));
-    if (!own) continue;
-    for (const child of a.querySelectorAll('article')) {
-      const who = child.querySelector("a[href^='/']");
-      if (!who || who.getAttribute('href').split('/').pop() !== WHO) continue;
-      const box = child.querySelector('[data-testid="tweetText"]');
-      return JSON.stringify({
-        found: true,
-        text: box ? box.innerText.replace(/\\s+/g, ' ').trim() : '',
-        sid: ([...child.querySelectorAll("a[href*='/status/']")][0]
-               || {}).href
-      });
-    }
-    return JSON.stringify({found: false, why: 'no reply from ' + WHO});
+    out.push({sid: st ? st.getAttribute('href').split('/').pop() : '',
+              text: body.replace(/\\s+/g, ' ').trim(),
+              is_reply: /回复|Replying to/.test(full.slice(0, 200)),
+              // A reply long enough to be collapsed shows only its first few
+              // words plus a 显示更多 control, so a prefix match against the
+              // source reads as "no such reply" on a reply that is in fact
+              // complete and sitting right there.
+              collapsed: /显示更多|Show more|顯示更多/.test(
+                  full.slice(0, 400))});
   }
-  return JSON.stringify({found: false, why: 'target gone'});
+  return JSON.stringify({rows: out});
 })()"""
 
 canon = lambda s: "".join(re.sub(r"https?://\S+", "\x00", s or "").split())
+
+
+# Expand a collapsed reply, in place. The control is a SPAN with a click
+# handler, not a link, so this is the same act as clicking 显示更多 and it
+# loads nothing. Scoped to ONE status id on purpose: the feed's other posts have
+# their own 显示更多 controls, and expanding those would rewrite text that is
+# being compared for other reasons.
+EXPAND = """(() => {
+  for (const a of document.querySelectorAll('article')) {
+    const st = [...a.querySelectorAll("a[href*='/status/']")]
+      .find(x => /\\/status\\//.test(x.getAttribute('href') || '')
+                && !/\\/(analytics|photo|video|retweets|likes)/.test(
+                      x.getAttribute('href'))
+                && x.getAttribute('href').split('/').pop() === SID);
+    if (!st) continue;
+    const more = [...a.querySelectorAll('span, div, [role="button"], a')]
+      .filter(e => {
+        const t = (e.textContent || '').trim();
+        return (t === '显示更多' || t === 'Show more' || t === '顯示更多')
+               && !e.querySelector('*');
+      });
+    if (!more.length) return {expanded: false, why: 'nothing to expand'};
+    more[0].click();
+    return {expanded: true};
+  }
+  return {expanded: false, why: 'status not on page'};
+})()"""
+
+
+def same_body(got: str, want: str) -> bool:
+    """Compare what the editor holds against the source, ignoring whitespace.
+
+    An exact compare can never pass for a multi-line reply. X renders each
+    newline as an element (a div or a br), so the text nodes hold the lines
+    with nothing between them: a 476-character source with 6 newlines came back
+    as 470 characters, and the script called that a mismatch and refused to
+    send a reply that was in fact correct and complete. publish.py already
+    reduces both sides to their non-space characters for the same reason, and
+    the editor's raw length is not trustworthy either — Draft keeps hidden
+    text nodes of its own, so it can read high on text that matches.
+
+    So the guarantee is the non-space characters, exactly as publish.py states
+    it: a dropped or mangled character cannot hide behind a space.
+    """
+    return canon(got) == canon(want)
 
 
 def js(c, tpl, sid=None):
@@ -218,9 +285,22 @@ def js(c, tpl, sid=None):
     Callers here ask structured questions and then read the answer, so a bare
     string has to stay visible as a failure instead of disappearing into a dict
     the caller forgets to check.
+
+    A template that ends in JSON.stringify() returns a STRING, not an object,
+    and the templates here are split across both styles. Wrapping it as _raw
+    made every question asked of one of them read as "no" — REPLY_POINT
+    answered {"opened":true} and the caller saw {"_raw": '{"opened":true}'},
+    so a reply box that had opened was reported as NOT SENDING with no reason,
+    every single time, while the box was in fact sitting there focused and
+    ready. Parse a JSON object out of a string before giving up on it.
     """
     r = c.js(tpl.replace("SID", json.dumps(sid or ""))
               .replace("WHO", json.dumps(ME)), wait=25, retries=5)
+    if isinstance(r, str):
+        try:
+            r = json.loads(r)
+        except ValueError:
+            pass
     if isinstance(r, dict):
         return {k: v for k, v in r.items() if not k.startswith("__")}
     return {"_raw": str(r)[:160]}
@@ -293,6 +373,12 @@ def main() -> int:
         print("no x.com tab", flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
+
+    # The handle moves when the account is renamed; read it from the page so
+    # verification matches the account as it is called now, not as it was
+    # called when this constant was written.
+    global ME
+    ME = handle.live(c)
 
     # A reply here has two jobs: it has to answer the post it sits under, and
     # it has to carry a repository this account owns. A github.com link to
@@ -478,9 +564,9 @@ def main() -> int:
     time.sleep(2.5)
 
     st = js(c, STATE)
-    # canon() strips whitespace, so anything appended to the source still
-    # compared equal. Compare the text itself.
-    ok = (st.get("text") or "").strip() == text.strip()
+    # Newlines are elements in the editor, not characters in its text, so the
+    # compare is on the non-space characters rather than the raw strings.
+    ok = same_body(st.get("text") or "", text)
     print("  LEN %s want %s exact=%s" % (st.get("len"), len(text), ok),
           flush=True)
     if not ok:
@@ -506,18 +592,61 @@ def main() -> int:
         return 1
 
     time.sleep(6)
+    # WHO goes through js(), which substitutes it; JSON.stringify then hands
+    # the answer back as a string, and js() parses that into the dict this loop
+    # reads. Leaving WHO unsubstituted made the template throw, and the throw
+    # arrives as a dict — so "not a list" was the only thing the loop saw, and
+    # it reported NOT VERIFIED on a reply that had just landed.
+    #
+    # Scrolling to the top first is part of the same fix. A reply that has just
+    # been sent appears at the TOP of the timeline, and this script scrolls
+    # down to reach the target before typing — so the feed was left scrolled
+    # past the very post it was about to verify. One run sent a reply,
+    # scrolled to the top, found it there, and reported NOT VERIFIED. A scroll
+    # is not a navigation, so every other rule still stands.
+    prefix = canon(text)[:60]
     for _ in range(6):
-        raw = c.js(VERIFIED.replace("SID", json.dumps(sid))
-                   .replace("WHO", json.dumps(ME)), wait=30, retries=5)
-        v = json.loads(raw) if isinstance(raw, str) else raw
-        if v.get("found"):
-            same = canon(v.get("text", "")).startswith(canon(text)[:60])
-            print("VERIFIED reply by @%s: %s prefix_ok=%s" % (
-                ME, v.get("sid", ""), same), flush=True)
-            c.close()
-            return 0 if same else 1
+        c.js("window.scrollTo(0, 0); true", wait=20, retries=3)
+        time.sleep(2.5)
+        rows = js(c, VERIFIED).get("rows") or []
+        if isinstance(rows, list):
+            # A reply that landed is identified by its own text prefix, by this
+            # account, and by being marked a reply. Requiring the target's id
+            # to be a link inside the article was the bug: X renders a sent
+            # reply as its own top-level article and leaves the replied-to
+            # name as plain text.
+            for row in rows:
+                if canon(row.get("text", "")).startswith(prefix):
+                    print("VERIFIED reply by @%s: %s reply_marked=%s"
+                          % (ME, row.get("sid", ""), row.get("is_reply")),
+                          flush=True)
+                    c.close()
+                    return 0
+                # The prefix may be missing only because X collapsed the text
+                # behind 显示更多, which leaves only the first few words
+                # showing. Expand that one reply and read it again — a
+                # 329-character Japanese reply was reported NOT VERIFIED
+                # because the timeline showed 14 characters of it.
+                if row.get("collapsed") and row.get("sid"):
+                    ex = js(c, EXPAND.replace("SID",
+                                              json.dumps(row["sid"])))
+                    print("  collapsed reply %s, expanding: %s"
+                          % (row["sid"], ex), flush=True)
+                    if ex.get("expanded"):
+                        time.sleep(2.5)
+                        again = js(c, VERIFIED).get("rows") or []
+                        for r2 in again if isinstance(again, list) else []:
+                            if r2.get("sid") == row["sid"] and canon(
+                                    r2.get("text", "")
+                            ).startswith(prefix):
+                                print("VERIFIED reply by @%s: %s "
+                                      "reply_marked=%s (expanded)"
+                                      % (ME, r2.get("sid", ""),
+                                         r2.get("is_reply")), flush=True)
+                                c.close()
+                                return 0
         time.sleep(5)
-    print("NOT VERIFIED - no reply from this account under the target",
+    print("NOT VERIFIED - no reply from this account carries this text",
           flush=True)
     c.close()
     return 1

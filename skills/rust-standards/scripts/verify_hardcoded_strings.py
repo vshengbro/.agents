@@ -118,15 +118,147 @@ ASSERT_LIKE_MACROS = frozenset(ASSERT_STRING_INDEX)
 
 # Match a string literal — at minimum 4 non-whitespace chars
 # (avoid flagging single-char `'.'` literals and empty `""`).
+#
+# The lookbehind is load-bearing. Without it, when a literal is too short to
+# match (`"/D"` is 2 content chars), the scan slides one character right and
+# starts a match at that literal's CLOSING quote, swallowing the code in
+# between up to the next quote. On
+#     cmd.arg("/D").arg("/S").arg("/C").arg(command)
+# that produced the phantom literal `").arg("`, and on
+#     path.contains("..") || path.starts_with("/")
+# the phantom `") || path.starts_with("`. Both read as "hardcoded strings to
+# hoist into const.rs", and hoisting them corrupts the expression — a worker
+# hit exactly that and had to revert. A real literal can never be preceded by
+# a word character, a closing bracket or a brace, because that position is
+# already inside one.
 STRING_LITERAL = re.compile(r'"([^"\\]|\\.){4,}"')
+
+
+def _content_width(literal: str) -> int:
+    """Length of a string literal's VALUE, with escape pairs counted once.
+
+    `literal` includes its surrounding quotes. An escape sequence is one
+    character at runtime but two in the source, so measuring the source width
+    inflates every literal that contains `\\n`, `\\t`, `\\"` or `\\\\`:
+    `"a\\nb"` has a 3-character value but measures 5.
+    """
+    body: str = literal[1:-1]
+    width: int = 0
+    index: int = 0
+    while index < len(body):
+        if body[index] == "\\" and index + 1 < len(body):
+            index += 2
+        else:
+            index += 1
+        width += 1
+    return width
+
+
+def _literal_spans(text: str, start: int = 0) -> list[tuple[int, int, str]]:
+    """Every real string literal in `text` as `(start, end, literal)`.
+
+    Quote-PAIRING, not pattern matching. A regex that fails on a too-short
+    literal slides one character right and re-starts at that literal's closing
+    quote, so the "match" swallows the code in between up to the next quote:
+
+        path.contains("..") || path.starts_with("/")
+        cmd.arg("/D").arg("/S").arg("/C")
+
+    both yielded a phantom literal (`") || path.starts_with("`, `").arg("`)
+    that read as a hardcoded string to hoist into const.rs — and hoisting one
+    corrupts the expression, not just the formatting. Scanning forward from
+    each unescaped opening quote to its partner cannot produce that shape,
+    because a closing quote is never treated as an opening one.
+    """
+    spans: list[tuple[int, int, str]] = []
+    i = start
+    n = len(text)
+    while i < n:
+        if text[i] == '"' and (i == 0 or text[i - 1] != "\\"):
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    break
+                j += 1
+            if j < n:
+                spans.append((i, j + 1, text[i:j + 1]))
+                i = j + 1
+                continue
+        i += 1
+    return spans
+
+
+def _macro_name_slots(text: str) -> list[tuple[int, int]]:
+    """Spans of `("name" = ..)` macro name slots, as (start, end)."""
+    return [m.span("name") for m in MACRO_NAME_SLOT.finditer(text)]
+
+# Raw strings carry a second language, not Rust program data. `r#"{"project_id":
+# "aaaZ", "code": "fn app() {}"}"#` is an embedded JSON/XML/SQL/shader payload:
+# §1.3c exists to hoist *this crate's* strings into const.rs, and a raw string
+# is one indivisible token that cannot be split. Masked wholesale.
+def _raw_string_lines(lines: list[str]) -> set[int]:
+    """1-indexed line numbers that live inside a raw string literal."""
+    masked: set[int] = set()
+    in_raw = False
+    close = ""
+    for idx, line in enumerate(lines, start=1):
+        if in_raw:
+            masked.add(idx)
+            if close in line:
+                in_raw = False
+            continue
+        m = re.search(r'r(#*)"', line)
+        if not m:
+            continue
+        masked.add(idx)
+        in_raw = True
+        close = '"' + m.group(1)
+        if close in line[m.end():]:
+            in_raw = False
+    return masked
 
 # Match attribute lines like `#[doc = "..."]` /
 # `#[serde(rename = "..."]` etc. — the whole line starts
 # with `#[` and ends with `]`.
 ATTR_LINE = re.compile(r"^\s*#\[")
 
+# Match INNER attribute lines: `#![recursion_limit = "1024"]`,
+# `#![doc = "..."]`, `#![feature(...)]`, ...
+#
+# Same reasoning as ATTR_LINE above, and the same reasoning that made
+# `extern "C"` an exempt ABI slot: a crate/module attribute value is read by
+# the compiler, not by the program, and several of them are only *syntactically
+# legal* as a literal. `#![recursion_limit = "1024"]` cannot be written as
+# `#![recursion_limit = SERVER_RECURSION_LIMIT]` — an inner attribute takes
+# literal tokens, so a named const is a hard parse error, not a style choice.
+# Reporting it is therefore always a false positive with no compliant
+# alternative.
+#
+# Whole-line scoping is safe here (unlike the general "skip the line" smell
+# documented for the extern-ABI exemption): an inner attribute is only legal
+# before any item in the file, so no real code can share such a line.
+INNER_ATTR_LINE = re.compile(r"^\s*#!\[")
 
-# Match a Rust foreign-ABI declaration slot (2026-09-28).
+
+# A macro NAME slot: `("owner" = String, Path, ...)` inside a utoipa
+# `params(...)` / `security(...)` list.
+#
+# The same reasoning that exempts `extern "C"` and the `cfg!` predicate applies
+# here: this string is a grammar token the macro parses, not program data.
+# utoipa-gen parses it with `input.parse::<syn::LitStr>()?` and
+# `unparsable parameter name, expected literal string`, so
+# `params((SOME_CONST = String))` does not compile — there is no compliant
+# alternative, and reporting it can only be fixed by breaking the build.
+#
+# Scoped to the captured name span, so every other literal on the line (the
+# `description = ...`, the `path = ...`, and anything after the tuple) is still
+# reported normally. The shape `("..." =` only occurs in macro input: a tuple
+# element or struct field cannot have a string literal as its name, so this
+# cannot mask a real hoistable string.
+MACRO_NAME_SLOT = re.compile(r'\(\s*(?P<name>"(?:[^"\\]|\\.)*")\s*=')
 #
 #   extern "system" { ... }        (block)
 #   extern "C" fn f() { ... }      (single fn)
@@ -352,72 +484,118 @@ def _comment_start(line: str) -> int | None:
     return None
 
 
-def _style_macro_block_lines(lines: list[str]) -> set[int]:
-    """1-based line numbers inside a `class! { ... }` style block.
+def _mask_line(line: str) -> str:
+    """Blank out string literals and comments on one line, keeping offsets.
 
-    `class!` is the CSS-class DSL this repo uses to declare style rules.
-    Its string literals ARE the class declarations — `"flex"`,
-    `"100%"`, `":hover"` are the payload, not incidental program data.
-    Hoisting them into `const.rs` would replace a readable CSS table with
-    several thousand lines of `const DISPLAY_FLEX: &str = "flex";`
-    indirection and change nothing about the rendered result.
+    Brace counting for the DSL-block exemptions below runs on this masked
+    copy. Without it, a `format!("{}px", w)` inside an `html!` attribute
+    contributes one `{` and one `}` that still balance, but an unbalanced
+    one (`class: "{"`, or a doc-comment-looking `"//"` inside a literal)
+    would push the depth counter off and make the exemption run to
+    end-of-file — a silent under-report on a rule whose whole contract is
+    "report what is really there". Blanking literals and comments keeps
+    the counter counting code.
+    """
+    out = list(line)
+    i, n = 0, len(line)
+    while i < n:
+        c = line[i]
+        if c == '"':
+            out[i] = " "
+            i += 1
+            while i < n:
+                if line[i] == "\\":
+                    out[i] = " "
+                    if i + 1 < n:
+                        out[i + 1] = " "
+                    i += 2
+                    continue
+                if line[i] == '"':
+                    out[i] = " "
+                    i += 1
+                    break
+                if line[i] != "\n":
+                    out[i] = " "
+                i += 1
+            continue
+        if c == "/" and i + 1 < n and line[i + 1] == "/":
+            for k in range(i, n):
+                out[k] = " "
+            break
+        if c == "/" and i + 1 < n and line[i + 1] == "*":
+            out[i] = out[i + 1] = " "
+            i += 2
+            while i < n and not (line[i] == "*" and i + 1 < n and line[i + 1] == "/"):
+                if line[i] != "\n":
+                    out[i] = " "
+                i += 1
+            if i < n:
+                out[i] = " "
+                if i + 1 < n:
+                    out[i + 1] = " "
+                i += 2
+            continue
+        i += 1
+    return "".join(out)
 
-    This is the same reasoning as the `vars! { .. }` exemption below:
-    both macros exist so a design system's literals live in one
-    declarative place instead of being scattered through logic.
 
-    The scan re-arms on every `class!` line, so a file may declare
-    several blocks. Nesting is tracked by brace depth, so `@media { .. }`
-    inside a class is covered and the exemption stops at the matching
-    close brace rather than at end-of-file.
+def _dsl_block_lines(lines: list[str], macros: tuple[str, ...]) -> set[int]:
+    """1-based line numbers inside any of the `macros` DSL blocks.
+
+    All four exist for the same reason: their string literals ARE the
+    payload, not incidental program data.
+
+    - `class!` is the CSS-class DSL used to declare style rules. Its
+      literals (`"flex"`, `"100%"`, `":hover"`) are the declarations.
+    - `vars!` is the design-token table. The tokens are meant to live in
+      one declarative place, not scattered into `const.rs`.
+    - `var!` and `html!` are the attribute-level counterparts. Inside
+      `html!` a literal like `role: "img"`, `type: "radio"` or
+      `aria-label: "Close"` is markup written the way a developer would
+      write it; hoisting it to a const produces a named indirection that
+      makes the template harder to read and changes nothing at runtime,
+      since the macro already emits the bytes verbatim.
+
+    The practical cost of enforcing §1.3c inside these macros is visible
+    in euv: 561 constants existed whose ONLY use was a macro interior, so
+    they were single-use indirection created purely to satisfy this rule,
+    and 38 `const.rs` files existed only to hold them.
+
+    Reused constants are NOT affected — a const that is also referenced
+    from ordinary code is legitimately shared and stays extracted. The
+    exemption covers literals written directly in the macro body, which is
+    what a template author actually writes.
+
+    The scan re-arms on every macro line, so a file may declare several
+    blocks. Nesting is tracked by brace depth, so `@media { .. }` inside a
+    class and `for { .. }` inside an `html!` element are covered, and the
+    exemption stops at the matching close brace rather than at
+    end-of-file. The macro name is matched anywhere on the line (not just
+    at the start) so `let node = html! {` is covered too.
     """
     inside = False
     depth = 0
     marked: set[int] = set()
+    pattern = re.compile(
+        r"(?<![\w:])(?:" + "|".join(re.escape(m) for m in macros) + r")\s*\{"
+    )
     for i, line in enumerate(lines, start=1):
-        stripped = line.strip()
+        masked = _mask_line(line)
         if not inside:
-            if re.match(r"^class!\s*\{", stripped):
+            if pattern.search(masked):
                 inside = True
-                depth = stripped.count("{") - stripped.count("}")
+                depth = masked.count("{") - masked.count("}")
                 marked.add(i)
             continue
         marked.add(i)
-        depth += stripped.count("{") - stripped.count("}")
+        depth += masked.count("{") - masked.count("}")
         if depth <= 0:
             inside = False
     return marked
 
 
-def _vars_block_lines(lines: list[str]) -> set[int]:
-    """1-based line numbers inside a `vars! { ... }` design-token block.
-
-    `vars!` is the CSS-token counterpart of `const.rs`: the string literals
-    in it ARE the token values, hoisting them to a `const.rs` would defeat
-    the purpose of a single design-token table. Without this exemption every
-    token added to `ui/src/style/var/fn.rs` is reported, which is why that
-    file carries a large pre-existing count — the token table is exactly
-    where those literals are supposed to live.
-
-    A file may declare several `vars!` blocks (one per theme), so the scan
-    re-arms on every `vars!` line instead of stopping after the first one.
-    """
-    inside = False
-    depth = 0
-    marked: set[int] = set()
-    for i, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if not inside:
-            if re.match(r"^vars!\s*\{", stripped):
-                inside = True
-                depth = stripped.count("{") - stripped.count("}")
-                marked.add(i)
-            continue
-        marked.add(i)
-        depth += stripped.count("{") - stripped.count("}")
-        if depth <= 0:
-            inside = False
-    return marked
+# The four euv DSL macros whose bodies are markup / style / token tables.
+DSL_MACROS = ("html!", "class!", "var!", "vars!")
 
 
 def audit_one(path: Path) -> list[str]:
@@ -433,22 +611,24 @@ def audit_one(path: Path) -> list[str]:
         return []
     lines = text.splitlines()
     exempt_lines = _exempt_format_string_lines(lines)
-    style_lines = _style_macro_block_lines(lines)
-    vars_lines = _vars_block_lines(lines)
+    dsl_lines = _dsl_block_lines(lines, DSL_MACROS)
+    raw_lines = _raw_string_lines(lines)
     violations: list[str] = []
     for i, line in enumerate(lines, start=1):
+        if i in raw_lines:
+            continue
         # Skip const.rs (the canonical home)
         if path.name == "const.rs":
             continue
-        # Skip design-token literals declared inside `vars! { .. }`
-        if i in vars_lines:
-            continue
-        # Skip CSS declarations inside a `class! { .. }` style block (§1.3c
-        # exemption): those literals ARE the class definitions.
-        if i in style_lines:
+        # Skip literals written directly inside a DSL block — `html!`,
+        # `class!`, `var!`, `vars!`. Those bodies are markup, style rules
+        # and design tokens: the literal IS the payload, and hoisting it
+        # to a const produces a single-use indirection that makes the
+        # template harder to read for no runtime benefit.
+        if i in dsl_lines:
             continue
         # Skip attribute lines (#[doc = "..."], #[serde(...)])
-        if ATTR_LINE.match(line):
+        if ATTR_LINE.match(line) or INNER_ATTR_LINE.match(line):
             continue
         # Skip lines whose CODE POSITION is inside a comment (2026-09-28).
         # A string in a comment is prose the reader sees, not program data:
@@ -500,19 +680,40 @@ def audit_one(path: Path) -> list[str]:
         # ABI's closing quote would swallow the code between the two
         # literals and report a garbage span (and could miss a real
         # literal sitting inside that swallowed run).
-        for m in STRING_LITERAL.finditer(scan_line, abi_end):
-            if cfg_span is not None and m.span() == cfg_span:
+        for lit_start, lit_end, literal in _literal_spans(scan_line, abi_end):
+            if cfg_span is not None and (lit_start, lit_end) == cfg_span:
                 # The cfg! predicate literal itself: a grammar slot.
                 continue
-            literal = m.group(0)
-            # Skip if literal looks like a path (contains /)
-            # — paths often encode import paths in `use` and
-            # inline `format!` paths.  We're strict here.
+            if any((lit_start, lit_end) == slot
+                   for slot in _macro_name_slots(scan_line)):
+                # A utoipa `params(("name" = ..))` / `security(("name" = []))`
+                # name: a macro grammar token, not program data.
+                continue
+            if _content_width(literal) < 4:
+                # Measured on the DECODED value, not the source text. An
+                # escape pair is one character at runtime but two in the
+                # source, so `len(literal) - 2` counted `"a\nb"` as 5 and
+                # flagged a 3-character value as a hardcoded string.
+                continue
             violations.append(
                 f"{path}:{i}: hardcoded string literal {literal!r} "
                 f"must live in `const.rs` (§1.3c strengthened): "
                 f"{line.strip()[:80]!r}"
             )
+    # §1.3c exemption: a literal with a single use in this file carries no
+    # coupling between call sites, so naming it would add a hop without
+    # adding a constraint. Two or more uses in the SAME file are still
+    # reported — that is the case where the name does work. Counted per file
+    # so audit_one keeps its contract and the commit hook and the full audit
+    # agree.
+    seen: dict[str, int] = {}
+    for v in violations:
+        m = re.search(r"string literal '(.*?)' must live", v)
+        if m:
+            seen[m.group(1)] = seen.get(m.group(1), 0) + 1
+    violations = [v for v in violations if not re.search(r"string literal '(.*?)' must live", v)
+                   or seen[re.search(r"string literal '(.*?)' must live", v).group(1)] >= 2]
+
     return violations
 
 

@@ -52,6 +52,16 @@ def main() -> int:
     check("blank line inside the mod block caught", "blank line inside the `mod` block" in out, out[-240:])
     check("sub-module glob seen as group 2", "group 2" in out, out[-240:])
     check("external glob seen as group 3", "group 3" in out, out[-240:])
+    check(
+        "mod.rs scanned: pub use after private use caught",
+        "mod.rs" in out and "appears after group 6" in out,
+        out[-240:],
+    )
+    check(
+        "blank between visibility levels enforced",
+        "without a blank line" in out,
+        out[-240:],
+    )
 
     code, out = run(FIXTURES / "compliant")
     check("compliant fixture exits 0", code == 0, f"got {code}: {out[-240:]}")
@@ -87,6 +97,29 @@ def main() -> int:
         check("mutation 3 (mod block split) is caught", code == 1, f"got {code}: {out[-200:]}")
         lib.write_text(original)
 
+        # pub use local and pub use external share the `pub` bucket: removing
+        # the blank between them must stay clean (no false positive)
+        lib.write_text(original.replace(
+            "pub use {first::*, second::*};\n\npub use {external_a::*, external_b::*};",
+            "pub use {first::*, second::*};\npub use {external_a::*, external_b::*};",
+        ))
+        code, out = run(work)
+        check("mutation 4 (same-bucket pub globs touching) stays clean", code == 0, f"got {code}: {out[-200:]}")
+        lib.write_text(original)
+
+        # pub use touching pub(crate) use without a blank must be reported
+        lib.write_text(original.replace(
+            "pub use {external_a::*, external_b::*};\n\npub(crate) use crate::Widget;",
+            "pub use {external_a::*, external_b::*};\npub(crate) use crate::Widget;",
+        ))
+        code, out = run(work)
+        check(
+            "mutation 5 (pub and pub(crate) touching) is caught",
+            code == 1 and "without a blank line" in out,
+            f"got {code}: {out[-200:]}",
+        )
+        lib.write_text(original)
+
         # removing Cargo.toml must not make external globs look local
         (work / "Cargo.toml").unlink()
         code, out = run(work)
@@ -101,7 +134,7 @@ def main() -> int:
         for name in failures:
             print(f"  - {name}")
         return 1
-    print("\nself_test_no_lib_rs_order: PASS (fixtures + 4 mutations)")
+    print("\nself_test_no_lib_rs_order: PASS (fixtures + 6 mutations)")
     return 0
 
 

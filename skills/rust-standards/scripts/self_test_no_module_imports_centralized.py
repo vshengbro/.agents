@@ -47,7 +47,7 @@ def main() -> int:
     print("self_test_no_module_imports_centralized: fixtures")
     code, out = run(FIXTURES / "violating")
     check("violating fixture exits 1", code == 1, f"got {code}")
-    check("§6.1 private use in lib.rs caught", "cannot reach any sub-file" in out, out[-200:])
+    check("§6.1 private root use is compliant (reaches descendants)", "cannot reach any sub-file" not in out, out[-200:])
     check("§6.1 does not flag `use self::`", "use self::inner::Helper" not in out, out[-200:])
     check("§6.2 comment in mod.rs caught", "comment in a mod.rs body" in out, out[-200:])
     check("§6.2 blank line inside the mod block caught", "blank line inside the `mod` block" in out, out[-200:])
@@ -68,7 +68,7 @@ def main() -> int:
         original = lib.read_text()
         lib.write_text(original.replace("pub use std::collections::HashMap;", "use std::collections::HashMap;"))
         code, out = run(work)
-        check("mutation 1 (pub use -> use) is caught", code == 1, f"got {code}: {out[-160:]}")
+        check("mutation 1 (pub use -> use) stays compliant", code == 0, f"got {code}: {out[-160:]}")
         lib.write_text(original)
 
         sub = work / "src" / "render" / "fn.rs"

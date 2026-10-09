@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""§6.1 — lib.rs import groups appear in the prescribed order.
+"""§6.1 — lib.rs / mod.rs import groups appear in the prescribed order.
 
 The order, as written in references/06-module-imports.md §6.1:
 
@@ -14,6 +14,11 @@ The order, as written in references/06-module-imports.md §6.1:
      `use {...};` block rather than standing on its own line
 
 Groups are separated by one blank line; within group 1 no blank line is allowed.
+A blank line is MANDATORY whenever the visibility bucket changes
+(mod -> pub -> pub(crate) -> pub(super) -> private): two decl lines of
+different buckets touching without a blank line is a violation even when the
+order is otherwise correct (2026-10-07 user ruling: 「不同级别可见性之间需要
+空行」). Groups 2 and 3 share the `pub` bucket, so no blank is required there.
 
 A blank line is the ONLY thing that separates groups, so the group index is the
 count of blank lines seen before the line. That is what makes the rule
@@ -45,11 +50,23 @@ PUB_SUPER_USE = re.compile(r"^\s*pub\(super\)\s+use\b")
 COMMENT = re.compile(r"^\s*(//|/\*)")
 LONE_EXTERNAL = re.compile(r"^\s*use\s+([a-z_][a-z0-9_]*)::[A-Za-z_]")
 
+# Visibility bucket per §6.1 group: groups 2 and 3 share `pub`, so a local
+# glob and an external glob may touch without a blank line, while every other
+# bucket transition requires one.
+BUCKET_OF: dict[int, str] = {
+    1: "mod",
+    2: "pub",
+    3: "pub",
+    4: "pub(crate)",
+    5: "pub(super)",
+    6: "private",
+}
 
-def list_lib_files(root: Path) -> list[Path]:
+
+def list_entry_files(root: Path) -> list[Path]:
     result = subprocess.run(
         [
-            "find", str(root), "-name", "lib.rs",
+            "find", str(root), "(", "-name", "lib.rs", "-o", "-name", "mod.rs", ")",
             "-not", "-path", "*/target/*",
             "-not", "-path", "*/.cargo/registry/*",
         ],
@@ -151,6 +168,11 @@ def audit_one(path: Path) -> list[str]:
     group = 0
     highest = 0
     seen_any = False
+    # Visibility bucket of the previous decl line, plus whether a blank line
+    # separated it from the current one. Different buckets touching without a
+    # blank violate the 2026-10-07 blank-between-visibilities ruling.
+    prev_bucket: Optional[str] = None
+    blank_before = True
     for idx, raw in enumerate(lines, 1):
         stripped = raw.strip()
         if COMMENT.match(stripped):
@@ -167,6 +189,7 @@ def audit_one(path: Path) -> list[str]:
                         f"§6.1 group 1 keeps every `mod xxx;` touching"
                     )
             group += 1
+            blank_before = True
             continue
         g = _classify(stripped, dep_roots)
         if g is None:
@@ -184,8 +207,16 @@ def audit_one(path: Path) -> list[str]:
                         f"group 6): {stripped[:70]}"
                     )
             seen_any = True
+            blank_before = False
             continue
         seen_any = True
+        bucket = BUCKET_OF[g]
+        if prev_bucket is not None and bucket != prev_bucket and not blank_before:
+            violations.append(
+                f"{path}:{idx}: `{prev_bucket}` group and `{bucket}` group touch "
+                f"without a blank line; different visibility levels must be "
+                f"separated by one blank line (§6.1): {stripped[:70]}"
+            )
         if g < highest:
             violations.append(
                 f"{path}:{idx}: import group {g} appears after group {highest} "
@@ -193,6 +224,8 @@ def audit_one(path: Path) -> list[str]:
                 f"pub(crate) -> pub(super) -> private): {stripped[:70]}"
             )
         highest = max(highest, g)
+        prev_bucket = bucket
+        blank_before = False
     return violations
 
 
@@ -201,7 +234,7 @@ def main() -> int:
     if not root.is_dir():
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
-    libs = list_lib_files(root)
+    libs = list_entry_files(root)
     all_violations: list[str] = []
     for path in libs:
         all_violations.extend(audit_one(path))
@@ -210,10 +243,10 @@ def main() -> int:
     if all_violations:
         print(
             f"\n=== lib-rs import order: {len(all_violations)} violation(s) "
-            f"in {len(libs)} lib.rs file(s) ==="
+            f"in {len(libs)} lib.rs/mod.rs file(s) ==="
         )
         return 1
-    print(f"\nOK: {len(libs)} lib.rs file(s) checked, no group-order violation")
+    print(f"\nOK: {len(libs)} lib.rs/mod.rs file(s) checked, no group-order violation")
     return 0
 
 

@@ -3151,3 +3151,82 @@ worktree 已 `remove --force` + `prune`,euv 工作区确认干净。
 ### 元教训
 
 **"规则已写进规范"和"规则会拦人"是两个命题,中间隔着调用方注册。** 写新规则时的检查清单要加一条:grep 出所有会调用 verifier 的地方(`VERIFIERS` 字典、audit 的 CHECKS 列表、CI workflow 里的命令行),逐个确认它在里面。§7「verifier 和它的调用方一起发布」讲的是同一件事,但那次的读者是我自己,这次依然是。
+
+## §90 verify_pub_group_order.py(§18,check 48)— pub 项必须整组排在 pub(crate)/private 之前,fixer 是稳定分区不是全排序(2026-10-07)
+
+user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量。注意 pub crate 定义的位置在 pub api 位置之后,顺便更新到 skill 和 hook」。
+
+### 规则形状
+
+`const.rs` / `static.rs` 内从上到下的可见性 rank 必须**非递增**:`pub`(2) → `pub(crate)`/`pub(super)`(1) → private(0)。一条 `pub const` 插在 `pub(crate) const` 之后 = 1 条 finding。组内顺序**不**检查 —— 存量 `(name_len, name_lex)` 排序约定继续只对新增 insert 生效,本规则只守组边界。
+
+### 为什么 fixer 是稳定分区而不是排序
+
+`fix_pub_group_order.py` 对每个文件做 `sorted(blocks, key=(-rank, original_index))` —— 组内保持原始相对顺序。试过按 (name_len, name_lex) 全排序的想法:diff 会从「组边界修正」爆炸成「全文件重排」,review 找不到真实改动,而且 (name_len, name_lex) 从来不是脚本强制项,fixer 擅自升级规则口径 = 单方面改规则。稳定分区是用户那句话的最小忠实实现。
+
+### 解析器的三个自保护(全部被 self-test 钉死)
+
+- **item span 用括号深度 + 字面量剥离**:`pub const X: &[u8] = &[\n1,\n];` 多行 item 必须整块移动;`pub const S: &str = "[{(}])";` 里的括号不进深度计数(`STRING_LITERAL` 先 mask)。
+- **doc comment / attribute 跟随 item 移动**:prefix block = decl 正上方连续的 `///` / `#[...]` / `//` 行,空行即断开。`/// docs` 与它的 decl 被拆到不同组是移动后最常见的破相,self-test 断言「doc 与 decl 之间不得夹 pub(crate)」。
+- **不干净就跳过**:声明未闭合(深度不回 0 / 缺 `;`)、item 之间夹非空非注释行、header 里有 `use`/注释以外的东西 —— 整个文件跳过,verifier/fixer 都不猜。unsafe fixture 上 `fix_file(write=True)` 必须返回 False。
+
+### 验收记录
+
+- `scripts/self_test_pub_group_order.py`:compliant 0 / violating 精确计数(1 + 3)/ tricky 0(括号召、pRIVATE 在 pub(crate) 后合法、attribute block)/ unsafe 跳过 / dry-run 不写盘 / --write 收敛 + 幂等 + 内容保持。
+- gate 实测(scratch repo,staged violating const.rs → `verify_pub_group_order +1 new` BLOCK;换 compliant 版 → §18 静默)。注册点:`staged_file_gate.VERIFIERS["verify_pub_group_order"]`,`audit_one` 按文件名 gate,非 const.rs/static.rs 直接 []。
+- 真仓首跑:euv 92 hits in 6 files(`cli/src/build/const.rs` 的 `pub(crate) PORT_ARG` 后插 `pub PORT_ARG_SHORT` 是典型),ctares 7 in 2,hyperlane 0。两位数 = 规则有牙且口径没炸(§2.1.3:几百条先怀疑脚本)。
+
+### 调用方清单(§7 一起发布)
+
+- `audit_rust_standards.py` CHECKS 末尾追加 → check 48(追加在尾部,不动已有编号)。
+- `staged_file_gate.py` VERIFIERS 注册(同上)。
+- fixer 没被 rust_pre_commit.py Phase 1 收编 —— Phase 1 那三套(fix_dep_order / strictify_tests_layout / doc_comment_audit)是钦定组合,本次只交付 verifier + fixer 两件,gate + audit 是权威层。
+
+---
+
+## §91 verify_const_visibility.py(§18 常量条款,check 49)— lib+bin 包的 src/main.rs 是外部消费者,声明点不算读者(2026-10-07)
+
+**事故链**:ctares 首跑 fix_const_visibility 后 `cargo check` 炸 `E0425: cannot find value CARGO_TOML`。`CARGO_TOML` 声明在 crate-cli/src/manifest/const.rs,全 crate 内部使用 —— 但 crate-cli 是 lib+bin 包,`src/main.rs` 经 `use crate_cli::*` glob 消费它。lib 里收窄成 pub(crate) 后,bin 的 glob 里符号消失,bin 报 E0425(**不是** E0603 —— glob 消失 vs 显式 import 被拒,两个错误码不同)。
+
+**两条分析器规则由此而来**:
+
+1. **内部语料 ≠ 包内全部源码**。内部 = crate 的 src/** 减去一切独立 target:`tests/`、`examples/`、`benches/`、`src/bin/**`、以及**存在 `src/lib.rs` 时的 `src/main.rs`**(lib+bin 包)。没有 lib.rs 的纯 bin 包,main.rs 就是本体,保持内部。
+2. **声明点自身永远不算读者**。常量声明所在行会把名字送进内部 ident 集,用「名字 ∈ 内部集」判内部读者会让每个声明自证消费,零任何读者的常量被误判为「有内部读者」而降成违规(实测:COMMENT_ONLY fixture 只出现在注释里,剥离注释后任何文件都没有它,却因声明点被当成内部读者)。正确判据:名字出现在**另一个**内部文件的 ident 集里。
+
+**set-subtraction 版本还有第三个坑(已废)**:第一版用 `external = global_idents - internal[crate]`,任何常量的声明都把名字放进 internal[crate],差集恒空,全部常量被报违规(6/6 fixture 全中)。per-file 并集是唯一正确形态。
+
+**配套事实**:unwired 桶(零任何读者)走 stderr 不走 stdout —— stdout 只承载违规,audit wrapper 按行计数时不会被 report-only 类污染(常量表 crate 如 hyperlane-constant 天然产出 6831 条 unwired,进 stdout 会淹没真实违规)。自测脚本 `scripts/self_test_const_visibility.py` 覆盖七常量分类 + lib+bin fixture;该 fixture 是**事故驱动**补的(ctares CARGO_TOML),不是先验设计 —— 跨 target 可见性规则必须带 lib+bin 与 tests/ 双 fixture。
+
+---
+
+## §92 verify_no_pub_in_tests.py(§18 单测条款,check 50)— tests/ 里两种 pub 是承重的,只有单文件读者才可去(2026-10-07)
+
+**事故链**:user 指令「所有的单测都不需要 pub」。第一版 verifier 把 tests/ 内所有 column-0 `pub` 一律判违规,fixer 三仓连剥 74 处 → euv 22 errors、ctares 20 errors(hyperlane 0)。编译器证明两种 tests/ pub 是**承重的**,不是摆设:
+
+1. **`tests/<sub>/const.rs` 的 item**:父模块 `tests/<sub>/mod.rs` 经 `use r#const::*;` glob 拿它们 —— 父从**子**模块 glob,隐私方向是自上而下的,子的 item 必须 pub 父才看得见(euv 实测 `DEFAULT_WWW_DIR` / `FORMATTED` / `UNFORMATTED` 三处 E0425)。
+2. **`tests/mod.rs` 的 `pub use std::{...}` re-export**:glob import **不会**接力转发非 pub 的 use 绑定 —— `use super::*` 只拾取 pub use。剥成 `use std::{...}` 后,隔两跳的 `tests/<sub>/fn.rs` 立刻丢 `HashSet` / `PathBuf` 等 std 符号。
+
+**修复路径**:diff 对回滚 + 错误驱动恢复(cargo check → 解析 `cannot find value X` / `X is private` → 只在 tests/ 内定位声明行补 pub → 迭代至 rc=0)。**注意盲区**:wave 在途 agent 新建的 const.rs 是 untracked,`git diff` 里不存在,基于 diff 的回滚永远漏掉它们 —— 错误驱动恢复不依赖 git,是唯一完备路径。
+
+**收窄后的规则(narrow)**:只有「名字在本 tests/ 树其他文件零出现」的 pub item 才算摆设(`#[test] pub fn`、同文件 helper、声明后没人读的常量)。`pub use` 与被父 glob 的子模块 item 永不标。fixture 必须带四种:跨文件 const(留)、mod.rs pub use(留)、同文件 pub fn(剥)、字符串里的 "pub fn"(不报)。
+
+**更正(同日第二轮,user 钦定「所有单测 tests 目录下的禁止出现 pub use」后实测)**:上面第 2 条判错了。`use`(无 pub 前缀)的 re-export 绑定**可以**沿祖先 glob 链传到子孙模块 —— euv-cli tests/mod.rs 的 `use std::{...}`(无 pub)经两跳 `use super::*;` 到 fn.rs 编译全过。Rust 语义:子孙模块对祖先的私有项(含 use 绑定)可见,glob 拾取可见绑定。真正承重的只有第 1 条(父从子模块 glob,方向反了)。**新规则由此落地**:tests/ 内 `pub use` / `pub(crate) use` / `pub(super) use` 一律禁止,全部改纯 `use`,三仓(euv 5 / hyperlane 4 / ctares 5 处)改完 `--all-targets` 0 error。verify_no_pub_in_tests.py 已把 pub-marked use 列为独立违规类。
+
+**配套事实**:lib+bin 包(euv-cli)的 112 个 pub const 全部收窄后,编译器一轮点名回退 112/112 —— cli 的常量 pub 面被 tests/ + main.rs 完全消费,机械规则 0 可收。这类「测试驱动 pub 面」要收窄只能改测试(断言行为而非 const 表)或挪成 src 内 #[cfg(test)] 单测,是 user 级决策,不是脚本决策。
+
+## §93 常量绝对禁令的落地陷阱(depub 内联污染 + rustc 坐标驱动修复法,2026-10-07)
+
+**背景**:user 两轮裁决「常量是肯定不需要pub的」+「单测里常量不需要验证」。euv 全量落地:157 个常量去 pub(131 小值内联进 tests、24 大值逐字内联、2 零读者删除)+ 常量验证类测试整套删除(global_css/css_consts/fmt_consts 目录、cli_api 常量表 4 测试)。过程炸出 435+ 编译错误,教训如下。
+
+**教训 1:对 tests 做常量值内联,禁用裸正则/逐行 blank 的字符串扫描。** 多行字符串字面量必须**整文件**计算 span(逐行 blank 会把多行串中间的代码行当代码),且替换必须用**词边界**(`\bNAME\b`)—— 否则 `web` 之类的短值名会把 `web_sys`、assert 消息文本、JS fixture 内容全部污染(9366 处误伤的教训)。正确做法:整文件读入 → STRING_RE/CHAR_RE 对全文本 blank 出 span → span 外才做 `\bNAME\b` 替换。
+
+**教训 2:修复轮同样必须 span-aware,且最可靠的定位器是 rustc 自己。** 加引号/解引号的批量修复若不带字符串 span,会在串内制造新的嵌套引号破坏(`"{ a, b }"` → `"{ "a", "b" }"`)。收敛最快的闭环:**跑 `cargo check --message-format=short`,按错误码分类,用 rustc 给的 file:line:col 逐点修那一个词**:E0425(裸值名)→ 该坐标加引号;E0423(expected value found struct/macro X)→ 该坐标的裸 X 加引号;E0308/E0277 found `&str` → 该坐标解引号;expected `&str` found integer → 该坐标加引号。每轮修完重跑,直至清零。**禁止无坐标的全局正则修复**(一次 `"(\w+)" =>` 模式替换把合法字符串字面量 match 臂改成绑定模式 = 静默语义损坏,编译抓不到,只有 cargo test 能抓)。
+
+**教训 3:cargo test 是语义修复的必须门禁,编译绿 ≠ 修复完。** 静默损坏类别:被引号化的变量绑定(`assert_eq!("value", 42)`)、被解引号的字符串字面量(`Some("value") => "value"` 震荡)、`"lit" =>` 变绑定臂。它们的共同特征:编译全过,测试才红。修复流程固定为 check 0 → clippy 0 → test 全绿才算完。
+
+**教训 4:depub 后必须扫 glob reexport 断裂。** 常量降 `pub(crate)` 后,各 mod.rs 里 `pub use {r#const::*, ...}` 报 "glob import doesn't reexport anything with visibility pub"(warning 级)。修法:拆成 `pub use {r#fn::*, ...};` + 空行 + `pub(crate) use r#const::*;` 两组(**必须空行分隔,否则 cargo fmt 把 pub(crate) 行排到 pub 行前面,又触发 §6.1 组序 FAIL**)。
+
+**教训 5:跨 crate 同名 const 是 depub 扫描器的固定假阳性。** macros/core/docs 各自有 `pub(crate) const STR_HYPHEN` 等本地副本,名字 token 匹配会把它们记成 cli 常量的"跨 crate 读者"。manual-cross-src 清单落地前必须先 grep 消费方是否已有同名本地 decl —— euv 实测 20 项里大半是假阳性,真跨 crate 的只有 engine 数学常量/example、THEME_DARK/docs+example、EUV_MD_CSS/docs、ENV_OUT_DIR/docs build.rs 四项。
+
+**教训 6:example 等下游消费数学常量,迁移目标是 std 不是本地副本。** engine 的 PI/TWO_PI/HALF_PI 本就是 std 重导出(facade),按反 facade 原则直接删,下游 mod.rs 根部 `use std::f64::consts::{FRAC_PI_2, PI};` 沿 glob 链下放(§92);EPSILON=1e-6 是 engine 语义值不是 std 值,消费方各持 mirror const(写注释 `// Mirrors the engine's math EPSILON`)。同名 const 别放进会被祖先 glob 聚合的位置(page/mod.rs `pub(crate) use {game_3d::*, raytrace::*}` 会让两个同名 HALF_PI 对 fn.rs 歧义 E0659)—— 消歧优先改用 std 名(FRAC_PI_2)而不是加本地别名。
+

@@ -23,8 +23,9 @@ import sys
 sys.path.insert(0, os.path.expanduser(
     "~/.agents/skills/social-media/x-post-via-browser/scripts"))
 import cdp as C                                          # noqa: E402
+import handle                                            # noqa: E402
 
-EXPECTED = "eastspire_sheng"
+EXPECTED = handle.FALLBACK  # resolved live from the page in main()
 
 
 def canon(s: str) -> str:
@@ -101,6 +102,8 @@ def main() -> int:
     tab = [t for t in C.tabs()
            if t.get("type") == "page" and "x.com" in t.get("url", "")][0]
     c = C.Cdp(tab["webSocketDebuggerUrl"])
+    global EXPECTED
+    EXPECTED = handle.live(c)
     got = c.js(ARTICLE.replace("SID", json.dumps(sid)), wait=30, retries=5)
     if got == "NOT ON PAGE":
         print(f"{sid} is not on the open tab — it may be below the fold, or "

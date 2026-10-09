@@ -47,6 +47,29 @@ MOD_DECL = re.compile(
     r"^(?P<vis>(?:pub(?:\([^)]*\))?\s+)?)mod\s+"
 )
 
+# In-band exemption, same shape as the CI check's
+# `# ci-allow-version-write: <reason>`: a mod.rs that must keep `pub mod`
+# states why, and the reason is non-empty so a bare suppression is not
+# possible.  The rule is NOT unsatisfiable in general — bare `mod` is the
+# right form whenever a module's children are reached only through
+# `use super::*` chains inside their own subtree.  It becomes unsatisfiable
+# when a child is addressed by MODULE PATH from outside that subtree,
+# because a bare `mod` cannot be re-exported to widen it:
+#
+#     mod inner;  pub use inner;         -> E0255, `inner` defined twice
+#     mod inner;  pub(crate) use inner;  -> E0255
+#     mod inner;  use inner;             -> E0255
+#
+# The only legal alternative is flattening the child's contents into the
+# parent (`pub use inner::*;`), and that is what breaks on a real tree:
+# a parent with 25 controller children puts ~750 names in one namespace,
+# 60 of them duplicated across siblings, and five of those duplicates are
+# emitted by sea-orm's `DeriveEntityModel` under fixed names
+# (`Model`, `ActiveModel`, `Entity`, `Column`, `Relation`) and therefore
+# cannot be renamed apart.  A parent that also holds several sea-orm entity
+# modules is unsatisfiable by construction.
+ALLOW = "# mod-visibility-allow: "
+
 
 def _list_rs_files(root: Path) -> list[Path]:
     r = subprocess.run(
@@ -94,6 +117,17 @@ def audit_one(path: Path) -> list[str]:
         return []
     lines = text.splitlines()
     inside_raw = _scan_raw_string_state(lines)
+    # A file-level, reason-bearing exemption covers every declaration in
+    # this mod.rs.  An empty reason does not count.  It is matched as a
+    # substring so it can live in a `///` line: audit check 5 forbids bare
+    # `//` comments in mod.rs but its regex `^\s*//[^/!]` deliberately
+    # exempts doc comments.
+    exempt = any(
+        (not inside_raw[i]) and ALLOW in line and line.split(ALLOW, 1)[1].strip()
+        for i, line in enumerate(lines)
+    )
+    if exempt:
+        return []
     violations: list[str] = []
     for i, line in enumerate(lines):
         if inside_raw[i]:

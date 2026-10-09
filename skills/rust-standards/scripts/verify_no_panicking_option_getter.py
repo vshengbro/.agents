@@ -105,6 +105,164 @@ def receiver_type(lines, idx) -> Optional[str]:
     return None
 
 
+PRIMITIVE_COPY = {"i8", "i16", "i32", "i64", "i128", "isize",
+                  "u8", "u16", "u32", "u64", "u128", "usize",
+                  "f32", "f64", "bool", "char"}
+
+# `#[derive(...)]` immediately above a `pub struct`, doc lines skipped.
+_STRUCT_LINE = re.compile(r"pub struct (?P<name>\w+)\s*\{")
+_DERIVE_LINE = re.compile(r"#\[derive\((?P<d>[^)]*)\)\]")
+_BARE_OPT = re.compile(r"pub(?:\([^)]*\))?\s+(?P<fld>\w+)\s*:\s*Option<(?P<t>\w+)>")
+_ATTR_LINE = re.compile(r"^\s*#!?\[")
+
+
+def _copy_types(repo: Path) -> set[str]:
+    """Every struct declared with `Copy`, plus the Copy primitives."""
+    out = set(PRIMITIVE_COPY)
+    for path in repo.rglob("*.rs"):
+        if "/target/" in str(path):
+            continue
+        lines = path.read_text(errors="ignore").split("\n")
+        for i, line in enumerate(lines):
+            m = _STRUCT_LINE.search(line)
+            if not m:
+                continue
+            j = i - 1
+            while j >= 0 and lines[j].strip().startswith("///"):
+                j -= 1
+            if j >= 0:
+                d = _DERIVE_LINE.search(lines[j])
+                if d and "Copy" in d.group("d"):
+                    out.add(m.group("name"))
+    return out
+
+
+def declaration_violations(repo: Path, only: Path = None) -> list[str]:
+    """Report `Option<T>` fields whose public `get_*` would unwrap.
+
+    The call-site scan above cannot see this class: a public panicking
+    getter is reachable from outside the crate and panics even when the
+    engine itself never calls it. Two real cases shipped that way —
+    `GlRenderState::scissor` and `Counter::min`/`max`, both documented as
+    "None means off / unbounded".
+
+    Lombok only emits the unwrapping form for a `Copy` inner type (a
+    non-Copy payload keeps `get_x() -> Option<T>`); `Option<Rc<dyn Fn>>`
+    has 46 working call sites and must not be reported. The remedy is the
+    annotation the rest of the codebase already uses:
+    `#[get(type(copy))]`, which makes the getter return the Option.
+    """
+    copy_names = _copy_types(repo)
+    found: list[str] = []
+    # `only` restricts WHICH FILE the field scan reads, while the
+    # Data-derive / Copy knowledge still comes from the whole repo. The
+    # gate needs that split: it materialises a staged file beside the real
+    # one to get a HEAD baseline, so re-scanning the working tree would make
+    # before == after and the delta would always be 0.
+    if only is not None:
+        # `only` may arrive relative (hand-rolled call) or absolute (the
+        # gate). Resolving against `repo` keeps the reported path in the
+        # same `rel:line:` shape `audit_one` filters on — otherwise a
+        # relative path degrades to its basename and every filter misses,
+        # turning a real finding into a silent zero.
+        if not only.is_absolute():
+            only = (repo / only).resolve()
+        candidates = [only]
+    else:
+        candidates = [p for p in sorted(repo.rglob("*.rs")) if "/target/" not in str(p)]
+    for path in candidates:
+        try:
+            rel = path.relative_to(repo)
+        except ValueError:
+            rel = Path(path.name)
+        try:
+            lines = path.read_text(errors="ignore").split("\n")
+        except OSError:
+            continue
+        owner, has_data = None, False
+        for i, line in enumerate(lines):
+            m = _STRUCT_LINE.search(line)
+            if m:
+                owner = m.group("name")
+                # Each struct owns its own derive line. Carrying the flag over
+                # from the previous struct would report `#[derive(Getter)]`
+                # types as if they were lombok `Data` ones.
+                has_data = False
+                j = i - 1
+                while j >= 0 and lines[j].strip().startswith("///"):
+                    j -= 1
+                if j >= 0:
+                    d = _DERIVE_LINE.search(lines[j])
+                    has_data = bool(d and "Data" in d.group("d"))
+                continue
+            f = _BARE_OPT.search(line)
+            if not f or not has_data or owner is None:
+                continue
+            j = i - 1
+            attrs = []
+            while j >= 0 and (_ATTR_LINE.match(lines[j])
+                              or lines[j].strip().startswith("///")):
+                if _ATTR_LINE.match(lines[j]):
+                    attrs.append(lines[j].strip())
+                j -= 1
+            if any(a.startswith("#[get") for a in attrs):
+                continue
+            if f.group("t") not in copy_names:
+                continue
+            found.append(
+                f"{rel}:{i + 1}: {owner}::{f.group('fld')} is a public "
+                f"Option<{f.group('t')}> with no #[get(...)] — the generated "
+                f"get_{f.group('fld')}() unwraps and panics on None; add "
+                f"#[get(type(copy))]"
+            )
+    return found
+
+
+# The gate suffix staged_file_gate.py appends when it materialises the HEAD
+# version of a staged file, so the baseline copy's name differs from the real
+# one by exactly this.
+GATE_SUFFIX = ".head-baseline"
+
+def _infer_root(path: Path) -> Path:
+    """Walk up to the directory holding `.git` (same convention as
+    verify_no_production_panic._infer_root)."""
+    for candidate in [path, *path.parents]:
+        if (candidate / ".git").exists():
+            return candidate
+    return path.parent
+
+
+def audit_one(path: Path, root: Optional[Path] = None) -> list[str]:
+    """Per-file entry point used by staged_file_gate.
+
+    Without it the gate's `getattr(module, "audit_one", None)` probe returns
+    None and this rule is silently skipped at commit time -- exactly the gap
+    that let bare `Option<Copy>` fields through the hook while the audit
+    caught them.
+
+    The rule cannot be judged from one file alone: whether a field is risky
+    depends on the struct deriving lombok's `Data`, which lives in another
+    file. So this runs the repo-wide scan and filters to `path`. Results are
+    memoised per root because the gate calls it once per staged file.
+    """
+    if root is None:
+        root = _infer_root(path)
+    key = str(root)
+    try:
+        rel = path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return []
+    rel_str = str(rel)
+    if rel_str.endswith(GATE_SUFFIX):
+        rel_str = rel_str[: -len(GATE_SUFFIX)]
+    # Read the fields from the GIVEN file (the staged copy or the
+    # materialised HEAD baseline), not from the working tree, so the gate
+    # sees a real before/after difference.
+    found = declaration_violations(root, only=path)
+    prefix = f"{rel_str}:"
+    return [v for v in found if v.startswith(prefix)]
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: verify_no_panicking_option_getter.py <repo>", file=sys.stderr)
@@ -155,6 +313,16 @@ def main() -> int:
                 if re.search(r"Option<", head):
                     continue
                 recv = receiver_type(lines, i)
+                # A call compared against `None` proves the getter returns the
+                # Option: `assert_eq!(sampler.get_compare(), None)` only
+                # compiles if `get_compare` yields `Option<CompareFunction>`.
+                # This is a sound exemption, not a loosened heuristic - the
+                # unwrapping form would make the call site a type error.
+                tail = code[m.end(1):] + "\n" + "\n".join(lines[i + 1: i + 3])
+                if re.search(
+                    r"(==|!=)\s*None\b|,\s*None\s*[,)]|None\s*,", tail
+                ):
+                    continue
                 # Only report when we can PROVE the receiver is the owning type.
                 if recv is None or recv.split("::")[-1] != owner.split("::")[-1]:
                     continue
@@ -162,6 +330,8 @@ def main() -> int:
                     f"{rel}:{i + 1}: {recv}::get_{fld}() panics on None "
                     f"(field `{fld}: {ty}`) — use try_get_{fld}()"
                 )
+
+    violations.extend(declaration_violations(repo))
 
     if violations:
         print(

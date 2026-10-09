@@ -68,7 +68,30 @@ def _find_cdylib_crates(root: Path) -> list[Path]:
     return out
 
 
+def _is_in_cdylib_crate(path: Path) -> bool:
+    """True when `path` belongs to a crate that actually declares cdylib.
+
+    `audit_one` is what `staged_file_gate.py` calls per staged file. It used
+    to flag every `#[inline]` unconditionally, while `main()` correctly
+    reported "0 cdylib crates; rule not applicable" for the same tree -- so a
+    repo with no cdylib crate at all still had every `#[inline]` commit blocked
+    by the pre-commit hook (measured 2026-10-06 on hyperlane: adding one
+    `#[inline(always)]` accessor to plugin/websocket blocked the commit while
+    the audit reported 0 violations).
+
+    Resolve the nearest ancestor Cargo.toml and reuse the same cdylib test the
+    directory scan uses, so both entry points agree.
+    """
+    for parent in [path.parent, *path.parents]:
+        cargo = parent / "Cargo.toml"
+        if cargo.is_file():
+            return _is_cdylib_crate(cargo)
+    return False
+
+
 def audit_one(path: Path) -> list[str]:
+    if not _is_in_cdylib_crate(path):
+        return []
     try:
         text = path.read_text()
     except (OSError, UnicodeDecodeError):

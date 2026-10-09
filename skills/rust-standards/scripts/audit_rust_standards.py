@@ -67,7 +67,7 @@ DEFAULT_TARGET = '.'
 
 CHECKS = [
     ('non-keyword prod files', '''cd {{target}}
-git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -vE "/tests/|/lib\\.rs$|/raw_html\\.rs$|/main\\.rs$|/bin/[^/]+\\.rs$|(^|/)build\\.rs$" | while read f; do
+git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -vE "/tests/|/lib\\.rs$|/raw_html\\.rs$|/main\\.rs$|/bin/[^/]+\\.rs$|(^|/)build\\.rs$" | while read f; do
   [ -f "$f" ] || continue
   bn=$(basename "$f")
   case "$bn" in
@@ -77,10 +77,10 @@ git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -vE "/tests
 done
 '''),
     ('#[allow] in production', '''cd {{target}}
-git diff origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "^\\+.*#\\[allow" | head -20
+git diff origin/master -- "*.rs" 2>/dev/null | grep -E "^\\+.*#\\[allow" | head -20
 '''),
         ('production unwrap/expect/panic', '''cd {{target}}
-git diff origin/master HEAD -- "*.rs" 2>/dev/null | while read line; do
+git diff origin/master -- "*.rs" 2>/dev/null | while read line; do
   if [[ "$line" == "+++ b/"* ]]; then
     current_file=$(echo "$line" | sed "s|+++ b/||")
   fi
@@ -112,10 +112,10 @@ git diff origin/master HEAD -- "*.rs" 2>/dev/null | while read line; do
 done | head -20
 '''),
     ('#[test] in production', '''cd {{target}}
-git diff origin/master HEAD -- "*.rs" 2>/dev/null | grep -B5 "^\\+.*#\\[test\\]" | grep "^\\+\\+\\+ b/" | grep -v "/tests/" | head -5
+git diff origin/master -- "*.rs" 2>/dev/null | grep -B5 "^\\+.*#\\[test\\]" | grep "^\\+\\+\\+ b/" | grep -v "/tests/" | head -5
 '''),
     ('// comments in mod.rs', '''cd {{target}}
-for f in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$"); do
+for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$"); do
   [ -f "$f" ] || continue
   if grep -E "^\\s*//[^/!]" "$f" > /dev/null 2>&1; then
     echo "$f"
@@ -123,15 +123,15 @@ for f in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep 
 done
 '''),
     ('mod.rs missing trailing use super::*', '''cd {{target}}
-    for f in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$" | grep -v "core/tests/mod.rs\\|cli/tests/mod.rs\\|engine/tests/mod.rs\\|ui/tests/mod.rs\\|type/tests/mod.rs"); do
+    for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$" | grep -v "core/tests/mod.rs\\|cli/tests/mod.rs\\|engine/tests/mod.rs\\|ui/tests/mod.rs\\|type/tests/mod.rs"); do
       [ -f "$f" ] || continue
       last=$(grep -E "^[^[:space:]]" "$f" | tail -1)
       case "$last" in
         "use super::*;"|"pub use super::*;") ;;
         *)
-          # Per audit-pitfalls #40: a mod.rs's `use super::*;` is legitimately
+          # Per audit-pitfalls #40: a mod.rs's use super::*; is legitimately
           # unused (and may be omitted) when none of its sub-files use the
-          # `use super::*;` chain to reach parent symbols. This is the
+          # use super::*; chain to reach parent symbols. This is the
           # leaf-mod exemption matching #21's leaf-sub-file exemption.
           dir=$(dirname "$f")
           has_parent_use=0
@@ -153,47 +153,47 @@ done
     done
     '''),
     ('sub-file first line not use super::*', '''cd {{target}}
-git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -vE "/(mod|lib|raw_html|main)\\.rs$|/tests/|(^|/)build\\.rs$|/bin/[^/]+\\.rs$" | while read f; do
+git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -vE "/(mod|lib|raw_html|main)\\.rs$|/tests/|(^|/)build\\.rs$|/bin/[^/]+\\.rs$" | while read f; do
   [ -f "$f" ] || continue
   # Per audit-pitfalls #5 / #5a, files dedicated to a single keyword
-  # (`const.rs` / `static.rs` / `fn.rs` / `enum.rs` / `struct.rs`
-  # / `trait.rs` / `impl.rs` / `type.rs`) are allowed to open with
-  # a `///` doc comment when they do not need any parent-module
+  # (const.rs / static.rs / fn.rs / enum.rs / struct.rs
+  # / trait.rs / impl.rs / type.rs) are allowed to open with
+  # a /// doc comment when they do not need any parent-module
   # symbol. The audit script now matches by the file's *basename*
   # so that every keyword-only sub-file is exempt from the
-  # `use super::*;` requirement, matching what master accepts.
+  # use super::*; requirement, matching what master accepts.
   bn=$(basename "$f")
   case "$bn" in
     const.rs|static.rs|fn.rs|enum.rs|struct.rs|trait.rs|impl.rs|type.rs) continue ;;
   esac
   first=$(grep -nE "^[^[:space:]/]" "$f" 2>/dev/null | head -1 | cut -d: -f1)
   if [ -z "$first" ]; then continue; fi
-  line=$(sed -n "${{first}}p" "$f")
+  line=$(sed -n "${first}p" "$f")
   if [ "$line" != "use super::*;" ]; then
     echo "$f:$first: $line"
   fi
 done
 '''),
     ('#[cfg(test)] in production', '''cd {{target}}
-git diff -U0 origin/master HEAD -- "*.rs" 2>/dev/null | grep -F "#[cfg(test)]" | grep -v "^[+][+][+] b/" | grep "^[+]" | grep -v "^\\+[/!]" | grep -v "^\\+\\s*\\*\\s*#\\[cfg" | head -20
+git diff -U0 origin/master -- "*.rs" 2>/dev/null | grep -F "#[cfg(test)]" | grep -v "^[+][+][+] b/" | grep "^[+]" | grep -v "^\\+[/!]" | grep -v "^\\+\\s*\\*\\s*#\\[cfg" | head -20
 '''),
     ('long-path use crate::xxx in sub-files', '''cd {{target}}
-git diff origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "^\\+.*\\buse crate::" | grep -v "/tests/" | head -20
+git diff origin/master -- "*.rs" 2>/dev/null | grep -E "^\\+.*\\buse crate::" | grep -v "/tests/" | head -20
 '''),
     ('inline generic bounds', '''cd {{target}}
-git diff origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "^\\+.*fn [a-z_]+<[A-Z][a-zA-Z]+:" | grep -v "/tests/" | head -10
+git diff origin/master -- "*.rs" 2>/dev/null | grep -E "^\\+.*fn [a-z_]+<[A-Z][a-zA-Z]+:" | grep -v "/tests/" | head -10
 '''),
     ('r# on non-keyword file', '''cd {{target}}
-git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "/(mod)\\.rs$" | while read f; do
+git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/(mod)\\.rs$" | while read f; do
   [ -f "$f" ] || continue
   if [[ "$f" == *"/tests/"* ]]; then continue; fi
   grep -oE "mod r#[a-z_]+;" "$f" 2>/dev/null | while read line; do
     name=$(echo "$line" | sed -E "s/mod r#([a-z_]+);/\\1/")
-    # Per audit-pitfalls #1 the `r#` prefix is required for every
+    # Per audit-pitfalls #1 the r# prefix is required for every
     # Rust keyword, including the four keywords that were added
-    # after the original nine (RFC 2018 added `async` / `await` /
-    # `try`; RFC 3324-era work brought `dyn`). Master accepts
-    # `mod r#async;` for example-page modules whose path collides
+    # after the original nine (RFC 2018 added async / await /
+    # try; RFC 3324-era work brought dyn). Master accepts
+    # mod r#async; for example-page modules whose path collides
     # with these reserved words.
     case "$name" in
       const|static|fn|enum|struct|trait|impl|type|mod|async|await|try|dyn) ;;
@@ -203,10 +203,10 @@ git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "/(mod)\
 done
 '''),
     ('implicit Vec::new() without type', '''cd {{target}}
-git diff origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "^\\+.*let [a-z_]+ = Vec::new\\(\\);" | grep -v "/tests/" | head -10
+git diff origin/master -- "*.rs" 2>/dev/null | grep -E "^\\+.*let [a-z_]+ = Vec::new\\(\\);" | grep -v "/tests/" | head -10
 '''),
     ('#![cfg(test)] in test fn.rs', '''cd {{target}}
-for f in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "/tests/.*/fn\\.rs$"); do
+for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/tests/.*/fn\\.rs$"); do
   [ -f "$f" ] || continue
   if grep -q "^#!\\[cfg(test)\\]" "$f"; then
     echo "$f"
@@ -222,7 +222,7 @@ done
 #   - per-fn /// doc comments
 #   - fn-body inline // comments
 # Blank lines between #[test] fns are fine; only //-prefixed lines fail.
-for f in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E "/tests/.*\\.rs$"); do
+for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/tests/.*\\.rs$"); do
   [ -f "$f" ] || continue
   hits=$(grep -nE "^\s*//[^/]" "$f" 2>/dev/null)
   if [ -n "$hits" ]; then
@@ -233,332 +233,80 @@ done
 '''),
     ('pure &Foo helper in fn.rs should be impl method (R1.3.1)', '''cd {{target}}
 # For every fn.rs file touched by the PR, find pub fn / pub(crate) fn declarations
-# whose first parameter is `&Foo` / `&mut Foo` where Foo is a type declared in the
+# whose first parameter is &Foo / &mut Foo where Foo is a type declared in the
 # same directory's struct.rs / enum.rs. Those should be impl methods, not free fns
 # (per references/01-directory-structure.md §1.3.1 rule 1).
-for fn_file in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -E '/fn\.rs$'); do
-  [ -f "$fn_file" ] || continue
-  dir=$(dirname "$fn_file")
-  # Collect the type names declared in the same directory's struct.rs / enum.rs
-  types_in_dir=$( (cat "$dir/struct.rs" "$dir/enum.rs" 2>/dev/null) \
-                  | grep -oE '^\s*pub(?:\([^)]*\))?\s+(?:struct|enum)\s+[A-Z]\w*' \
-                  | grep -oE '[A-Z]\w*$' | sort -u )
-  [ -z "$types_in_dir" ] && continue
-  # For each declared fn in fn.rs, find ones whose first param is &Type or &mut Type
-  # for one of those types. Print "<file>:<line>: <fn> takes &(mut )<Type>".
-  awk -v types="$types_in_dir" -v file="$fn_file" '
-    BEGIN {{ n = split(types, arr, "\n"); for (i = 1; i <= n; i++) known[arr[i]] = 1 }}
-    /^\s*pub(?:\([^)]*\))?\s+(async\s+|const\s+|unsafe\s+)*fn\s+[a-zA-Z_]\w*\s*[<(]/ {{
-      line = $0
-      # Extract fn name
-      m = match(line, /fn ([a-zA-Z_][a-zA-Z0-9_]*)/, arr); if (!m) next
-      fn_name = arr[1]
-      # Skip #[component] entries (component macros require free fn shape)
-      if (line ~ /#\[component\]/ || line ~ /component\]/) next
-      # Find first parameter — look for &Type or &mut Type after the opening paren
-      rest = substr(line, index(line, "("))
-      # Strip generics up to first ( ... ) including <T, U>
-      depth = 0; in_parens = 0
-      start = index(rest, "(")
-      i2 = start + 1; depth = 1
-      while (i2 <= length(rest) && depth > 0) {{
-        c = substr(rest, i2, 1)
-        if (c == "(") depth++
-        else if (c == ")") depth--
-        i2++
-      }}
-      params = substr(rest, start + 1, i2 - start - 2)
-      # First parameter token (before comma)
-      p1 = params
-      sub(/,.*/, "", p1)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", p1)
-      # Strip leading & or &mut
-      cur = p1
-      sub(/^&mut[[:space:]]+/, "", cur)
-      sub(/^&[[:space:]]+/, "", cur)
-      # cur is the type token (may include generics — strip <...>)
-      sub(/<.*$/, "", cur)
-      gsub(/[[:space:]]/, "", cur)
-      if (cur in known) {{
-        printf("%s:%d: %s takes &%s — should be `impl %s {{{{ fn %s(&self) ... }}}}` in impl.rs per §1.3.1\n",
-               file, NR, fn_name, cur, cur, fn_name)
-      }}
-    }}
-  ' "$fn_file"
-done
+#
+# Companion script: verify_pure_ref_helper.py.  This used to be an inline
+# awk template that had never executed.  Three defects compounded: the
+# template carried {{/}} brace escapes meant for str.format() while
+# substitute() resolves placeholders with a manual .replace(), so awk
+# received a literal {{; its split(types, arr, "\\n") sat in a Python
+# triple-quoted string so Python consumed the escape and awk received a
+# real newline inside a string literal; and the 3-argument match() it used
+# is a GNU awk extension BSD awk does not have.  awk died on every run and,
+# because run_check took its verdict from stdout rather than the exit code,
+# the check reported PASS the entire time.  A pure-Python scan is portable
+# and can be self-tested.
+python3 "{{audit_script_dir}}/verify_pure_ref_helper.py" "{{target}}" \\
+    | grep -v -E '^=== pure-ref-helper'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_pure_ref_helper.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
     ('column-0 decl type mismatch in keyword files (R1.3a, raw-string-aware)', '''cd {{target}}
-# For each keyword file modified by the PR, check that no column-0 decl of the
-# WRONG type lives in it (R1.3a keyword file purity).
-# Excludes WGSL shader code inside raw string literals (audit-pitfalls §18).
-for f in $(git diff --name-only origin/master HEAD -- "*.rs" 2>/dev/null | grep -vE '/tests/' | grep -vE '/target/'); do
-  [ -f "$f" ] || continue
-  bn=$(basename "$f")
-  case "$bn" in
-    const.rs)   forbidden='^(pub |pub\(crate\) )?(fn |struct |enum |trait |impl |type )' ;;
-    static.rs)  forbidden='^(pub |pub\(crate\) )?(fn |struct |enum |trait |impl |type )' ;;
-    fn.rs)      forbidden='^(pub |pub\(crate\) )?(struct |enum |trait |impl |type )' ;;
-    enum.rs)    forbidden='^(pub |pub\(crate\) )?(struct |fn |impl |trait |type )' ;;
-    struct.rs)  forbidden='^(pub |pub\(crate\) )?(enum |fn |impl |trait |type )' ;;
-    trait.rs)   forbidden='^(pub |pub\(crate\) )?(struct |enum |fn |impl |type )' ;;
-    impl.rs)    forbidden='^(pub |pub\(crate\) )?(struct |enum |fn |trait |type )' ;;
-    type.rs)    forbidden='^(pub |pub\(crate\) )?(struct |enum |fn |impl |trait )' ;;
-    *) continue ;;
-  esac
-  python3 -c '
-import sys, re
-f, forbidden = sys.argv[1], sys.argv[2]
-text = open(f).read()
-lines = text.split("\n")
-in_raw = False
-delim = ""
-for i, line in enumerate(lines, 1):
-    if in_raw:
-        close_marker = chr(34) + delim
-        if close_marker in line:
-            pos = line.find(close_marker)
-            after = line[pos + len(close_marker):]
-            in_raw = False
-            delim = ""
-            if re.match(forbidden, after):
-                print("%s:%d: %s (forbidden in keyword file, after raw-string close)" % (f, i, after[:80]))
-        continue
-    m = re.search(r"r(#+)\"", line)
-    if m:
-        delim = m.group(1)
-        rest = line[m.end():]
-        close_marker = chr(34) + delim
-        cpos = rest.find(close_marker)
-        if cpos == -1:
-            in_raw = True
-        else:
-            after = rest[cpos + len(close_marker):]
-            if re.match(forbidden, after):
-                print("%s:%d: %s (forbidden in keyword file, after raw-string close on same line)" % (f, i, after[:80]))
-        pre = line[:m.start()]
-        if re.match(forbidden, pre):
-            print("%s:%d: %s (forbidden in keyword file, before raw-string)" % (f, i, pre[:80]))
-        continue
-    if re.match(forbidden, line):
-        print("%s:%d: %s (forbidden in keyword file)" % (f, i, line[:80]))
-' "$f" "$forbidden"
-done
+# Companion script: verify_keyword_file_decl_types.py.
+# This check used to be an inline python3 -c template nested inside one
+# of this file's Python triple-quoted strings. The OUTER parser consumed
+# the inner script's escape sequences, so the inner program raised a
+# SyntaxError on every invocation and the check never once reported
+# anything. A standalone file has no such nesting and can be self-tested.
+# Raw-string aware: shader source embedded in a raw string legitimately
+# contains struct and fn lines, and those are skipped.
+python3 "{{audit_script_dir}}/verify_keyword_file_decl_types.py" "{{target}}" \\
+    | grep -v -E '^=== keyword-file-decl-types'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_keyword_file_decl_types.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
 
     ('sub-file body uses external crate full path (R6.4-pitfall-b)', '''cd {{target}}
-# Rule 17: detect `external_crate::Symbol` calls in sub-file fn bodies.
-# audit rule 9 only catches `use crate::xxx;` imports; this catches
-# bare `minify_js::Session` / `tokio::fs::read` / `serde_json::from_str`
-# etc. that should have been routed through `lib.rs` re-export +
-# `use super::*;`. (R6.4-pitfall-b)
-# Script is intentionally simple: extract every third-party dep from
-# the changed file's nearest Cargo.toml [dependencies] / [dev-dependencies]
-# / [build-dependencies] blocks + the root [workspace.dependencies],
-# then grep each non-doc non-use line for `dep::Sym`.
-python3 - <<'PY'
-import re, os, subprocess, sys
-root = os.getcwd()
-# Find every third-party dep reachable from any changed src/ sub-file.
-diff_proc = subprocess.run(["git", "diff", "--name-only", "origin/master", "HEAD", "--", "*.rs"],
-                            capture_output=True, text=True, cwd=root)
-files = [f for f in diff_proc.stdout.strip().split("\n") if f
-         and "/src/" in f
-         and not f.endswith("/mod.rs")
-         and not f.endswith("/lib.rs")
-         and "/tests/" not in f]
-if not files:
-    sys.exit(0)
-added_lines = {{{{}}}}
-for f in files:
-    diff = subprocess.run(["git", "diff", "-U0", "origin/master", "HEAD", "--", f],
-                          capture_output=True, text=True, cwd=root)
-    s = set()
-    for ln in diff.stdout.split("\n"):
-        if ln.startswith("+") and not ln.startswith("+++"):
-            s.add(ln[1:])
-    added_lines[f] = s
-def parse_cargo_toml(path):
-    deps = set()
-    in_deps = False
-    if not os.path.exists(path):
-        return deps
-    with open(path) as fh:
-        for ln in fh:
-            s = ln.strip()
-            if s.startswith("["):
-                in_deps = s in ("[dependencies]", "[build-dependencies]", "[dev-dependencies]", "[workspace.dependencies]")
-                continue
-            if in_deps:
-                m = re.match(r"^([a-zA-Z0-9_-]+)\s*=", ln)
-                if m:
-                    deps.add(m.group(1))
-    return deps
-ext_crates = set()
-for f in files:
-    cur = os.path.dirname(os.path.join(root, f))
-    while cur and cur != "/":
-        ct = os.path.join(cur, "Cargo.toml")
-        if os.path.exists(ct):
-            ext_crates |= parse_cargo_toml(ct)
-            break
-        cur = os.path.dirname(cur)
-# root workspace.deps too
-ext_crates |= parse_cargo_toml(os.path.join(root, "Cargo.toml"))
-IGNORE = {{{{"std", "core", "alloc", "log",
-          "euv", "euv-ui", "euv-cli", "euv-core",
-          "euv-engine", "euv-macros", "euv-example", "hyperlane"}}}}
-ext_crates -= IGNORE
-if not ext_crates:
-    sys.exit(0)
-hits = 0
-# Rule 17 enforces R6.3 / R6.4 literal:
-# (a) no `use external_crate::...;` at the top of sub-files (R6.3 spirit)
-# (b) no full-path `<ext>::Symbol` calls *when the same symbol is already
-#     reachable via `use super::*;` through lib.rs re-export* (R6.4 spirit)
-#
-# To keep the check tractable and avoid false-positives on common path calls
-# (e.g. `tokio::fs::read`), we only flag two patterns:
-#   1. Top-of-file `use ext::xxx;` declarations
-#   2. Full-path *type annotations* `let x: ext::Type = ...` (these should
-#      use the re-exported type name from lib.rs)
-# Macro calls like `log::warn!` and qualified path calls like `tokio::fs::read`
-# are accepted (they're effectively `use` re-imports via the call site and
-# require no lib.rs re-export, since macro/function call resolution works
-# directly from the qualified path).
-for f in files:
-    path = os.path.join(root, f)
-    if not os.path.exists(path):
-        continue
-    added = added_lines.get(f, set())
-    for line in added:
-        stripped = line.lstrip()
-        # Pattern 1: `use external_crate::xxx;` at top of sub-file (R6.3)
-        m = re.match(r"^use\s+([a-zA-Z0-9_-]+)::", stripped)
-        if m and m.group(1) in ext_crates:
-            print("%s: %s" % (f, line.rstrip()[:120]))
-            hits += 1
-            continue
-        # Pattern 2: type annotation `let x: ext::Type = ...` (R6.4 spirit)
-        m = re.search(r":\s*([a-zA-Z0-9_-]+)::", stripped)
-        if m and m.group(1) in ext_crates:
-            # Skip if it's a function call arg or struct field
-            # (heuristic: skip lines where the :: is followed by lowercase)
-            tail = stripped[m.end():]
-            if not re.match(r"[A-Z]", tail):
-                continue
-            # Skip attribute macros (#[ext::...])
-            if stripped.startswith("#"):
-                continue
-            print("%s: %s" % (f, line.rstrip()[:120]))
-            hits += 1
-sys.exit(0)
-PY
+# Companion script: verify_no_external_crate_path.py.
+# This was an inline python3 - <<'PY' heredoc. A heredoc needs a
+# temp file, which restricted sandboxes refuse to create, so the check
+# died before it could inspect a single line and reported nothing.
+# A standalone file has no such dependency and can be self-tested.
+python3 "{{audit_script_dir}}/verify_no_external_crate_path.py" "{{target}}" \\
+    | grep -v -E '^=== no-external-crate-path'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_external_crate_path.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
 
-('fn.rs hardcoded byte/string literals (R1.3c literal purity)', '''cd {{target}}
-# Rule 18 (2026-09-14): detect byte / char / multi-char string literals
-# in fn.rs / impl.rs / mod.rs that should have been extracted to const.rs.
-# Catches `b"<!--"`, `b'<', etc. that appear in fn bodies / expressions.
-# Excludes: doc comments, #[cfg(test)] blocks, let bindings, raw strings.
-python3 - <<'PY'
-import re, subprocess, sys
-root = subprocess.run(
-["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip()
-diff = subprocess.run(
-["git", "diff", "--name-only", "origin/master", "HEAD", "--", "*.rs"],
-capture_output=True, text=True, cwd=root)
-files = [f for f in diff.stdout.strip().split("\n") if f
-     and not f.endswith("/mod.rs")
-     and not f.endswith("/const.rs")
-     and not f.endswith("/static.rs")
-     and not f.endswith("/lib.rs")
-     and not f.endswith("/main.rs")
-     and "/tests/" not in f
-     and "/target/" not in f
-     and (f.endswith("/fn.rs") or f.endswith("/impl.rs"))]
-hits = 0
-for f in files:
-try:
-    text = open(f).read()
-except FileNotFoundError:
-    continue
-lines = text.split("\n")
-in_raw = False
-in_test = False
-in_doc = False
-raw_delim = ""
-in_block_doc = False
-for i, line in enumerate(lines, 1):
-    stripped = line.lstrip()
-    # Track doc comments: /// or //!
-    if stripped.startswith("///") or stripped.startswith("//!"):
-        continue
-    # Track /** ... */ block doc comments
-    if not in_block_doc and stripped.startswith("/**"):
-        in_block_doc = True
-        if "*/" in line[line.index("/**") + 3:]:
-            in_block_doc = False
-        continue
-    if in_block_doc:
-        if "*/" in line:
-            in_block_doc = False
-        continue
-    # Track raw strings
-    if in_raw:
-        if raw_delim in line:
-            in_raw = False
-            raw_delim = ""
-        continue
-    m = re.search(r'r(#+)"', line)
-    if m:
-        raw_delim = '"' + m.group(1)
-        if raw_delim not in line[m.end():]:
-            in_raw = True
-        continue
-    # Track #[cfg(test)] mod tests {{{{ ... }}}} blocks (simple brace tracking)
-    if "#[cfg(test)]" in line or "#[cfg(all(test" in line or "#[test]" in line:
-        in_test = True
-    if in_test:
-        # crude brace balance: tests blocks tend to nest but rarely deeply
-        if stripped.startswith("}}") and line.count("}}") > line.count("{{"):
-            in_test = False
-        continue
-    # Detect byte literals `b"..."` / `b'...'`
-    # In fn.rs these should have been extracted to const.rs
-    # Skip literal in let bindings (one-shot local)
-    is_let = bool(re.match(r"^\s*(let|const|static)\s+", line))
-    if is_let:
-        continue
-    # Match byte string / char literals as RHS in expressions
-    # Heuristic: detect byte literals NOT in const/let/static declarations
-    # and that have non-trivial length (>=2 chars for strings, any for bytes)
-    byte_str = re.findall(r'b"([^"\n]{{{{2,}}}})"', line)
-    byte_chars = re.findall(r"b'([^'\n])'", line)
-    if byte_str or byte_chars:
-        # Skip lines that are testing equality of import-named consts
-        # (e.g. `if b == HTML_LT`) - those use const, not literal
-        # We only flag if literal appears, so the const case is naturally excluded
-        # Skip lines where literal appears only inside `as_bytes()` cast
-        if "as_bytes()" in line and re.search(r'\.as_bytes\(\)\s*\.last\(\)', line):
-            continue
-        # Skip `b'\\n'` / `b'\\t'` / `b' '` / `b'\\0'` escape sequences
-        # (these are pure escape, not semantic tokens)
-        keep = False
-        for c in byte_chars:
-            if c in (" ", "\t", "\n", "\r", chr(0)):
-                continue
-            keep = True
-        if byte_str or keep:
-            print("%s:%d: %s" % (f, i, line.strip()[:120]))
-            hits += 1
-sys.exit(0)
-PY
+    ('fn.rs hardcoded byte/string literals (R1.3c literal purity)', '''cd {{target}}
+# Companion script: verify_fn_literal_purity.py.
+# This was an inline python3 - <<'PY' heredoc. A heredoc needs a temp
+# file, which restricted sandboxes refuse to create, so the check never
+# actually ran. A standalone file has no such dependency.
+python3 "{{audit_script_dir}}/verify_fn_literal_purity.py" "{{target}}" \\
+    | grep -v -E '^=== fn-literal-purity'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_fn_literal_purity.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
     ('tests/<sub>/fn.rs non-super use (R14.7)', '''
-# Per R14.7: tests/<sub>/fn.rs may contain ONLY `use super::*;` as a top-level
+# Per R14.7: tests/<sub>/fn.rs may contain ONLY use super::*; as a top-level
 # use statement. Other imports (std / wasm_bindgen_test / web_sys / ...) must
-# be re-exported by the parent tests/<sub>/mod.rs via `pub use`.
-# Wrapper invokes the dedicated `verify_test_imports_centralized.sh` script.
+# be re-exported by the parent tests/<sub>/mod.rs via pub use.
+# Wrapper invokes the dedicated verify_test_imports_centralized.sh script.
 # {{audit_script_dir}} is substituted at audit-script load time (see main()).
 # Filter the inner script's "OK: N file(s) ..." line so it doesn't register
 # as a hit; only propagate the violation report + exit status.
@@ -571,162 +319,19 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
-    ('fn-body blank lines (R9.1 §9.1 item 10)', '''
-# Per audit-pitfalls #33: blank lines inside fn bodies violate §9.1 item 10.
-# Detection: track brace depth, classify context (fn body vs trait/impl/test),
-# count blank lines inside fn-body scope that lie within PR diff hunks.
-# Only flags blank lines INSIDE the diff range, so upstream historical
-# violations are not blamed on the PR.
-# Base branch: prefer the merge-base between HEAD and upstream/master when
-# present (Track 2 fork + PR setup). Falls back to `origin/master`.
-python3 - <<'PY'
-import os, re, subprocess, sys
-
-
-def _mask_string_literals(line):
-    """Blank out the inside of every string literal on a line.
-
-    Returns `line` with each literal's contents replaced by spaces, keeping
-    column positions so indices stay valid. Raw strings are not masked --
-    this check's own `in_raw` tracking already skips them.
-    """
-    out = list(line)
-    i = 0
-    n = len(line)
-    while i < n:
-        ch = line[i]
-        if ch not in "\"'":
-            i += 1
-            continue
-        quote = ch
-        i += 1
-        while i < n:
-            if line[i] == "\\":
-                i += 2
-                continue
-            if line[i] == quote:
-                break
-            out[i] = " "
-            i += 1
-        else:
-            break
-        i += 1
-    return "".join(out)
-
-root = subprocess.run(
-    ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip()
-upstream_remote = subprocess.run(
-    ["git", "config", "--get", "remote.upstream.url"],
-    capture_output=True, text=True, cwd=root)
-if upstream_remote.returncode == 0 and upstream_remote.stdout.strip():
-    upstream_sha_proc = subprocess.run(
-        ["git", "rev-parse", "upstream/master"],
-        capture_output=True, text=True, cwd=root)
-    if upstream_sha_proc.returncode == 0 and upstream_sha_proc.stdout.strip():
-        mb = subprocess.run(
-            ["git", "merge-base", "HEAD", upstream_sha_proc.stdout.strip()],
-            capture_output=True, text=True, cwd=root)
-        base = mb.stdout.strip() if mb.returncode == 0 else "origin/master"
-    else:
-        base = "origin/master"
-else:
-    base = "origin/master"
-diff_name = subprocess.run(
-    ["git", "diff", "--name-only", base, "HEAD", "--", "*.rs"],
-    capture_output=True, text=True, cwd=root)
-files = [f for f in diff_name.stdout.strip().split("\\n") if f
-         and "/target/" not in f
-         and not f.endswith("/lib.rs")
-         and not f.endswith("/build.rs")]
-hits = 0
-for f in files:
-    # Get the diff hunks for this file. Only blank lines whose new-file
-    # line number falls inside a hunk range get reported.
-    diff_proc = subprocess.run(
-        ["git", "diff", base, "HEAD", "-U0", "--", f],
-        capture_output=True, text=True, cwd=root)
-    hunk_ranges = []  # list of (start, end) inclusive new-file line numbers
-    for line in diff_proc.stdout.splitlines():
-        m = re.match(r'^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@', line)
-        if m:
-            new_start = int(m.group(1))
-            new_len = int(m.group(2)) if m.group(2) else 1
-            hunk_ranges.append((new_start, new_start + new_len - 1))
-    if not hunk_ranges:
-        continue
-    try:
-        # `f` is relative to the repo root, and this template has no
-        # `cd {{target}}` of its own, so reading it depended on the caller's
-        # cwd. Join it to `root` or the check silently inspected nothing.
-        text = open(os.path.join(root, f)).read()
-    except FileNotFoundError:
-        continue
-    lines = text.split("\n")
-    stack = []  # each entry: "fn" | "test" | "other"
-    in_raw = False
-    raw_delim = ""
-    in_block_doc = False
-    for i, line in enumerate(lines, 1):
-        stripped = line.strip()
-        if in_block_doc:
-            if "*/" in stripped:
-                in_block_doc = False
-            continue
-        if stripped.startswith("/**"):
-            in_block_doc = True
-            if "*/" in stripped[3:]:
-                in_block_doc = False
-            continue
-        if in_raw:
-            close = '"' + raw_delim
-            if close in line:
-                in_raw = False
-            continue
-        m = re.search(r'r(#+)["\\\']', line)
-        if m:
-            in_raw = True
-            raw_delim = m.group(1)
-            continue
-        # Count braces OUTSIDE string literals. A `format!` template that
-        # embeds JS carries `{{` / `}}` for literal braces, and those are
-        # not Rust block delimiters. Counting them drove the depth to +5 in
-        # `cli/src/build/fn.rs` and it never came back, so every blank line
-        # after the first JS-emitting fn read as a blank line inside that
-        # fn's body -- 11 phantom hits on a file with no new blank line in
-        # any fn body. Same masking the let-annotation and hardcoded-string
-        # verifiers already do.
-        masked = _mask_string_literals(line)
-        opens = masked.count("{")
-        closes = masked.count("}")
-        if opens > 0:
-            pre = line[: line.find("{")].rstrip()
-            for _ in range(opens):
-                if re.search(r'\\bfn\\b|\\basync\\s+fn\\b|\\bconst\\s+fn\\b|\\bunsafe\\s+fn\\b', pre):
-                    stack.append("fn")
-                elif re.search(r'#\\[cfg\\s*\\(test\\)\\]|#\\[test\\]|mod\\s+tests', "\n".join(lines[max(0,i-3):i])):
-                    stack.append("test")
-                else:
-                    stack.append("other")
-        elif closes > 0 and stack and stack[-1] == "other":
-            # A wrapped signature can put the body brace on its own line
-            # (`... .position(..)\n    {`). That line carries no signature
-            # text, so it pushed a bare "other" nothing ever popped. If the
-            # line above it opens a fn signature, this brace is that fn body.
-            back = [l for l in lines[max(0, i - 4):i] if l.strip() and not l.strip().startswith(("//", "#["))]
-            if back and re.search(r'\\bfn\\b|\\basync\\s+fn\\b|\\bconst\\s+fn\\b|\\bunsafe\\s+fn\\b', back[-1]):
-                stack[-1] = "fn"
-        # Only flag blank lines inside the diff hunks
-        if (stripped == ""
-            and stack
-            and stack[-1] == "fn"
-            and any(s <= i <= e for s, e in hunk_ranges)):
-            print(f"{f}:{i}: blank line in fn body (in diff hunk)")
-            hits += 1
-        while closes > 0 and stack:
-            stack.pop()
-            closes -= 1
-sys.exit(0 if hits == 0 else 1)
-PY
+    ('fn-body blank lines (R9.1 §9.1 item 10)', '''cd {{target}}
+# Companion script: verify_fn_body_blank_lines.py.
+# This was an inline python3 - <<'PY' heredoc. A heredoc needs a
+# temp file, which restricted sandboxes refuse to create, so the check
+# died before it could inspect a single line and reported nothing.
+# A standalone file has no such dependency and can be self-tested.
+python3 "{{audit_script_dir}}/verify_fn_body_blank_lines.py" "{{target}}" \\
+    | grep -v -E '^=== fn-body-blank-lines'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_fn_body_blank_lines.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
 
     ('Cargo.toml dep block order (§13.7 round 4)', '''
@@ -742,12 +347,12 @@ PY
 #       len(re.sub(r"\\s+", "", "<entry-joined>"))), ties broken by
 #       dep key ASCII lex.
 #
-# The companion script `verify_dep_order.py` implements this. Its
+# The companion script verify_dep_order.py implements this. Its
 # exit code is the only source of truth for pass/fail. We pipe its
-# stdout through `grep -v` to drop the success-path trailer line
-# (`N files checked, M violations`) — that line would otherwise be
+# stdout through grep -v to drop the success-path trailer line
+# (N files checked, M violations) — that line would otherwise be
 # counted as a hit by the audit wrapper. The filter matches ANY count, not
-# just `0 violations`: a nonzero summary line is still a summary line, and
+# just 0 violations: a nonzero summary line is still a summary line, and
 # counting it inflates the reported hit total by exactly 1.
 # The actual violation lines (file paths + actual vs expected) MUST flow
 # through unfiltered.
@@ -769,7 +374,7 @@ exit "$exit_code"
     ('Cargo.toml features array order (§13.7 round 5)', '''
 # verify_dep_order.py orders dependency ENTRIES within a
 # [dependencies]-style block but does not look inside a dependency's
-# `features = [...]` array. §13.7 applies the same key to both:
+# features = [...] array. §13.7 applies the same key to both:
 #
 #   * Primary: element length in characters, ascending.
 #   * Secondary: element text, ASCII lexicographic ascending.
@@ -778,13 +383,13 @@ exit "$exit_code"
 # verify_dep_order.py, so a features array reads in the same visual
 # rhythm as the block containing it.
 #
-# Scope: dependency features arrays only. `required-features = []` on a
-# `[[bin]]` target is a different key and is skipped. Arrays containing
+# Scope: dependency features arrays only. required-features = [] on a
+# [[bin]] target is a different key and is skipped. Arrays containing
 # comments are skipped too — re-ordering could silently re-associate a
 # comment with a different element.
 #
-# Summary line filtered for ANY violation count, not just `0 violations`:
-# `run_check` counts stdout LINES as hits, so an unfiltered nonzero summary
+# Summary line filtered for ANY violation count, not just 0 violations:
+# run_check counts stdout LINES as hits, so an unfiltered nonzero summary
 # line would inflate this check's reported hit total by 1.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_features_order.py" "{{target}}" 2>/dev/null \
@@ -799,9 +404,9 @@ exit "$exit_code"
     # check 23 — §L (2026-09-27 user 钦定): lombok accessor attributes
     # must not spell out `pub`; the macro already defaults to Public.
     ('no redundant explicit `pub` in lombok accessor attrs (§L)', '''
-# lombok_macros::Visibility derives `Default = Public`
+# lombok_macros::Visibility derives Default = Public
 # (lombok-macros/src/visibility/enum.rs). So an accessor attribute with
-# NO visibility already generates a `pub` accessor:
+# NO visibility already generates a pub accessor:
 #
 #     #[get(pub)]              ->  #[get]              (redundant)
 #     #[get(pub, type(copy))]  ->  #[get(type(copy))]  (redundant)
@@ -812,14 +417,14 @@ exit "$exit_code"
 #
 #     #[get(pub(crate))]  /  #[get_mut(pub(crate))]   — meaningful, kept
 #
-# The verifier matches a bare `pub` token (not followed by `(`), so every
-# `pub(crate)` / `pub(super)` form passes untouched.
+# The verifier matches a bare pub token (not followed by (), so every
+# pub(crate) / pub(super) form passes untouched.
 #
-# The summary line is filtered for ANY count, not just `0 violations`: the
-# `run_check` helper counts stdout LINES as hits, so a trailing
+# The summary line is filtered for ANY count, not just 0 violations: the
+# run_check helper counts stdout LINES as hits, so a trailing
 # "N files checked, M violations" line would be counted as an extra violation
 # and the audit would report M+1 (verified 2026-09-27: 1 real violation was
-# reported as "2 hits"). Only the `0 violations` form was filtered before, so
+# reported as "2 hits"). Only the 0 violations form was filtered before, so
 # every FAIL was off by one.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_no_redundant_accessor_pub.py" "{{target}}" 2>/dev/null \
@@ -836,7 +441,7 @@ exit "$exit_code"
     # Sibling of check 22b (which catches the redundant explicit `pub`); this one
     # catches what is left after the `pub` is dropped.
     ('no bare redundant lombok accessor attrs (§L)', '''
-# `#[derive(Data)]` IS `Getter + GetterMut + Setter`, so a field of a derived
+# #[derive(Data)] IS Getter + GetterMut + Setter, so a field of a derived
 # struct already gets its accessor. A bare attribute restates that default:
 #
 #     #[derive(Data)]
@@ -857,8 +462,8 @@ exit "$exit_code"
 # attribute would be the only thing creating the accessor, so it is not
 # redundant), and comment lines never count.
 #
-# The summary line is filtered for ANY count, not just `0 violations`:
-# `run_check` counts stdout LINES as hits, so a trailing
+# The summary line is filtered for ANY count, not just 0 violations:
+# run_check counts stdout LINES as hits, so a trailing
 # "N files checked, M violations" would inflate the audit's count to M+1.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_no_redundant_accessor_attr.py" "{{target}}" 2>/dev/null \
@@ -873,12 +478,12 @@ exit "$exit_code"
     # check 25 — §17 CI never bumps versions / never writes `version =`
     # (2026-09-26 added). Companion script: verify_ci_no_bump.py.
     ('CI workflow forbids version bumps and version writes (§17)', '''
-# Forbid any `.github/workflows/*.yml` step that bumps a Cargo.toml
+# Forbid any .github/workflows/*.yml step that bumps a Cargo.toml
 # version (cc bump / crate bump with --patch/--minor/.../--release /
-# --target-version) or rewrites a `version =` line via sed -i / perl -pi
-# / python3 -c / awk >. Read-only `grep ... | sed -E 's/.../.../'`
-# extraction of `$VERSION` for tag/commit-message is allowed.
-# Allowlist: `# ci-allow-version-write: <reason>` on the line just
+# --target-version) or rewrites a version = line via sed -i / perl -pi
+# / python3 -c / awk >. Read-only grep ... | sed -E 's/.../.../'
+# extraction of $VERSION for tag/commit-message is allowed.
+# Allowlist: # ci-allow-version-write: <reason> on the line just
 # above the violation exempts it (tight coupling).
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_ci_no_bump.py" "{{target}}" \
@@ -900,11 +505,11 @@ exit "$exit_code"
 #   - Each keyword file (const.rs / static.rs / fn.rs / enum.rs /
 #     struct.rs / trait.rs / impl.rs / type.rs / mod.rs) under src/
 #     MUST be the only declaration kind it contains.
-#   - First non-comment line MUST be `use super::*;` (the previous
-#     exemption allowing direct `///` doc comments on enum.rs /
+#   - First non-comment line MUST be use super::*; (the previous
+#     exemption allowing direct /// doc comments on enum.rs /
 #     struct.rs / type.rs is RETIRED).
-#   - No `use crate::xxx;` / `use std::xxx;` / `use external::xxx;`
-#     / `use super::specific_path;` outside the leading super::*.
+#   - No use crate::xxx; / use std::xxx; / use external::xxx;
+#     / use super::specific_path; outside the leading super::*.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_keyword_file_purity.py" "{{target}}" \\
     | grep -v -E '^=== keyword-file purity:'
@@ -920,7 +525,7 @@ exit "$exit_code"
     # verify_no_impl_trait_params.py.
     ('no impl Trait in fn parameters (§9.2)', '''
 # Per rust-standards §9.2: fn parameters must use generic + where
-# clause, not `impl Trait`.  Example:
+# clause, not impl Trait.  Example:
 #   fn parse<T: FromStr>(...)  ❌  inline bound
 #   fn parse<T>(...) where T: FromStr  ✅
 #   fn f(x: impl AsRef<str>)  ❌  impl param
@@ -997,13 +602,13 @@ exit "$exit_code"
     # 有可见性".  Companion: verify_mod_visibility.py.
     ('mod.rs `mod` declaration must be bare (§6.2)', '''
 # Per rust-standards §6.2 (2026-09-26 user iteration): in any
-# mod.rs, `mod r#xxx;` declarations MUST be bare — no `pub mod`,
-# no `pub(crate) mod`, no `pub(super) mod`.  The visibility of
+# mod.rs, mod r#xxx; declarations MUST be bare — no pub mod,
+# no pub(crate) mod, no pub(super) mod.  The visibility of
 # items inside the module is controlled at the declaration site
-# of the item itself, not on the mod line.  `mod` in mod.rs is
+# of the item itself, not on the mod line.  mod in mod.rs is
 # always crate-internal (private to the parent module's
 # namespace); the parent re-exports via the middle-stage
-# `pub use {...};` block if external visibility is needed.
+# pub use {...}; block if external visibility is needed.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_mod_visibility.py" "{{target}}" \
     | grep -v -E '^=== mod.rs mod visibility'
@@ -1022,10 +627,10 @@ exit "$exit_code"
 # warn, 禁止使用 allow 宏".  clippy / rustc warnings must be
 # fixed at source, not silenced with attribute macros.  This
 # check is the tree-wide version of git-diff-scoped check 2;
-# it catches `#[allow(...)]` accumulated over multiple PRs.
-# Exemptions:  (a) `#[allow(...)]` inside `#[cfg(test)] mod tests
-# { ... }` blocks (test helpers may silence unused warnings);
-# (b) `tests/` directory entirely (R14.7 self-contained).
+# it catches #[allow(...)] accumulated over multiple PRs.
+# Exemptions:  (a) #[allow(...)] inside #[cfg(test)] mod tests
+# { ... } blocks (test helpers may silence unused warnings);
+# (b) tests/ directory entirely (R14.7 self-contained).
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_no_allow_lints.py" "{{target}}" \
     | grep -v -E '^=== no-allow-lints:'
@@ -1043,12 +648,12 @@ exit "$exit_code"
     # types AND catches `Vec<_>` placeholder annotations.
     ('explicit type annotations for let bindings (§5.1)', '''
 # Per rust-standards rule 6 (user 原话, 2026-09-26): "所有变量 /
-# 参数 / 返回值必须显式类型".  Common pitfall: `let items =
-# Vec::new();` leaves the type ambiguous to the reader; must be
-# `let items: Vec<u32> = Vec::new();`.  Same for HashMap /
+# 参数 / 返回值必须显式类型".  Common pitfall: let items =
+# Vec::new(); leaves the type ambiguous to the reader; must be
+# let items: Vec<u32> = Vec::new();.  Same for HashMap /
 # HashSet / BTreeMap / BTreeSet / VecDeque / LinkedList /
 # BinaryHeap / String / Box / Rc / Arc.  Also catches
-# `let v: Vec<_> = ...collect();` which defeats the rule by
+# let v: Vec<_> = ...collect(); which defeats the rule by
 # leaving the element type implicit.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_explicit_type_annotations.py" "{{target}}" \
@@ -1069,9 +674,9 @@ exit "$exit_code"
     ('no `#[inline]` in cdylib crates (§12)', '''
 # Per rust-standards rule 12 (2026-09-26 user clarification):
 # "WASM 项目禁止所有 inline 注解".  Detection: find all
-# Cargo.toml files with `crate-type = ["cdylib", ...]` and
-# audit their src/ trees for `#[inline]` / `#[inline(always)]`
-# / `#[inline(never)]`.  Pure rust crates (no cdylib) are
+# Cargo.toml files with crate-type = ["cdylib", ...] and
+# audit their src/ trees for #[inline] / #[inline(always)]
+# / #[inline(never)].  Pure rust crates (no cdylib) are
 # ignored.  When no cdylib crate exists in the tree, the
 # script exits 0 with informational output.
 cd {{target}}
@@ -1093,11 +698,11 @@ exit "$exit_code"
     ('all `let` bindings have explicit type annotation (§5.1)', '''
 # Per rust-standards §5.1 (2026-09-26 third iteration, user 原话):
 #   "let 的类型必须要显示标注 (包含 let _ = )"
-# Every `let <name> = <expr>;` MUST declare the binding's type via
-# `let <name>: T = <expr>;`.  Bare `let x = 5;` is forbidden.
-# Likewise `let _ = expr;` is forbidden; use `let _: T = expr;`.
+# Every let <name> = <expr>; MUST declare the binding's type via
+# let <name>: T = <expr>;.  Bare let x = 5; is forbidden.
+# Likewise let _ = expr; is forbidden; use let _: T = expr;.
 # Companion script: verify_let_type_annotations.py.
-# Exempts: tests/ (R14.7 self-contained), `if let` / `while let`
+# Exempts: tests/ (R14.7 self-contained), if let / while let
 # pattern guards, Rust 2024 let-chains (the regex won't match).
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_let_type_annotations.py" "{{target}}" \
@@ -1118,11 +723,11 @@ exit "$exit_code"
     ('closure parameters have explicit type annotation (§5.2)', '''
 # Per rust-standards §5.2 (2026-09-26 third iteration, user 原话):
 #   "闭包参数需要显示标注"
-# Every closure parameter must have explicit `: T` annotation.
-# `|x| x + 1` is forbidden; use `|x: u32| -> u32 { x + 1 }`.
+# Every closure parameter must have explicit : T annotation.
+# |x| x + 1 is forbidden; use |x: u32| -> u32 { x + 1 }.
 # Companion script: verify_closure_type_annotations.py.
-# Exempts: tests/, empty `||`, rest `|..|`, ref patterns
-# `|&x: &T|`, tuple destructuring with type `(pat): T`.
+# Exempts: tests/, empty ||, rest |..|, ref patterns
+# |&x: &T|, tuple destructuring with type (pat): T.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_closure_type_annotations.py" "{{target}}" \
     | grep -v -E '^=== closure-params-explicit-type:'
@@ -1142,12 +747,12 @@ exit "$exit_code"
 # Per rust-standards §2.1 + §2.2 (2026-09-26 third iteration,
 # user 原话): "非单侧的 fn 必须要符合格式的文档注释".
 #   Layer 1 (existence): every non-test fn / impl method needs
-#     at least one `///` line above it.
+#     at least one /// line above it.
 #   Layer 2 (completeness): every fn with non-self params OR
-#     non-() return must have `# Arguments` / `# Returns` section.
+#     non-() return must have # Arguments / # Returns section.
 #   Layer 3 (format): the doc-comment template structure is
-#     exactly `# Arguments` + `- `Type` - description` /
-#     `# Returns` + `- `Type`: description`.
+#     exactly # Arguments + - Type - description /
+#     # Returns + - Type: description.
 # Tests are exempt (R14.5 says test files have ZERO comments).
 # Companion script: verify_doc_comment_format.py (already
 # existed pre-this-round, but is now wired as the §2.1/§2.2
@@ -1173,13 +778,13 @@ exit "$exit_code"
 # Per rust-standards §1.3c strengthened (2026-09-26 third
 # iteration, user 原话): "硬编码字符串必须要维护到 const.rs".
 # Every hardcoded string literal (≥ 4 non-trivial chars) in any
-# non-const file MUST live in `const.rs` as a `pub const`.  This
+# non-const file MUST live in const.rs as a pub const.  This
 # is the comprehensive form of the existing check 18 (which
 # only covers fn.rs byte/char/multi-char literals).  Companion
 # script: verify_hardcoded_strings.py.  Exempts: const.rs
 # itself (canonical home), tests/ (R14.7 self-contained), attr
 # lines (#[doc = "..."], #[serde(rename = "...")]), and format
-# macro format strings (`println!("...")`).
+# macro format strings (println!("...")).
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_hardcoded_strings.py" "{{target}}" \
     | grep -v -E '^=== hardcoded-strings-to-const:'
@@ -1206,10 +811,10 @@ exit "$exit_code"
 # Per rust-standards §2.4 (2026-09-26 fifth iteration, user 原话):
 #   "对于 lib.rs 必须要检查是否存在 //! 注释,注释第一行 //! 后是
 #    包名后面是一行 //! 再后面才是内容"
-# Every lib.rs MUST start with the canonical 3-line `//!` block:
-#   1st line: `//! <package_name>` (text must equal [package].name)
-#   2nd line: `//!` (empty separator)
-#   3rd line: `//! <description>` (content)
+# Every lib.rs MUST start with the canonical 3-line //! block:
+#   1st line: //! <package_name> (text must equal [package].name)
+#   2nd line: //! (empty separator)
+#   3rd line: //! <description> (content)
 # Companion script: verify_lib_rs_doc_comment.py.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_lib_rs_doc_comment.py" "{{target}}" \
@@ -1296,16 +901,16 @@ fi
 exit "$exit_code"
 '''
 ),
-    # check 41 — §6.6 same-root `use` statements must be aggregated into
+    # check 41 — §6.6 same-root use statements must be aggregated into
     # one brace form (2026-09-27 user directive).  Two or more independent
-    # TOP-LEVEL `use` statements sharing the same root segment (e.g.
-    # `use std::ffi::c_void;` + `use std::path::Path;`) must be written as
-    # `use std::{ffi::c_void, path::Path};`.
+    # TOP-LEVEL use statements sharing the same root segment (e.g.
+    # use std::ffi::c_void; + use std::path::Path;) must be written as
+    # use std::{ffi::c_void, path::Path};.
     #
     # Grouping is PER (root, visibility) — this is measured, not assumed.
     # rustfmt 1.9.0-stable reorders but never merges (imports_granularity
-    # is nightly-only), and even nightly `imports_granularity = "Crate"`
-    # keeps `pub use std::...` separate from private `use std::...`, i.e.
+    # is nightly-only), and even nightly imports_granularity = "Crate"
+    # keeps pub use std::... separate from private use std::..., i.e.
     # a visibility split is intentional re-export semantics, not drift.
     # Cross-visibility pairs are therefore EXEMPT.
     #
@@ -1338,10 +943,10 @@ exit "$exit_code"
     # 需要报错提示代码文件不能和目录在同一级,注意 lib.rs main.rs build.rs
     # mod.rs 这些除外".
     #
-    # A keyword file is a LEAF of the module tree: `mod r#fn;` in mod.rs
-    # resolves to `<dir>/fn.rs` and nothing else.  Once the same directory
-    # also owns sub-modules, the reader must decide whether `foo.rs`
-    # belongs to the parent scope or is a namespace peer of `foo/` — two
+    # A keyword file is a LEAF of the module tree: mod r#fn; in mod.rs
+    # resolves to <dir>/fn.rs and nothing else.  Once the same directory
+    # also owns sub-modules, the reader must decide whether foo.rs
+    # belongs to the parent scope or is a namespace peer of foo/ — two
     # conventions for one level of the tree.  The four entry files are
     # exempt precisely because their whole job is to be the parent of
     # sub-modules.
@@ -1353,7 +958,7 @@ exit "$exit_code"
     # Companion script: verify_no_sibling_dirs.py.
     ('code file cannot share a directory level with sub-directories (§1.3d)', '''
 # Per rust-standards §1.3d (2026-09-28 user directive): a directory that
-# owns sub-modules must not also own `.rs` code files, except lib.rs /
+# owns sub-modules must not also own .rs code files, except lib.rs /
 # main.rs / build.rs / mod.rs.  Companion script: verify_no_sibling_dirs.py.
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_no_sibling_dirs.py" "{{target}}" \\
@@ -1367,7 +972,7 @@ exit "$exit_code"
     # Companion script: verify_no_panicking_borrow.py.
     ('RefCell borrow guard must not be held across a re-entrant call (\u00a7borrow)', '''
 # Per user directive 2026-09-30: "safe handling of all borrow failures".
-# `RefCell::borrow()`/`borrow_mut()` panic when the cell is already borrowed;
+# RefCell::borrow()/borrow_mut() panic when the cell is already borrowed;
 # in WASM there is no try/catch, so a re-entrant borrow blanks the page. A
 # one-line borrow is already safe and is deliberately not reported -- only a
 # guard still in scope at a call that can re-enter is a violation.
@@ -1381,12 +986,110 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
+    # Companion script: verify_no_panicking_option_getter.py.
+    # This one existed but nothing ran it, so a public `get_x()` that unwraps an
+    # `Option<T>` the API documents as `None` was invisible to every caller.
+    # Two dimensions: the call site (a getter used as if it returned a bare T)
+    # and the declaration itself (a bare Option field on a `Data` struct whose
+    # inner type is Copy, which is what makes the generated getter unwrap).
+    # The declaration side is scoped to Copy inner types on purpose - for a
+    # non-Copy inner type lombok already returns the Option, so flagging those
+    # would be a false positive. Verified against a fixed tree (0 hits) and
+    # against one reverted fix (exactly 1 hit, naming the struct and field).
+    ('no panicking lombok getter on an Option field (R11.5)', '''
+# Companion script: verify_no_panicking_option_getter.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_panicking_option_getter.py" "{{target}}" \\
+    | grep -v -E '^=== panicking-getter-on-Option:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_panicking_option_getter.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # Companion script: verify_no_qualified_std_path.py
+    # A sub-file that writes `std::fs::create_dir_all` has bypassed the
+    # top-level import block, so the call does not resolve through the crate
+    # root the way §6.1 intends. Scoped to the standard library because that is
+    # where the duplicate-import churn is visible; the crate-name half of
+    # §6.4 is verify_no_external_crate_path.
+    ('no qualified std:: path in a sub-file (R6.3 std)', '''
+# Companion script: verify_no_qualified_std_path.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_qualified_std_path.py" "{{target}}" \\
+    | grep -v -E '^=== qualified-std-path:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_qualified_std_path.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # Companion script: verify_pub_group_order.py (+ fix_pub_group_order.py).
+    # §18 (2026-10-07 user): inside one const.rs / static.rs every `pub`
+    # item precedes any pub(crate)/pub(super)/private item, so the crate's
+    # public surface reads as one group at the top of the file.
+    ('pub before pub(crate) group order in const.rs/static.rs (§18)', '''
+# Companion script: verify_pub_group_order.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_pub_group_order.py" "{{target}}" \\
+    | grep -v -E '^=== pub-group-order:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_pub_group_order.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # Companion script: verify_const_visibility.py (+ fix_const_visibility.py).
+    # §18 constants clause (2026-10-07 user, three rounds: "很多 pub 还是可以
+    # 优化成 pub(crate),而且尤其是常量"): a `pub const`/`pub static` with zero
+    # readers outside its owning crate is not public API - reduce it.
+    # Consumers counted: other workspace crates' src, every tests/ dir,
+    # examples/, benches/, src/bin/**, and src/main.rs of a lib+bin package
+    # (the bin is a separate crate - see the CARGO_TOML incident, pitfalls §91).
+    ('constant visibility: pub const/static is forbidden outright (§18, pitfalls §93)', '''
+# Companion script: verify_const_visibility.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_const_visibility.py" "{{target}}" \\
+    | grep -v -E '^=== const-visibility:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_const_visibility.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # Companion script: verify_no_pub_in_tests.py (+ fix_no_pub_in_tests.py).
+    # §18 tests clause (2026-10-07 user: "所有的单测都不需要 pub"), NARROWED by
+    # compile evidence (pitfalls §92): only single-reader items are flagged -
+    # a tests/<sub>/const.rs item globbed by its parent mod.rs and a tests/mod.rs
+    # `pub use` re-export are load-bearing, never flagged.
+    ('no vestigial pub inside tests/ (§18 tests clause)', '''
+# Companion script: verify_no_pub_in_tests.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_pub_in_tests.py" "{{target}}" \\
+    | grep -v -E '^=== no-pub-in-tests:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_pub_in_tests.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
 ]
 
 
 def run_check(name, shell_template, target):
     cmd = shell_template.replace('{target}', target)
     r = subprocess.run(['bash', '-c', cmd], capture_output=True, text=True, cwd=target)
+    # A wrapper propagates its verifier's verdict through the exit code, so
+    # rc == 0 means "this check found nothing" no matter what the verifier
+    # printed.  Historically the verdict was decided purely by "did stdout
+    # print anything", which turned every verifier's own success trailer
+    # into a hit: a wrapper whose `grep -v` filter had drifted out of sync
+    # with the verifier's summary string reported a permanent, unfixable
+    # false positive.  Trusting the exit code removes that whole class of
+    # bug instead of chasing each summary string.  The per-wrapper
+    # `grep -v` filters stay in place as a second line of defence.
+    if r.returncode == 0:
+        return name, []
     out = [l for l in r.stdout.strip().split('\n') if l]
     # A check that produces NO stdout can mean two very different things:
     # "scanned everything and found nothing" (a real pass) or "the
@@ -1402,6 +1105,9 @@ def run_check(name, shell_template, target):
         ]
         if missing:
             return name, ['FAIL: companion verifier is missing — ' + missing[0].strip()]
+        return name, [
+            f'FAIL: check exited {r.returncode} with no stdout — {r.stderr.strip()[:200]}'
+        ]
     return name, out
 
 
@@ -1412,6 +1118,42 @@ def main():
         sys.exit(1)
     if not os.path.isdir(os.path.join(target, '.git')) and not os.path.isdir(os.path.join(target, '..', '.git')):
         print(f'warning: {target} does not appear to be a git repo (git diff may be empty)')
+
+    # Diff-scoped guard. The checks below that call
+    # `git diff --name-only origin/master` see an empty window when that
+    # ref does not exist (a fork, a shallow clone, a repo with no such remote).
+    # git writes the error to stderr and exits non-zero, but nothing here ever
+    # looks at it — so those checks report PASS while having scanned no file
+    # at all. Fail loudly instead of handing back a green summary that means
+    # nothing.
+    window = subprocess.run(
+        ['git', '-C', target, 'diff', '--name-only', 'origin/master', 'HEAD', '--', '*.rs'],
+        capture_output=True, text=True,
+    )
+    has_rust = False
+    for _root, _dirs, files in os.walk(target):
+        if 'target' in _root.split(os.sep) or '.git' in _root.split(os.sep):
+            continue
+        if any(f.endswith('.rs') for f in files):
+            has_rust = True
+            break
+    if window.returncode != 0 and has_rust:
+        detail = [
+            line for line in (window.stderr or '').strip().splitlines()
+            if 'usage:' not in line and not line.startswith(' ') and line.strip()
+        ]
+        print(
+            'FAIL: 0. diff window is empty: `git diff origin/master` failed, '
+            'so every diff-scoped check below would pass without reading a file.',
+            file=sys.stderr,
+        )
+        if detail:
+            print(f'  git said: {detail[-1]}', file=sys.stderr)
+        print(
+            '  Fix: fetch the ref (`git fetch origin master`) or point the '
+            'audit at a base that exists.', file=sys.stderr,
+        )
+        return 1
 
     # Substitutions available in every shell template:
     #   {{target}}            — absolute path of the repo root being audited
@@ -1446,4 +1188,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

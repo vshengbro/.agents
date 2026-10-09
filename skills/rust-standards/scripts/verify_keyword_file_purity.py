@@ -107,6 +107,23 @@ KEYWORD_BASENAMES = set(FORBIDDEN_DECLS.keys())
 # Cargo convention paths that are exempt from this rule.
 EXEMPT_BASENAMES = {"lib.rs", "raw_html.rs", "main.rs", "build.rs"}
 
+# mod.rs is the ONE keyword file that is required to carry `use` statements:
+# §6.1's three-stage order (mod decls -> `pub use` -> `pub(crate) use` ->
+# `pub(super) use` -> private use) lives in mod.rs, and templates/mod-rs.md
+# shows every one of the four canonical mod.rs shapes ending in a
+# `pub use {...};` / `use super::*;` pair. The `use`-shape rules below
+# (first-use-must-be-super-star, no bare `use ext::...`) therefore apply to
+# SUB-FILES only, exactly as this module's own docstring states
+# ("Scope: sub-files only (any .rs file other than lib.rs / mod.rs)").
+#
+# Before this split, mod.rs was matched by KEYWORD_BASENAMES and then run
+# through _check_first_line_super / _check_use_centralized, which made the
+# audit contradict itself: check 29 validates the §6.1 three-stage order of
+# mod.rs imports while this check forbade those same imports. The internal
+# comment "Skip `pub use ...` re-exports (mod.rs only -- already filtered
+# out)" described an exemption that was never implemented.
+EXEMPT_FROM_USE_RULES = {"mod.rs"}
+
 # Module path basenames exempt (bin/<name>.rs where <name> is anything).
 BIN_DIR_PATTERN = re.compile(r"/bin/[^/]+\.rs$")
 
@@ -126,11 +143,18 @@ USE_FORBIDDEN = re.compile(
 
 
 def _list_rs_files(root: Path) -> list[Path]:
-    """Find every .rs file under root, skipping cargo noise."""
+    """Find every .rs file under root, skipping cargo noise.
+
+    The build directory is pruned by name PREFIX, not by the literal `target`:
+    CARGO_TARGET_DIR can be `target-pg` / `target.linux`, and generated code
+    there is not subject to §1.3. Measured: 11 spurious findings in
+    `target-pg/debug/build/serde-*/out/private.rs` before this change.
+    """
     r = subprocess.run(
-        ["find", str(root), "-name", "*.rs",
-         "-not", "-path", "*/target/*",
-         "-not", "-path", "*/.cargo/registry/*"],
+        ["find", str(root),
+         "-path", "*/target*", "-prune", "-o",
+         "-path", "*/.cargo/registry", "-prune", "-o",
+         "-name", "*.rs", "-print"],
         capture_output=True, text=True,
     )
     out: list[Path] = []
@@ -142,12 +166,24 @@ def _list_rs_files(root: Path) -> list[Path]:
 
 
 def _is_exempt(path: Path, root: Path) -> bool:
-    """Skip lib.rs / main.rs / build.rs / bin/<name>.rs / tests/."""
-    rel = path.relative_to(root)
-    parts = rel.parts
+    """Skip lib.rs / main.rs / build.rs / bin/<name>.rs / tests/.
+
+    The directory-component tests read the file's own path, never
+    `path.relative_to(root)`. `root` is a best-effort guess (see
+    `_infer_root`) and is not dependable: for `engine/tests/renderer/fn.rs`
+    there is no `src` ancestor, so root degrades to the file's own parent and
+    the relative view collapses to `fn.rs`. Reading components from that view
+    silently dropped the `tests` component, so the exemption never fired and
+    every staged test file was reported as violating §1.3/§1.4 — while the
+    audit, which walks the tree from the repo root, saw a clean 0. A relative
+    label is a rendering concern; an exemption is a property of where the file
+    actually lives.
+    """
+    parts = path.parts
     if "tests" in parts:
         return True
-    if "target" in parts or ".cargo" in parts:
+    # any cargo build directory, whatever CARGO_TARGET_DIR is called
+    if any(p.startswith("target") for p in parts) or ".cargo" in parts:
         return True
     # `tmp/` is scratch output: `crate fmt` / integration tests write throwaway
     # projects there (hyperlane and ctares both have a gitignored
@@ -158,6 +194,10 @@ def _is_exempt(path: Path, root: Path) -> bool:
     bn = path.name
     if bn in EXEMPT_BASENAMES:
         return True
+    try:
+        rel = path.relative_to(root)
+    except ValueError:
+        rel = path
     if BIN_DIR_PATTERN.search(str(rel)):
         return True
     return False
@@ -274,12 +314,16 @@ def _check_use_centralized(
     first = _first_non_comment_line(text)
     if first is None:
         return []
-    # §14.1 makes `tests/` the one place a `use crate_name::*;` is
-    # *mandatory*: a test module lives outside the crate, so it has no
-    # `super::*` chain to inherit. Flagging it here contradicts §14.1
-    # directly, and every `tests/mod.rs` in every repo trips it. §6.4 is
-    # about src/, where lib.rs already re-exports everything.
-    if "tests" in path.parts:
+    # §14.1 makes a file sitting directly in `tests/` the one place a
+    # `use crate_name::*;` is *mandatory*: such a module has no `super::*`
+    # chain above it, so it has nothing to inherit from. That is the file
+    # this guard is written for. A keyword file one level deeper
+    # (`tests/<sub>/fn.rs`) DOES have the chain -- its parent `mod.rs` globs
+    # the outermost `tests/mod.rs` -- so §6.4 applies to it unchanged, and
+    # the guard stops at the top of the test tree. `tests` was matched
+    # anywhere in the path, which exempted every test keyword file along
+    # with the one the rule is about.
+    if "tests" in path.parts and path.parent.name == "tests":
         return []
     leading_line_no = first[0]
     for i, line in enumerate(lines, start=1):
@@ -316,6 +360,27 @@ def _infer_root(path: Path) -> Path:
     return path.parent
 
 
+def _is_nested_test_keyword_file(path: Path) -> bool:
+    """A keyword file at least one level below a `tests/` directory.
+
+    `tests/<sub>/fn.rs` is not the file §14.1 talks about: its parent
+    `mod.rs` globs the outermost `tests/mod.rs`, so a `super::*` chain does
+    reach it and §1.3's use-shape rules apply unchanged. `_is_exempt` skips
+    the whole `tests/` tree before any rule runs, so without this the only
+    keyword file in a test tree is checked for its filename and nothing
+    else -- which is how `cli/tests/build/fn.rs` and
+    `engine/tests/renderer/fn.rs` were both created carrying
+    `use clap::Parser;` / `use euv_engine::*;` inline, while every
+    pre-existing test `fn.rs` in the repo carried only `use super::*;`.
+    """
+    return (
+        "tests" in path.parts
+        and path.parent.name != "tests"
+        and path.name in KEYWORD_BASENAMES
+        and path.name not in EXEMPT_FROM_USE_RULES
+    )
+
+
 def audit_one(path: Path, root: Path | None = None) -> list[str]:
     """Return all violations for this single file.
 
@@ -327,8 +392,20 @@ def audit_one(path: Path, root: Path | None = None) -> list[str]:
     """
     if root is None:
         root = _infer_root(path)
+    out: list[str] = []
+    # The rest of §1.3 is not applied under `tests/`, but the use-shape rules
+    # are, for a keyword file that has a super chain to inherit from.
+    if _is_nested_test_keyword_file(path):
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            text = ""
+        if text:
+            lines = text.splitlines()
+            out += _check_first_line_super(path, text)
+            out += _check_use_centralized(path, text, lines, _scan_raw_string_state(lines))
     if _is_exempt(path, root):
-        return []
+        return out
     basename = path.name
     if basename not in KEYWORD_BASENAMES:
         # §1.4: an unrecognised basename is a violation in its own right.
@@ -336,20 +413,25 @@ def audit_one(path: Path, root: Path | None = None) -> list[str]:
         # every check, which is how cli/src/build/inline.rs survived.
         rel = path.relative_to(root)
         keywords = ", ".join(sorted(n[:-3] for n in KEYWORD_BASENAMES))
-        return [
+        return out + [
             f"{rel}: §1.4: `{basename}` is not a keyword file name; "
             f"move its contents into one of {keywords}"
         ]
     try:
         text = path.read_text()
     except (OSError, UnicodeDecodeError):
-        return []
+        return out
     lines = text.splitlines()
     inside_raw = _scan_raw_string_state(lines)
-    out: list[str] = []
-    out += _check_first_line_super(path, text)
+    # mod.rs keeps its §1.3a column-0 declaration check but is exempt from the
+    # two `use`-shape checks, because §6.1 requires mod.rs to carry the
+    # import block that those checks would forbid. See
+    # EXEMPT_FROM_USE_RULES.
+    if basename not in EXEMPT_FROM_USE_RULES:
+        out += _check_first_line_super(path, text)
     out += _check_forbidden_decl(path, basename, lines, inside_raw)
-    out += _check_use_centralized(path, text, lines, inside_raw)
+    if basename not in EXEMPT_FROM_USE_RULES:
+        out += _check_use_centralized(path, text, lines, inside_raw)
     return out
 
 

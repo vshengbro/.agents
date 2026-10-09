@@ -18,8 +18,9 @@ import sys
 sys.path.insert(0, os.path.expanduser(
     "~/.agents/skills/social-media/x-post-via-browser/scripts"))
 import cdp as C                                          # noqa: E402
+import handle                                            # noqa: E402
 
-EXPECTED = "eastspire_sheng"
+EXPECTED = handle.FALLBACK  # resolved live from the page in main()
 
 ARTICLES = r"""(() => {
   const out = [];
@@ -46,6 +47,8 @@ def main() -> int:
         print("no x.com tab")
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
+    global EXPECTED
+    EXPECTED = handle.live(c)
     print("url   :", tabs[0]["url"])
     print("title :", c.js("document.title", wait=20, retries=4))
     print("logged:", c.js(

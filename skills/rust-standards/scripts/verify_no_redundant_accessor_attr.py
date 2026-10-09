@@ -272,6 +272,31 @@ def iter_rust_files(root: Path):
         yield path
 
 
+def audit_one(path: Path, root: Path = None) -> list[str]:
+    """Per-file entry point for staged_file_gate.
+
+    This script was already in the gate's VERIFIERS whitelist, but it
+    exposed no `audit_one`, and the gate's probe is
+    `getattr(module, "audit_one", None)` -> `return []` when absent. So the
+    rule was registered and did nothing: violations reached the audit but
+    never blocked a commit. `check_text` is already pure per-file work, so
+    the wrapper is thin.
+    """
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    base = Path(root) if root is not None else Path(path).parent
+    try:
+        rel = Path(path).relative_to(base)
+    except ValueError:
+        rel = Path(path).name
+    return [
+        f"{rel}:{line_no}: redundant accessor attribute {attr} on `{item}`"
+        for line_no, attr, item in check_text(text)
+    ]
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print("usage: verify_no_redundant_bare_accessor.py <repo_root>", file=sys.stderr)
