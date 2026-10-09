@@ -15,7 +15,7 @@ for the master-pattern exceptions the script cannot statically detect):
  2. #[allow] in production (R11.x — explicitly forbidden by user)
  3. production unwrap/expect/panic (R11.4)
  4. #[test] in production (R14.5)
- 5. // comments in mod.rs (R2.5)
+ 5. // comments in mod.rs (R2.5, DEPRECATED — see check 51)
  6. mod.rs missing trailing use super::* (R6.2)
  7. sub-file first line not use super::* (R6.3)
  8. #[cfg(test)] in production (R14.5)
@@ -48,6 +48,7 @@ for the master-pattern exceptions the script cannot statically detect):
 35. non-test fn has compliant doc comment (§2.1 / §2.2, authoritative)
 36. hardcoded strings live in `const.rs` (§1.3c strengthened)
 37. lib.rs `//!` doc block structure (§2.4)
+51. no comments in *.toml files or mod.rs files (§2.5, absolute, tree-wide)
 
 Each check prints either "PASS: N. <category>" or "FAIL: N. <category>: <count>
 hits" followed by up to 5 sample lines.
@@ -114,7 +115,7 @@ done | head -20
     ('#[test] in production', '''cd {{target}}
 git diff origin/master -- "*.rs" 2>/dev/null | grep -B5 "^\\+.*#\\[test\\]" | grep "^\\+\\+\\+ b/" | grep -v "/tests/" | head -5
 '''),
-    ('// comments in mod.rs', '''cd {{target}}
+    ('// comments in mod.rs (DEPRECATED — see check 51)', '''cd {{target}}
 for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$"); do
   [ -f "$f" ] || continue
   if grep -E "^\\s*//[^/!]" "$f" > /dev/null 2>&1; then
@@ -1070,6 +1071,28 @@ python3 "{{audit_script_dir}}/verify_no_pub_in_tests.py" "{{target}}" \\
 exit_code=${PIPESTATUS[0]}
 if [ "$exit_code" -ne 0 ]; then
     echo "FAIL: verify_no_pub_in_tests.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # Companion script: verify_no_toml_mod_comments.py (+ fixer
+    # fix_no_toml_mod_comments.py). §2.5 made ABSOLUTE 2026-10-09: every
+    # *.toml and every mod.rs in the repo carries zero comments of any
+    # form (//, ///, //!, /* */, #, trailing included), tree-wide. This
+    # check supersedes check 5 (diff-scoped, plain `//` only, TOML not
+    # covered at all) and the mod.rs comment branch that used to live in
+    # verify_module_imports_centralized.py (exempted `///` on line 1,
+    # missed trailing / block comments). Fixture pair:
+    # scripts/fixtures/toml-mod-comments/{compliant,violating}, self-test
+    # scripts/self_test_no_toml_mod_comments.py (also covers the fixer and
+    # the staged_file_gate wiring).
+    ('no comments in *.toml / mod.rs files (§2.5, absolute)', '''
+# Companion script: verify_no_toml_mod_comments.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_toml_mod_comments.py" "{{target}}" \\
+    | grep -v -E '^=== no-toml-mod-comments:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_toml_mod_comments.py exited $exit_code" >&2
 fi
 exit "$exit_code"
 '''),

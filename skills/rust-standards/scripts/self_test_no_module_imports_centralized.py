@@ -49,7 +49,7 @@ def main() -> int:
     check("violating fixture exits 1", code == 1, f"got {code}")
     check("§6.1 private root use is compliant (reaches descendants)", "cannot reach any sub-file" not in out, out[-200:])
     check("§6.1 does not flag `use self::`", "use self::inner::Helper" not in out, out[-200:])
-    check("§6.2 comment in mod.rs caught", "comment in a mod.rs body" in out, out[-200:])
+    check("§6.2 comment in mod.rs is NOT this check's job (§2.5 / check 51 owns it)", "comment in a mod.rs body" not in out, out[-200:])
     check("§6.2 blank line inside the mod block caught", "blank line inside the `mod` block" in out, out[-200:])
     check("§6.2 stage order caught", "must precede stage 2" in out, out[-200:])
     check("§6.2 non-pub re-export caught", "must be `pub use`" in out, out[-200:])
@@ -87,7 +87,7 @@ def main() -> int:
         mod.write_text(original_mod)
         mod.write_text(original_mod + "\n// a late comment\n")
         code, out = run(work)
-        check("mutation 4 (comment in mod.rs) is caught", code == 1, f"got {code}: {out[-160:]}")
+        check("mutation 4 (comment in mod.rs) stays compliant here — §2.5 owns comments", code == 0, f"got {code}: {out[-160:]}")
 
         code, out = run(work / "nope")
         check("nonexistent path exits 2", code == 2, f"got {code}")

@@ -3230,3 +3230,18 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **教训 6:example 等下游消费数学常量,迁移目标是 std 不是本地副本。** engine 的 PI/TWO_PI/HALF_PI 本就是 std 重导出(facade),按反 facade 原则直接删,下游 mod.rs 根部 `use std::f64::consts::{FRAC_PI_2, PI};` 沿 glob 链下放(§92);EPSILON=1e-6 是 engine 语义值不是 std 值,消费方各持 mirror const(写注释 `// Mirrors the engine's math EPSILON`)。同名 const 别放进会被祖先 glob 聚合的位置(page/mod.rs `pub(crate) use {game_3d::*, raytrace::*}` 会让两个同名 HALF_PI 对 fn.rs 歧义 E0659)—— 消歧优先改用 std 名(FRAC_PI_2)而不是加本地别名。
 
+
+## §94 verify_no_toml_mod_comments.py(§2.5 绝对化,check 51)— TOML 进 gate 的四个落地坑(2026-10-09)
+
+**背景**:user directive「toml文件和mod.rs禁止注释」。旧执行面:check 5 只扫 diff 且正则 `^\s*//[^/!]` 只捕 `//`(SKILL.md 文字声称捕 `///`,实测 `[^/!]` 把 `///` 也排除了,文档与脚本不一致);TOML 零覆盖;check 26 的 mod.rs 注释分支豁免第 1 行 `///`。落地后四个坑:
+
+1. **名字过滤会静默清空 verifier**。第一版 `find ... -not -path "*/tmp/*"` + `SKIP_PARTS={"tmp"}` 想跳过 crate-cli 的 scratch crate,结果**任何** checkout 在含 `tmp` 组件路径下的仓库(/tmp 本身、~/code/tmp-*)全部 0 命中 —— fixture 进 /tmp 跑 audit e2e 时 violating 侧 check 51 PASS。修法:scratch 目录交给 `_drop_git_ignored`(crate-cli/tmp 本来就 git-ignored),机制不靠名字。**每接一个 tree-wide verifier,必须先在 /tmp 下的 git fixture 上跑一次 audit 端到端双向** —— 单测 audit_one 走 /var/folders 永远发现不了。
+2. **TOML 进 gate 必须按原扩展名物化 baseline**。`staged_file_gate` 旧实现把所有 baseline 写成 `X.head-baseline.rs`:TOML baseline 会被 verify_no_panicking_option_getter 这类全仓 `rglob("*.rs")` 的 verifier 当 Rust 扫,且 scope 判断(`path.suffix != ".rs"` 系)在 baseline 上恒空 = 历史债全算新增。修法:`_suffix_for(target)`,TOML baseline 物化为 `.head-baseline.toml`;verifier 的 `scope_of` 先剥两种 baseline 后缀再判 scope。
+3. **单行 TOML 字符串未闭合时,跨行后的 `#` 要照报**。basic/literal 字符串按 TOML spec 不能跨行;扫描器在 `\n` 处把 unterminated 单行串状态复位为 normal(多行 `"""`/`'''` 不受影响)。「宁假阳性不漏报」:坏 TOML 里的注释藏起来比报出来糟。
+4. **rust_pre_commit.py 的 `--files` 替换是单个空格拼接 argv 元素(潜伏 bug,同轮修)**。`"{toml_files}"` 被替换成 `"a b"` 一个 argv 元素,所有 fixer 的 `nargs="*"` 把它解析成一个不存在的复合路径 —— **scope ≥ 2 个文件时 Phase 1 全部静默 no-op**(单文件碰巧正常)。修法:placeholder 处 splice 真实 argv 列表(`argv_template[i:i+1] = values`);新 fixer 自己的 `--files` 再按 whitespace split 兜底。
+
+**check 26 对齐**:`verify_module_imports_centralized.py` 的 mod.rs 注释分支已删除(注释统一归 check 51),配套 self_test_no_module_imports_centralized.py 两处断言改成「注释不归本 check」。
+
+## §95 fix_dep_order.py 吞掉跨段空行的回归(§74 修复实际失效,2026-10-09)
+
+**事故**:euv 根 Cargo.toml 删 2 行注释后顺手跑 `fix_dep_order.py --write`(hyperlane entry 归位触发 block 重序列化),结果 `[workspace.dependencies]` 最后一个 entry(多行 web-sys)与 `[dependencies]` 之间的空行被吃掉,verify_dep_order 立刻报 §13.7.2a「expected exactly 1 blank line; got no blank line」。**三函数契约断裂位置在 sort 不在 serialize**:§74 修的是 `serialize_block` 让 last entry 也 honour `followed_by_blank`,但 `sort_block_items` 把**全部** input flag 当噪声丢弃,只重设 local/third 组边界那一条 —— last entry 的 flag 永远到不了 serialize,§74 的修复形同虚设。教训:三函数契约(parse → sort → serialize)的任何一环「丢 flag 再重建」时,必须枚举**所有**承重 flag,不只是当前 bug 报告里点名的那一个。**修法**:`plan_changes` 在 sort 之后按「块后是否还有下一个 section」(`sp[1] < len(text)`)重设 `expected[-1].followed_by_blank` —— 边界 flag 的权威来源是 span 几何,不是源文件 whitespace。验证:synthetic repro(乱序 block + 多行 last entry + 后继 section)rewrite 后空行存活 + verify 0 + 二次 fix "Nothing to do";hyperlane/ctares 无 phantom rewrite(Comparator 对 trailing blank 本来就容忍,决策不变)。

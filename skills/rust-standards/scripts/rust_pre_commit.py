@@ -8,9 +8,10 @@ pipeline is 0 violations, 0 warnings, 0 fmt diffs.
 Phases (each MUST pass before commit; if any fails, loop restarts):
 
   Phase 1 — Auto-fixers (idempotent, converge to 0 diff)
-    1a. fix_dep_order.py --write          (Cargo.toml §13.7 round 4)
-    1b. strictify_tests_layout.py         (tests/ §14.4 + §14.5 + §14.7)
-    1c. doc_comment_audit.py              (doc-comment Layer 1 + Layer 2)
+    1a. fix_no_toml_mod_comments.py --write  (§2.5 no comments in *.toml / mod.rs)
+    1b. fix_dep_order.py --write          (Cargo.toml §13.7 round 4)
+    1c. strictify_tests_layout.py         (tests/ §14.4 + §14.5 + §14.7)
+    1d. doc_comment_audit.py              (doc-comment Layer 1 + Layer 2)
 
   Phase 2 — Audit pipeline
     audit_rust_standards.py -- 38 checks; exit non-zero triggers
@@ -60,6 +61,17 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # `--files` with `nargs="*"` means "whole repo" to argparse, which is the
 # exact footgun this scoping exists to prevent).
 AUTO_FIXERS: list[tuple[str, list[str], str]] = [
+    # Comment stripping runs FIRST: a deleted comment can leave a TOML
+    # section pair with zero blanks (or a multi-blank run), which
+    # fix_dep_order.py then normalises in the same pass.
+    (
+        "fix_toml_mod_comments",
+        [
+            "python3", str(SCRIPT_DIR / "fix_no_toml_mod_comments.py"),
+            "--write", "{root}", "--files", "{toml_mod_files}",
+        ],
+        "§2.5 no comments in *.toml / mod.rs (write mode)",
+    ),
     (
         "fix_dep_order",
         [
@@ -172,13 +184,14 @@ def _sandbox_snapshot(root: Path) -> dict[str, int]:
     """Cheap fingerprint of every tracked source file, used to detect
     auto-fixer writes that fall OUTSIDE the caller's change scope."""
     snapshot: dict[str, int] = {}
-    for path in root.rglob("*.rs"):
-        if "target" in path.parts or ".cargo" in path.parts:
-            continue
-        try:
-            snapshot[str(path)] = path.stat().st_size
-        except OSError:
-            continue
+    for pattern in ("*.rs", "*.toml"):
+        for path in root.rglob(pattern):
+            if "target" in path.parts or ".cargo" in path.parts:
+                continue
+            try:
+                snapshot[str(path)] = path.stat().st_size
+            except OSError:
+                continue
     return snapshot
 
 
@@ -221,6 +234,11 @@ def phase_fixers(
 
     rs_scope = [f for f in scope or [] if f.endswith(".rs")]
     toml_scope = [f for f in scope or [] if f.endswith("Cargo.toml")]
+    toml_mod_scope = [
+        f
+        for f in scope or []
+        if f.endswith(".toml") or f.endswith("mod.rs")
+    ]
 
     if scope == []:
         # Scope computed, nothing changed -> nothing to fix. Running the
@@ -231,19 +249,30 @@ def phase_fixers(
     scope_note = "scoped" if scope else "WHOLE-REPO (--no-scope)"
 
     for label, template, desc in AUTO_FIXERS:
+        # Splice the file list as REAL argv elements. The previous form
+        # substituted a single space-joined string into one argv slot, and
+        # every fixer's `nargs="*"` then parsed "a b" as ONE path that
+        # resolves to nothing — Phase 1 silently fixed nothing whenever two
+        # or more files were in scope.
         argv_template = list(template)
-        if "{rs_files}" in argv_template:
-            argv_template[argv_template.index("{rs_files}")] = " ".join(rs_scope)
-        if "{toml_files}" in argv_template:
-            argv_template[argv_template.index("{toml_files}")] = " ".join(toml_scope)
+        for placeholder, values in (
+            ("{rs_files}", rs_scope),
+            ("{toml_files}", toml_scope),
+            ("{toml_mod_files}", toml_mod_scope),
+        ):
+            if placeholder in argv_template:
+                idx = argv_template.index(placeholder)
+                argv_template[idx : idx + 1] = values
         argv = _expand(argv_template, root)
         # A scoped fixer with an empty file list must not fall back to
         # whole-repo: drop the flag entirely and skip the run instead.
-        if scope and not (rs_scope or toml_scope):
+        if scope and not (rs_scope or toml_scope or toml_mod_scope):
             continue
         if "{rs_files}" in template and not rs_scope:
             continue
         if "{toml_files}" in template and not toml_scope:
+            continue
+        if "{toml_mod_files}" in template and not toml_mod_scope:
             continue
 
         before = _sandbox_snapshot(root)

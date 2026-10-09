@@ -141,12 +141,16 @@ fi
 # staged_file_gate.py imports the verifiers and diffs violation counts
 # between HEAD and the worktree, so only NEW violations block. It owns the
 # per-file loop now.
-RS_FILES=$(echo "$STAGED_FILES" | grep '\.rs$' || true)
-if [[ -n "$RS_FILES" ]]; then
+# The gate accepts .rs AND .toml: §2.5 (2026-10-09) forbids comments in
+# every TOML file and every mod.rs, and verify_no_toml_mod_comments is the
+# only TOML-aware verifier — it diffs staged-vs-HEAD like every other rule,
+# so legacy TOML debt does not block unrelated commits.
+GATE_FILES=$(echo "$STAGED_FILES" | grep -E '\.(rs|toml)$' || true)
+if [[ -n "$GATE_FILES" ]]; then
     # shellcheck disable=SC2086
-    if ! python3 "$SCRIPTS_DIR/staged_file_gate.py" "$REPO_ROOT" --file $RS_FILES; then
+    if ! python3 "$SCRIPTS_DIR/staged_file_gate.py" "$REPO_ROOT" --file $GATE_FILES; then
         VIOLATIONS=$((VIOLATIONS + 1))
-        FAILED_FILES+=("staged .rs files (staged_file_gate.py — new violations vs HEAD)")
+        FAILED_FILES+=("staged .rs/.toml files (staged_file_gate.py — new violations vs HEAD)")
     fi
 fi
 

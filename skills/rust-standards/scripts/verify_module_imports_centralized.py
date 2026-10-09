@@ -15,12 +15,19 @@ Three sub-rules, each owned by a different file kind:
             sub-files; that premise is false and the demand actively
             contradicted §18's minimum-exposure rule, so it was removed.
 
-  mod.rs    the strict three-stage layout, no comments and no blank-line
-            separators anywhere in the body:
+  mod.rs    the strict three-stage layout and no blank-line separators
+            anywhere in the body:
               1. `mod r#xxx;` declarations
               2. `pub use {...};` / `pub(crate) use {...};` re-exports
               3. a single trailing `use super::*;`
             (keyword files are declared with raw identifiers, `mod r#fn;`)
+            Comments in mod.rs are NOT reported here: §2.5 (2026-10-09,
+            absolute) owns that rule comprehensively — every comment form
+            in every mod.rs AND every *.toml file, tree-wide — via
+            verify_no_toml_mod_comments.py (audit check 51). An earlier
+            version of this check also flagged comments, but exempted
+            `///` on line 1 and missed trailing / block comments, which
+            contradicted the absolute bar.
 
   sub-file  (fn.rs / struct.rs / impl.rs / const.rs / enum.rs / trait.rs /
             type.rs / static.rs) may have NO `use` at all, or exactly
@@ -32,8 +39,9 @@ Three sub-rules, each owned by a different file kind:
 §6.4 additionally forbids a sub-file from re-importing a symbol the parent
 already re-exported; that is covered by the same "only `use super::*;`" rule.
 
-Not reported: comments and blank lines in lib.rs (only mod.rs is comment-free
-by the standard), and `#[cfg(test)]` blocks.
+Not reported: comments anywhere (§2.5 owns them via
+verify_no_toml_mod_comments.py), blank lines in lib.rs, and `#[cfg(test)]`
+blocks.
 
 Output contract: one violation per line, then a summary line beginning
 `=== module-imports centralized:`.
@@ -351,7 +359,11 @@ def audit_sub_mod_rs_imports(path: Path, lines: list[str]) -> list[str]:
 
 
 def audit_mod_rs(path: Path, lines: list[str]) -> list[str]:
-    """Strict three-stage layout, no comments, no blank separators (§6.2)."""
+    """Strict three-stage layout, no blank separators (§6.2).
+
+    Comments are not this check's business: §2.5 owns the absolute
+    no-comments rule for mod.rs (verify_no_toml_mod_comments.py, check 51).
+    """
     violations = []
     stage = 1
     seen_stage2 = False
@@ -376,14 +388,6 @@ def audit_mod_rs(path: Path, lines: list[str]) -> list[str]:
                     f"stage 1 keeps every `mod xxx;` touching (blank lines "
                     f"belong BETWEEN the three stages, not within one)"
                 )
-            continue
-        if stripped.startswith("//"):
-            if stripped.startswith("///") and idx == 1:
-                continue  # the crate-level doc block is a mod.rs header
-            violations.append(
-                f"{path}:{idx}: comment in a mod.rs body is forbidden (§6.2); "
-                f"the file carries only `mod` / `pub use` / `use super::*;`"
-            )
             continue
         if stage == 0 and (USE.match(stripped) or MOD_DECL.match(stripped)):
             stage = 1

@@ -126,9 +126,20 @@ where
 条目标记为 **DEPRECATED** —— 这条规则从"可加可不加"升级为"必须
 按固定 3 行结构加"。
 
-## 2.5 mod.rs 硬性规则:不加任何注释
+## 2.5 mod.rs 硬性规则:不加任何注释(2026-10-09 升级为绝对口径,覆盖 mod.rs + 全部 TOML)
 
-**`mod.rs` 不加任何注释**(既不写文件头 `//!`,也不写 `mod r#xxx;` 之间的 `// xxx 模块`),保持纯结构组织。**这一条是硬性规则,不可例外。**
+**`mod.rs` 不加任何注释** —— 既不写文件头 `//!`,也不写 `mod r#xxx;` 之间的 `// xxx 模块`,保持纯结构组织。**这一条是硬性规则,不可例外。**
+
+**每一个 `*.toml` 文件同样不加任何注释**(`#` 注释一律禁止;字符串内的 `#` 是数据不是注释,如 `description = "a # b"`、`colour = "#ff0000"`)。
+
+**2026-10-09 绝对化(user directive「toml文件和mod.rs禁止注释」)**:此前执行是部分的 —— audit check 5 只扫 git diff 且正则只捕 `//`(漏 `///` / `//!` / 块注释 / 行尾注释),TOML 完全没有检查;check 26 的 mod.rs 注释分支还豁免第 1 行 `///`。升级后:
+
+- **覆盖范围**:仓内**每一个** `*.toml` + **每一个** `mod.rs`(含 `tests/**/mod.rs`),tree-wide,不只 diff。
+- **覆盖形式**:`//`、`///`、`//!`、`/* ... */`(可嵌套)、行尾注释、TOML `#` 行首与行尾。
+- **字符串感知**:TOML 四种字符串(basic / literal / 多行 basic / 多行 literal)与 Rust 字符串 / raw string / 字符字面量 / lifetime 全部按 span 跳过 —— `"http://x"`、`'/'`、`r#"..."#` 不误报;单行字符串未闭合跨行后,后续行的 `#` **照报**(宁假阳性不漏报)。
+- **验证脚本**:`scripts/verify_no_toml_mod_comments.py`,被 `audit_rust_standards.py` **check 51** 调用(check 5 已标 DEPRECATED);已注册 `staged_file_gate.py`(TOML 文件首次进入 gate,baseline 按原扩展名物化 `Cargo.toml.head-baseline.toml`,其它 verifier 仍只见 `.rs`)。
+- **auto-fixer**:`scripts/fix_no_toml_mod_comments.py`(默认 dry-run,`--write` 落盘 + re-verify,幂等,`--files` 限定范围);已注册 `rust_pre_commit.py` Phase 1 第一位(注释删除可能留下 section 间 0 空行或多空行,由随后的 fix_dep_order.py 归一)。fixtures `scripts/fixtures/toml-mod-comments/{compliant,violating}` + `scripts/self_test_no_toml_mod_comments.py`(verifier 双向 + fixer 幂等 + gate 四向模拟)。
+- **check 26 对齐**:`verify_module_imports_centralized.py` 的 mod.rs 注释分支已删除(豁免 `///` 与绝对口径矛盾),注释统一归 check 51。
 
 ## 2.6 impl 块内允许单行注释
 

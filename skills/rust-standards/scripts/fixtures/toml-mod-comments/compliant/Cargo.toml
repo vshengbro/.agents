@@ -1,0 +1,13 @@
+[package]
+name = "compliant"
+version = "0.1.0"
+edition = "2024"
+description = "a # inside a basic string is data"
+colour = "#ff0000"
+literal = '#abc'
+long = """
+# a hash inside a multi-line basic string is data
+"""
+
+[dependencies]
+serde = "1"

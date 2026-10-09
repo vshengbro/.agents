@@ -257,6 +257,19 @@ def plan_changes(root: Path, write: bool, only: set[Path] | None = None) -> tupl
             block_text = text[sp[0]:sp[1]]
             items = parse_entries(block_text)
             expected = sort_block_items(items, local_set)
+            if expected:
+                # §13.7.2a: exactly one blank line between the block's last
+                # entry and the NEXT section header. sort_block_items drops
+                # every input followed_by_blank flag (they are whitespace
+                # noise), including the last entry's — which is the flag the
+                # serializer honours to KEEP that boundary blank. Without
+                # this, every order-rewrite silently deleted the blank
+                # before the following `[section]` (audit-pitfalls §74
+                # regression, observed 2026-10-09 on euv's
+                # [workspace.dependencies] whose last entry is multi-line).
+                # sp[1] == len(text) means the block runs to EOF, where no
+                # boundary blank belongs.
+                expected[-1]["followed_by_blank"] = sp[1] < len(text)
             if block_needs_rewrite(items, expected):
                 sections_to_fix.append((sec, expected))
         if not sections_to_fix:
