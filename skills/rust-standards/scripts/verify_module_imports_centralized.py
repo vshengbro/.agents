@@ -449,7 +449,16 @@ def audit_one(path: Path) -> list[str]:
         lines = path.read_text().splitlines()
     except (OSError, UnicodeDecodeError):
         return []
-    if "tests" in path.parts or not _is_under_src(path):
+    if "tests" in path.parts:
+        # Tests trees get the §6.1 outermost-import rule (2026-10-09 ruling):
+        # a mod.rs directly under tests/ is the tree root and may import;
+        # every deeper mod.rs must reach imports through `use super::*;`.
+        # The src-only checks (three-stage layout, lib.rs stages, sub-file
+        # purity) stay scoped to src - checks 26/29/43 own those surfaces.
+        if _is_mod_rs(path):
+            return audit_sub_mod_rs_imports(path, lines)
+        return []
+    if not _is_under_src(path):
         return []
     if _is_mod_rs(path):
         return audit_mod_rs(path, lines) + audit_sub_mod_rs_imports(path, lines)

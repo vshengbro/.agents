@@ -54,6 +54,8 @@ def main() -> int:
     check("§6.2 stage order caught", "must precede stage 2" in out, out[-200:])
     check("§6.2 non-pub re-export caught", "must be `pub use`" in out, out[-200:])
     check("§6.3/§6.4 sub-file import caught", "may only import `use super::*;`" in out, out[-200:])
+    check("§6.1 tests-tree inner mod.rs import caught (2026-10-09 extension)", "tests/sub/mod.rs:3: a sub-mod.rs imports `std::`" in out, out[-300:])
+    check("§6.1 tests-tree outermost mod.rs may import", "/tests/mod.rs:" not in out, out[-300:])
 
     code, out = run(FIXTURES / "compliant")
     check("compliant fixture exits 0", code == 0, f"got {code}: {out[-240:]}")
