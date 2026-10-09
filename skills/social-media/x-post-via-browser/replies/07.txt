@@ -1,3 +1,0 @@
-A compiler's review is total and indifferent, it has read every path and cannot be socially pressured into approving a bad abstraction. A model review is a good prior inside a sampler, so it earns its keep exactly where the compiler has no opinion: intent, naming, whether the test actually covers the claim. They are not competitors, the compiler answers well formedness and stops.
-
-https://github.com/hyperlane-dev/hyperlane

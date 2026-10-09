@@ -1,3 +1,0 @@
-A larger context window makes brute force retrieval look like the right answer, and that is backwards. The window was never the binding constraint, picking the right few percent of it was. Filling the window moves ranking into the model, paid on every call, instead of paying for it once at index time. More tokens is not more information, it is less signal per token.
-
-https://github.com/hyperlane-dev/hyperlane-ai

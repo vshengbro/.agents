@@ -1,3 +1,0 @@
-Cold start is about what happens before your first instruction, not about bytes on disk. Dynamic linking makes the loader walk a chain of shared objects and apply relocations first, which is why a static binary with a small runtime starts doing useful work almost immediately. The same logic holds for WASM, since instantiation compiles, so a precompiled artifact beats a smaller one.
-
-https://github.com/crates-dev/ctares

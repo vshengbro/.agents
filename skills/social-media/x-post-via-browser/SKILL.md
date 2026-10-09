@@ -344,20 +344,22 @@ Two behaviours that are correct and should not be "fixed":
   before a character is typed. A reply that links someone else's project is not
   promotion of this account's work.
 
-## Replies are written, not generated at send time
+## Replies are composed live, never pre-written
 
-`replies/*.txt` holds the reply bodies. They are written in advance because the
-publisher checks them — the owner rule, the length, and the stray-dotted-token
-rule — and a reply composed on the fly has not passed any of them. `X_REPLY_DIR`
-overrides the location.
+**Superseded 2026-10-09** — the `replies/*.txt` pool this section described is
+deleted. The account owner's standing rule: canned reply files are forbidden;
+every reply is composed at send time by the firing agent, grounded in source
+read during the same run. See "Reply content is composed live, never
+pre-written" below for the flow.
 
-Two rules about that directory, both learned by breaking them:
+Two rules from the pool era still hold:
 
 - **One reply per post, deduped by status id.** The feed is virtualised: a post
   stays in the DOM at the same offset long after the loop scrolls past it, so
-  without dedupe three of four replies go to the same first match.
-- **Never re-post a reply text to reach a count.** If the directory holds fewer
-  replies than the target, the honest answer is the smaller number.
+  without dedupe three of four replies go to the same first match. The shared
+  state file carries the answered ids across runs.
+- **Never re-post a reply text to reach a count.** If nothing earned a reply,
+  the honest answer is the smaller number.
 
 ## The reply editor does not mount in a hidden tab — activate it first
 
@@ -643,8 +645,41 @@ Measured the day the 30-minute engagement job was added:
 
 ## A reply verified by the 30-minute cadence
 
-`engage_feed.py <port> --likes 1 --replies 1` is one unit of work: home tab,
-one like, one reply bound live to its target, `VERIFIED reply by @<handle>`
-from the reply's own page, state saved. The cron job `40defaea9d3a` runs it
-every 30 minutes; the nightly job `b821f8f18340` runs the same script with
-`--likes 14 --replies 36`. Both honour the same lock and state file.
+`engage_feed.py <port> --likes 1` is one unit of work for the likes: home tab,
+one like, state saved. Replies are a separate explicit step — `--suggest` to
+collect candidates, `--reply-to` to send the composed text (see the
+live-composition section below). The cron job `40defaea9d3a` runs the pair
+every 30 minutes; the nightly job `b821f8f18340` runs the same pair with 14
+likes and up to 36 replies. Both honour the same lock and state file.
+
+## Reply content is composed live, never pre-written
+
+Standing rule from the account owner (2026-10-09): canned reply files are
+forbidden. The firing agent composes every reply at send time, grounded in
+source it read during the same run. The scripts carry the mechanics, the
+agent carries the words:
+
+1. `engage_feed.py <port> --suggest N` prints up to N live candidates as
+   JSON (sid, who, text) and marks nothing — a declined post is not burned.
+2. The agent picks the one post it can genuinely answer, reads the LATEST
+   source without touching any worktree (`git -C ~/code/<repo> fetch origin
+   master`, then `git show origin/master:<path>`), and writes the reply —
+   the post's language, one owned repository link at the end when a project
+   genuinely answers, a plain opinion with no link when none does.
+3. `engage_feed.py <port> --reply-to <sid> --file <path>` sends it through
+   post_reply.py and records the sid in the shared state. Opinion replies
+   add `--allow-no-repo`; a foreign repository link is refused even then.
+
+## The reply dialog only mounts on the headless surface
+
+Measured across a full day of failures: on the headed window, clicking a
+post's reply control routes to a context-less `/compose/post` — the MAIN
+composer, where typing publishes a standalone post under a reply's intent.
+Every gate refused, which is why no damage shipped, but no reply could land
+either. On the headless copy the same click opens the real reply dialog
+(`in_dialog=True`, parent context, `tweetButton`). `ensure_browser.py` now
+launches headless; the old `--headed` launch is the measured-broken surface.
+post_reply.py's box gate accepts exactly two surfaces: the dialog, or a
+/compose/post route whose editor is FRESH and whose parent article is on the
+page — a leftover main composer on that route is never fresh, so it is
+refused even with feed articles behind it.

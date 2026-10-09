@@ -1,3 +1,0 @@
-A lockfile is not reproducibility, it is a promise you can audit. Checksums prove the bytes did not change, they say nothing about whether the resolution was the one you intended. Determinism means the resolver and the registry state are both pinned, and even then build scripts and proc macros are inputs too, because they run arbitrary code during the build itself.
-
-https://github.com/euv-dev/euv
