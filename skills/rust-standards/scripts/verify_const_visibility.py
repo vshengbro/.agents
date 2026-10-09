@@ -30,12 +30,15 @@ Constant-table crates (a crate whose entire public API *is* the constants,
 e.g. http-constant) are exempt by configuration, not by hardcoding
 (2026-10-09 user ruling): `<repo>/rust-standards.toml` carries
 
-    pub_const_exempt = ["http-constant"]
+    pub_const_exempt = ["constant"]
 
-a string array of package identifiers (`[package].name`). An exempt crate's
-own constants are never flagged (violation or unwired); it still counts as a
-reader for every other crate's analysis. The file obeys §2.5 (zero TOML
-comments).
+a string array of repo-relative DIRECTORY or FILE glob patterns; `**`
+matches across path segments (gitignore-style). A bare directory prefix
+covers everything under it (`"constant"` ≡ `"constant/**"`); a file pattern
+like `"request/src/common/const.rs"` exempts exactly that file. Files whose
+repo-relative path matches any pattern are never flagged (violation or
+unwired) but still count as readers for other crates' analysis. The file
+obeys §2.5 (zero TOML comments).
 
 Usage:
     python3 verify_const_visibility.py [ROOT]
@@ -43,6 +46,7 @@ Usage:
 
 from __future__ import annotations
 
+import fnmatch
 import re
 import sys
 from pathlib import Path
@@ -123,37 +127,64 @@ def _iter_rs(root: Path):
         yield path
 
 
-def _load_pub_const_exempt(repo: Path) -> set[str]:
-    """Package identifiers exempt from the pub-const ban (constant-table
-    crates), from `<repo>/rust-standards.toml`. §2.5 forbids TOML comments,
-    so a flat-field scan over a comment-free file is exact for the
-    string-array field."""
+def _load_pub_const_exempt(repo: Path) -> list[str]:
+    """Repo-relative glob patterns exempt from the pub-const ban, from
+    `<repo>/rust-standards.toml`. §2.5 forbids TOML comments, so a
+    flat-field scan over a comment-free file is exact for the string-array
+    field."""
     cfg = repo / CONFIG_NAME
     if not cfg.is_file():
-        return set()
+        return []
     try:
         text = cfg.read_text(encoding="utf-8")
     except OSError:
-        return set()
+        return []
     m = re.search(r"(?m)^" + CONFIG_FIELD + r"\s*=\s*\[(.*?)\]", text, re.S)
     if not m:
-        return set()
-    return {
+        return []
+    return [
         s
         for pair in re.findall(r'"([^"]*)"|\'([^\']*)\'', m.group(1))
         for s in pair
         if s
-    }
+    ]
 
 
-def _package_name(crate_root: Path) -> str | None:
-    """`[package].name` of the crate at `crate_root` (first bare `name =`)."""
-    try:
-        text = (crate_root / "Cargo.toml").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    m = re.search(r'(?m)^name\s*=\s*"([^"]+)"', text)
-    return m.group(1) if m else None
+def _glob_match(pattern: str, path: str) -> bool:
+    """gitignore-lite: `*`/`?` stay within one path segment, `**` crosses
+    any number of segments (including zero)."""
+    pat = pattern.split("/")
+    segs = path.split("/")
+
+    def rec(pi: int, si: int) -> bool:
+        while True:
+            if pi == len(pat):
+                return si == len(segs)
+            token = pat[pi]
+            if token == "**":
+                if rec(pi + 1, si):
+                    return True
+                if si < len(segs):
+                    si += 1
+                    continue
+                return False
+            if si == len(segs) or not fnmatch.fnmatchcase(segs[si], token):
+                return False
+            pi += 1
+            si += 1
+
+    return rec(0, 0)
+
+
+def _is_exempt(rel_posix: str, patterns: list[str]) -> bool:
+    """True when a repo-relative path matches any pattern; a bare directory
+    prefix also covers everything beneath it."""
+    for pattern in patterns:
+        if _glob_match(pattern, rel_posix):
+            return True
+        if not pattern.endswith("/**") and _glob_match(pattern.rstrip("/") + "/**", rel_posix):
+            return True
+    return False
 
 
 def analyze(repo: Path):
@@ -161,10 +192,7 @@ def analyze(repo: Path):
     crates = _crate_roots(repo)
     if not crates:
         return [], []
-    exempt_names = _load_pub_const_exempt(repo)
-    exempt_crates = {
-        c for c in crates if (_package_name(c) or c.name) in exempt_names
-    }
+    exempt_patterns = _load_pub_const_exempt(repo)
     texts: dict[Path, str] = {}
     for path in _iter_rs(repo):
         try:
@@ -196,9 +224,10 @@ def analyze(repo: Path):
         crate = crate_of[path]
         if crate is None or not _is_internal(path, crate):
             continue
-        if crate in exempt_crates:
-            # Constant-table crate (rust-standards.toml): its pub constants
-            # are the API surface itself. Still a reader for other crates.
+        if exempt_patterns and _is_exempt(path.relative_to(repo).as_posix(), exempt_patterns):
+            # Configured exemption (rust-standards.toml): e.g. a
+            # constant-table crate whose pub constants are the API surface
+            # itself. The file still counts as a reader for other crates.
             continue
         outside = external_idents[crate]
         inside = internal_files[crate]

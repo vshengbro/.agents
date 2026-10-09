@@ -25,6 +25,20 @@ Usage:
 The script is intentionally self-contained: no third-party dependencies. Run
 it from any rust project root, including projects not written in Python. The
 only assumption is that `git ls-files` lists the Rust source files in scope.
+
+RAW STRING SAFETY (2026-10-09, vice-city-web). This fixer WRITES to .rs files.
+It must never touch a line inside a raw string literal: WGSL in
+`src/webgpu/const.rs` and GLSL in `src/render.rs` are carried in `r#"..."#`
+consts, and a shader `fn` there is NOT a Rust fn. A plain line scan that sees
+`fn vs_main(` inside a raw string will inject `///` blocks between the
+`@vertex` attribute and the shader fn. `///` is not WGSL; the corruption
+survives only because WGSL parsers treat `//` as a line comment, so it is
+invisible at runtime — no shader validation error, no visual change.
+`_raw_string_spans()` / `_raw_string_line_indices()` blank those lines out
+before `_find_fn_locs` sees them; ANY scan added to this file must apply the
+same skip set. The audit side (`verify_doc_comment_format.py`,
+`_blank_string_bodies`) already did this correctly — that asymmetry is why
+no finding ever pointed at the corrupted lines.
 """
 
 from __future__ import annotations
@@ -322,6 +336,128 @@ _FN_PATTERN = re.compile(
 )
 
 
+_IDENT_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+
+# Prefix forms that introduce a raw string literal: `r`, `b`+`r`, `c`+`r`.
+_RAW_PREFIX = re.compile(r"\A(?:[bBcC][rR]|[rR])")
+
+
+def _raw_string_spans(text: str) -> list[tuple[int, int]]:
+    """Return character spans `[start, end)` of every raw string literal.
+
+    Walks the text once, skipping (in order) line comments, block comments,
+    normal strings, char literals and Rust lifetimes, so a `//` or an `r#"` that
+    appears *inside* a string literal cannot be mistaken for real syntax.
+
+    Only Rust raw strings count. `b"..."` is a normal byte string (it honours
+    escapes) and is deliberately NOT reported here.
+    """
+    spans: list[tuple[int, int]] = []
+    n = len(text)
+    i = 0
+    while i < n:
+        ch = text[i]
+
+        # Line comment.
+        if ch == "/" and text.startswith("//", i):
+            nl = text.find("\n", i)
+            i = n if nl == -1 else nl
+            continue
+
+        # Block comment (Rust allows nesting).
+        if ch == "/" and text.startswith("/*", i):
+            depth = 1
+            i += 2
+            while i < n and depth > 0:
+                if text.startswith("/*", i):
+                    depth += 1
+                    i += 2
+                elif text.startswith("*/", i):
+                    depth -= 1
+                    i += 2
+                else:
+                    i += 1
+            continue
+
+        # Raw string, if the token boundary allows one to start here.
+        if (i == 0 or text[i - 1] not in _IDENT_CHARS) and ch in "rRbBcC":
+            matched = False
+            for plen in (1, 2):
+                if i + plen > n:
+                    break
+                if not _RAW_PREFIX.match(text[i:i + plen]):
+                    continue
+                quote = i + plen
+                while quote < n and text[quote] == "#":
+                    quote += 1
+                if quote >= n or text[quote] != '"':
+                    continue
+                closer = '"' + text[i + plen:quote]
+                end = text.find(closer, quote + 1)
+                if end != -1:
+                    end += len(closer)
+                    spans.append((i, end))
+                    i = end
+                    matched = True
+                    break
+            if matched:
+                continue
+
+        # Normal string literal (escape-aware).
+        if ch == '"':
+            i += 1
+            while i < n:
+                if text[i] == "\\":
+                    i += 2
+                    continue
+                if text[i] == '"':
+                    i += 1
+                    break
+                if text[i] == "\n":  # unterminated: do not run away
+                    break
+                i += 1
+            continue
+
+        # Char literal, or a lifetime such as `'a` / `'static`.
+        if ch == "'":
+            body = re.match(r"'(?:\\.|[^\\'\n])'", text[i:i + 8])
+            if body:
+                i += body.end()
+                continue
+
+        i += 1
+
+    return spans
+
+
+def _raw_string_line_indices(text: str) -> set[int]:
+    """Return the 0-based line indices that fall inside a raw string literal.
+
+    Rust code carries payloads that are NOT Rust inside raw strings: WGSL in
+    `src/webgpu/const.rs`, GLSL in `src/render.rs`. A `fn` in that payload is a
+    shader entry point, not a Rust function — acting on it injects Rust doc
+    comments into shader source. Every line-based scanner must skip these.
+    """
+    idx: set[int] = set()
+    for start, end in _raw_string_spans(text):
+        first = text.count("\n", 0, start)
+        last = text.count("\n", 0, end)
+        idx.update(range(first, last + 1))
+    return idx
+
+
+def _find_fn_locs(lines: list[str], skip: set[int] | None = None) -> list[int]:
+    out: list[int] = []
+    for i, ln in enumerate(lines):
+        if skip and i in skip:
+            continue
+        if ln.lstrip().startswith("//"):
+            continue
+        if _FN_PATTERN.match(ln):
+            out.append(i)
+    return out
+
+
 def _scan_test_regions(lines: list[str], fn_locs: list[int]) -> set[int]:
     """Return fn_locs that lie inside `#[cfg(test)]` modules or follow a `#[test]` attr."""
     inside_cfg_test: set[int] = set()
@@ -360,16 +496,6 @@ def _scan_test_regions(lines: list[str], fn_locs: list[int]) -> set[int]:
                     after_test.add(j)
                 break
     return inside_cfg_test | after_test
-
-
-def _find_fn_locs(lines: list[str]) -> list[int]:
-    out: list[int] = []
-    for i, ln in enumerate(lines):
-        if ln.lstrip().startswith("//"):
-            continue
-        if _FN_PATTERN.match(ln):
-            out.append(i)
-    return out
 
 
 def _fn_needs_doc(lines: list[str], fn_idx: int, exempted: set[int]) -> bool:
@@ -503,11 +629,13 @@ def audit_one(path: str) -> dict[str, list[tuple[int, str, str]]]:
     violations: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
     try:
         with open(path) as fh:
-            lines = fh.read().splitlines()
+            original = fh.read()
+        lines = original.splitlines()
     except (OSError, UnicodeDecodeError):
         return violations
 
-    fn_locs = _find_fn_locs(lines)
+    raw_lines = _raw_string_line_indices(original)
+    fn_locs = _find_fn_locs(lines, raw_lines)
     test_regions = _scan_test_regions(lines, fn_locs)
 
     # Layer 1 — bare fn
@@ -518,6 +646,8 @@ def audit_one(path: str) -> dict[str, list[tuple[int, str, str]]]:
 
     # Layer 1 — bare impl block
     for i, ln in enumerate(lines):
+        if i in raw_lines:
+            continue
         s = ln.strip()
         if s.startswith("impl "):
             if (s.endswith("{") or "{" in s) and "=" not in s:
@@ -559,7 +689,8 @@ def fix_one(path: str) -> tuple[int, int]:
     except (OSError, UnicodeDecodeError):
         return 0, 0
 
-    fn_locs = _find_fn_locs(lines)
+    raw_lines = _raw_string_line_indices(original)
+    fn_locs = _find_fn_locs(lines, raw_lines)
     test_regions = _scan_test_regions(lines, fn_locs)
 
     # Layer 1 inserts:  fn single-line docs + impl block docs.
@@ -591,6 +722,8 @@ def fix_one(path: str) -> tuple[int, int]:
         inserts.append((insert_at, build_short_fn_doc(impl_text, name)))
 
     for i, ln in enumerate(lines):
+        if i in raw_lines:
+            continue
         s = ln.strip()
         if s.startswith("impl "):
             if (s.endswith("{") or "{" in s) and "=" not in s:
@@ -605,7 +738,7 @@ def fix_one(path: str) -> tuple[int, int]:
 
     # Layer 2: insert missing # Arguments / # Returns sections. Sort DESC by doc_end.
     layer2_count = 0
-    fn_locs2 = _find_fn_locs(new_lines)
+    fn_locs2 = _find_fn_locs(new_lines, _raw_string_line_indices("\n".join(new_lines)))
     expansions: list[tuple[int, list[str]]] = []
     for fn_idx in fn_locs2:
         if fn_idx in _scan_test_regions(new_lines, fn_locs2):
