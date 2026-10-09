@@ -12,11 +12,20 @@ property §9.2 is about: a `-> impl Trait` return still hides a bound from the
 caller, but an `impl Trait` *parameter* additionally forbids the caller from
 naming the type at all, so the bound can never be stated anywhere.
 
+§9.2a exemption (2026-10-09 user approved): parameter-position `impl AsRef<str>`
+or `impl Into<String>` used as an INFERENCE SHIM (not a constraint) is allowed.
+This is a pub-API design pattern that frees the caller from a second turbofish
+parameter (e.g. `route::<S>(path)` instead of `route::<S, P>(path)`).  The
+exemption covers ONLY the standard conversion traits `AsRef<str>` and
+`Into<String>`; constraint traits (`impl Iterator`, `impl Read`, etc.) remain
+forbidden.
+
 Deliberately NOT reported:
   - `-> impl Trait` in return position (that is idiomatic and is not §9.2)
   - `impl Trait` inside a `where` clause bound (a legal, explicit spelling)
   - occurrences inside `#[cfg(test)]` blocks and files under `tests/`
   - occurrences in comments, doc comments, string literals and raw strings
+  - §9.2a inference-shim `impl AsRef<str>` / `impl Into<String>` parameters
 
 Exit code: 0 = compliant, 1 = violations, 2 = usage error.
 """
@@ -165,6 +174,11 @@ def audit_one(path: Path) -> list[str]:
                 head = lines[k][: m.start()]
                 if RETURN_IMPL.search(head) or (RETURN_IMPL.search(lines[k]) and
                                                 lines[k].index("->") < m.start()):
+                    continue
+                # §9.2a: inference-shim `impl AsRef<str>` / `impl Into<String>`
+                # in parameter position is allowed (2026-10-09 user approved).
+                impl_text = m.group(0)
+                if "AsRef<str>" in impl_text or "Into<String>" in impl_text:
                     continue
                 raw_lines = raw.splitlines()
                 stripped = raw_lines[k].strip() if k < len(raw_lines) else lines[k].strip()
