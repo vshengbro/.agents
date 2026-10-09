@@ -1422,6 +1422,16 @@
       "updatedAt": "2026-08-15T01:09:15.607Z",
       "skillFolderHash": "4346f37ed6640c9d0eb70e240e48a42b04c9052d",
       "sourceUrl": "https://github.com/eze-is/web-access.git"
+    },
+    "agently-mail": {
+      "source": "agent.qq.com",
+      "sourceType": "well-known",
+      "sourceUrl": "https://agent.qq.com/.well-known/skills/agently-mail/SKILL.md",
+      "skillFolderHash": "",
+      "sourceBaseUrl": "https://agent.qq.com",
+      "wellKnownDigest": "sha256:6edfddacd3f147ae246c30bd8deb4dd4be6e94f06c0eccb804a2d84ac4295b54",
+      "installedAt": "2026-10-07T12:04:08.990Z",
+      "updatedAt": "2026-10-07T12:04:08.990Z"
     }
   },
   "dismissed": {

@@ -100,6 +100,39 @@ curl -s "http://localhost:3456/screenshot?target=ID&file=/tmp/shot.png"
 - 提取大量数据时用 `JSON.stringify()` 包裹，确保返回字符串
 - 根据页面实际 DOM 结构编写选择器，不要套用固定模板
 
+## 标签页隐藏状态 —— 页面"坏了"的第一个要查的
+
+**任何 SPA 在后台标签页里都会降级渲染。** 这是 CDP 自动化最常见的假故障源，
+而且它会伪装成好几种完全不同的症状。
+
+在诊断任何东西之前，先断言可见性：
+
+```javascript
+document.visibilityState   // 必须是 "visible"
+```
+
+若为 `hidden`，用 `Target.activateTarget` 激活（等价于把最小化窗口抬起；
+headless 下不动指针、不抢 OS 焦点）：
+
+```python
+tab.send("Target.activateTarget", targetId=<target id>)
+```
+
+**每次导航后都要重新激活** —— 它会自己翻回 `hidden`。
+
+实测对照（同一个页面）：
+
+| | visibilityState | 文章数 | 标题 | 搜索框 |
+|---|---|---|---|---|
+| 激活前 | `hidden` | 1–2 | 空 | DOM 里根本没有 |
+| 激活后 | `visible` | 11 | 正常 | 存在 |
+
+降级后的表现会被误读成：feed 是空的、页面外壳坏了、需要 reload、浏览器
+需要重启、框架渲染太慢。这些"修复"没有一个有用。
+
+被隐藏状态掩盖的真实症状举例：React 组件根本不挂载（等多久、换什么事件
+类型都没用）、懒加载列表只有 1–2 项、虚拟列表拿不到更多内容。
+
 ## 错误处理
 
 | 错误 | 原因 | 解决 |
@@ -108,3 +141,5 @@ curl -s "http://localhost:3456/screenshot?target=ID&file=/tmp/shot.png"
 | `attach 失败` | targetId 无效或 tab 已关闭 | 用 `/targets` 获取最新列表 |
 | `CDP 命令超时` | 页面长时间未响应 | 重试或检查 tab 状态 |
 | `端口已被占用` | 另一个 proxy 已在运行 | 已有实例可直接复用 |
+| 元素存在但事件无反应 | 标签页 `hidden`，渲染被节流 | `Target.activateTarget` 后重试 |
+| 页面只有 1–2 条数据 | 同上，虚拟列表未展开 | 同上 |
