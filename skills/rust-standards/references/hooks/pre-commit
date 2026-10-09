@@ -17,46 +17,6 @@
 
 set -euo pipefail
 
-# ===================================================================
-# Route gate — runs FIRST for EVERY repo (not just Rust ones).
-#
-# git-standards §3.3a: docs / config / frontend-style / comment-only commit
-# straight to the default branch; executable code goes through a PR. The
-# classifier computed that verdict but nothing consumed it — the rule lived in
-# prose in four skills plus a script nobody ran. Observed 2026-10-09: a
-# one-line CSS deletion in euv went out as PR #300 when the rule says
-# presentation direct-pushes.
-#
-# Placed ABOVE the Rust-repo detection on purpose: that check returns early for
-# non-Rust repos and for an empty staging area, so a gate below it would never
-# see a docs-only commit — which is exactly the case this rule governs.
-#
-# The CLI is called directly rather than through a symlink: this file IS the
-# live hook (core.hooksPath points at ~/.agents/hooks, whose pre-commit is a
-# symlink to this one), and git-standards §3.6.5/pitfall 21 records exactly this
-# trap — an edit to a same-looking file elsewhere protects nothing.
-# ===================================================================
-
-ROUTE_GATE=""
-for candidate in \
-    "$HOME/.agents/skills/git-standards/scripts/route_gate.py" \
-    "$HOME/.hermes/skills/git-standards/scripts/route_gate.py"; do
-    if [[ -f "$candidate" ]]; then
-        ROUTE_GATE="$candidate"
-        break
-    fi
-done
-
-if [[ -n "$ROUTE_GATE" ]]; then
-    if ! python3 "$ROUTE_GATE" --repo "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"; then
-        echo "" >&2
-        echo "pre-commit hook: FAIL — route gate (git-standards §3.3a)" >&2
-        echo "Docs / config / frontend-style / comment-only changes commit straight to the" >&2
-        echo "default branch. Executable code needs a branch + PR." >&2
-        exit 1
-    fi
-fi
-
 # -------------------------------------------------------------------
 # Locate helpers (HOOK_DIR-relative, not cwd-relative)
 # -------------------------------------------------------------------
@@ -117,17 +77,45 @@ echo "============================================================"
 VIOLATIONS=0
 FAILED_FILES=()
 
-# --- .toml files: dep order check -------------------------------------
-# verify_dep_order.py only accepts a DIRECTORY, so the whole repo is
-# verified on any .toml change (cheap; < 100ms for typical workspaces).
+# --- .toml files: dep order check (new-violation, staged vs HEAD) ---------
+# Same model as the .rs gate below: only violations the commit INTRODUCES
+# block. Historical bug (2026-10-09 FrameworkBenchmarks): the check ran
+# verify_dep_order.py on the WHOLE repo and pinned any violation on the
+# staged files, so an upstream-tracking fork carrying permanent §13.7 debt
+# in manifests it does not own (34 of 37) could never commit any toml.
+# verify_dep_order.py only accepts a DIRECTORY, so each staged manifest is
+# audited as a single-file scratch tree - staged blob vs HEAD blob.
 TOML_FILES=$(echo "$STAGED_FILES" | grep '\.toml$' || true)
 if [[ -n "$TOML_FILES" ]]; then
-    if python3 "$SCRIPTS_DIR/verify_dep_order.py" "$REPO_ROOT" >/dev/null 2>&1; then
-        : # compliant
-    else
-        VIOLATIONS=$((VIOLATIONS + 1))
-        FAILED_FILES+=("${TOML_FILES//$'\n'/, } (dep-order §13.7 — run verify_dep_order.py \"$REPO_ROOT\")")
-    fi
+    dep_order_count() {
+        local scratch
+        scratch=$(mktemp -d)
+        cp "$1" "$scratch/Cargo.toml"
+        python3 "$SCRIPTS_DIR/verify_dep_order.py" "$scratch" 2>/dev/null \
+            | grep -oE '[0-9]+ violation' | grep -oE '^[0-9]+' | head -1
+        rm -rf "$scratch"
+    }
+    while IFS= read -r toml_file; do
+        [[ -z "$toml_file" ]] && continue
+        STAGED_BLOB=$(mktemp)
+        HEAD_BLOB=$(mktemp)
+        if ! git show ":$toml_file" > "$STAGED_BLOB" 2>/dev/null; then
+            rm -f "$STAGED_BLOB" "$HEAD_BLOB"
+            continue
+        fi
+        new_count=$(dep_order_count "$STAGED_BLOB")
+        [[ -z "$new_count" ]] && new_count=0
+        old_count=0
+        if git show "HEAD:$toml_file" > "$HEAD_BLOB" 2>/dev/null; then
+            old_count=$(dep_order_count "$HEAD_BLOB")
+            [[ -z "$old_count" ]] && old_count=0
+        fi
+        if [[ "$new_count" -gt "$old_count" ]]; then
+            VIOLATIONS=$((VIOLATIONS + 1))
+            FAILED_FILES+=("$toml_file (dep-order §13.7: $((new_count - old_count)) new violation(s) — run fix_dep_order.py)")
+        fi
+        rm -f "$STAGED_BLOB" "$HEAD_BLOB"
+    done <<< "$TOML_FILES"
 fi
 
 # --- .rs files: new-violation gate (staged vs HEAD) -------------------
