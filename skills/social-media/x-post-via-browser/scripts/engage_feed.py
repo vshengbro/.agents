@@ -154,21 +154,64 @@ def replies_available() -> list[Path]:
     return sorted(REPLY_DIR.glob("*.txt")) if REPLY_DIR.exists() else []
 
 
+def collect(c, me, done, want, rounds=10):
+    """Up to `want` candidate posts from the live feed, same filters as the
+    classic reply loop. Scrolling is how new posts are reached; a scroll is
+    not a navigation, so the skill's rules still stand."""
+    out = []
+    seen = set(done)
+    for _ in range(rounds):
+        if len(out) >= want:
+            break
+        rows = js(c, READ)
+        if not isinstance(rows, list):
+            break
+        for r in rows:
+            if (r.get("who") != me and r.get("text")
+                    and any(w in r["text"].lower() for w in TOPICS)
+                    and not any(w in r["text"].lower() for w in BLOCK)
+                    and r.get("sid") and r["sid"] not in seen):
+                seen.add(r["sid"])
+                out.append(r)
+                if len(out) >= want:
+                    break
+        if len(out) < want:
+            c.js("window.scrollBy(0, 2200); true", wait=20, retries=3)
+            time.sleep(3.5)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("port", nargs="?", default="9240")
     ap.add_argument("--likes", type=int, default=12)
     ap.add_argument("--replies", type=int, default=36)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--suggest", type=int, default=0, metavar="N",
+                    help="print up to N candidate posts as JSON and exit — "
+                         "the caller composes the reply live and sends it "
+                         "with --reply-to; nothing is sent or marked here")
+    ap.add_argument("--reply-to", metavar="SID",
+                    help="reply to this status id with the text in --file")
+    ap.add_argument("--file", metavar="PATH",
+                    help="reply text file for --reply-to (composed by the "
+                         "caller, never from a pre-written pool)")
+    ap.add_argument("--allow-no-repo", action="store_true",
+                    help="forwarded to post_reply.py for opinion replies "
+                         "that carry no repository link")
     args = ap.parse_args()
     port = args.port
 
+    # The canned reply pool only gates the classic loop. The live-composition
+    # modes (--suggest / --reply-to) must work even when no pool exists —
+    # pre-written content is forbidden there by design.
+    classic = not args.suggest and not args.reply_to
     files = replies_available()
-    if len(files) < args.replies and not args.dry_run:
+    if classic and len(files) < args.replies and not args.dry_run:
         print(f"only {len(files)} replies written, asked for {args.replies} — "
               f"the queue is shorter than the target. Writing a reply per post "
               f"that arrives on its own is the only honest way to fill it.")
-    if not files and not args.dry_run:
+    if classic and not files and not args.dry_run:
         print("no reply directory — nothing to say. See the skill for what a "
               "reply must carry before one may be written.")
         return 1
@@ -188,6 +231,36 @@ def main() -> int:
               flush=True)
         return 0
 
+    # --reply-to: send one caller-composed reply and record it. Everything
+    # mechanical — the owned-repository gate, the exact-text compare, the
+    # landing verification — stays in post_reply.py; this mode only adds the
+    # cross-run bookkeeping. Marking happens BEFORE the send, as in the
+    # classic loop: a failed send has still consumed the post's one answer.
+    if args.reply_to:
+        sid = args.reply_to
+        if not args.file or not os.path.exists(args.file):
+            print("--reply-to needs --file pointing at the composed text",
+                  flush=True)
+            return 1
+        done, _ = load_state()
+        if sid in done:
+            print(f"REFUSING - {sid} is already answered (state file)",
+                  flush=True)
+            return 1
+        done.add(sid)
+        save_state(done, 0)
+        cmd = [sys.executable, str(REPLY), port, sid, args.file]
+        if args.allow_no_repo:
+            cmd.append("--allow-no-repo")
+        rc = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        tail = (rc.stdout + rc.stderr).strip().splitlines()[-12:]
+        for line in tail:
+            print("  " + line, flush=True)
+        ok = any("VERIFIED reply by" in ln for ln in tail)
+        print(f"engage_once: {'VERIFIED' if ok else 'NOT VERIFIED'} {sid}",
+              flush=True)
+        return 0 if ok else 1
+
     tabs = [t for t in C.tabs("page") if "x.com" in t.get("url", "")]
     if not tabs:
         print("no x.com tab — run ensure_browser.py first", flush=True)
@@ -200,6 +273,16 @@ def main() -> int:
     time.sleep(6)
     c.js("window.scrollTo(0, 0); true", wait=20, retries=3)
     time.sleep(2)
+
+    # --suggest: hand the caller live candidates and stop. Nothing is marked
+    # or sent — the mark lands only when a composed reply is actually sent
+    # through --reply-to, so a post the caller declines is not burned.
+    if args.suggest:
+        done, _ = load_state()
+        cands = collect(c, me, done, args.suggest)
+        print("candidates:", json.dumps(cands, ensure_ascii=False), flush=True)
+        c.close()
+        return 0
 
     # 2. likes, through the script that records the button state after each
     if args.likes:

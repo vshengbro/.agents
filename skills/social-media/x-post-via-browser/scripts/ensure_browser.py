@@ -58,12 +58,19 @@ def x_tabs() -> list[dict]:
 
 
 def launch() -> bool:
-    """Start the real-profile copy, headed, with no tab of its own."""
+    """Start the real-profile copy, headless, with no tab of its own.
+
+    Headless is not a preference, it is the working surface: measured
+    2026-10-09, the headed window's reply click routes to a context-less
+    /compose/post (the main composer — typing there publishes a standalone
+    post where a reply was meant, and every gate then refuses), while the
+    headless copy opens the real reply dialog with its parent context.
+    """
     if not os.path.exists(LAUNCH):
         print(f"launcher not found at {LAUNCH}")
         return False
     print(f"browser is down — launching via {LAUNCH}", flush=True)
-    p = subprocess.run(["bash", LAUNCH, "--port", str(PORT), "--headed",
+    p = subprocess.run(["bash", LAUNCH, "--port", str(PORT),
                         "--fresh", "--no-tab"],
                        capture_output=True, text=True, timeout=420)
     tail = (p.stdout + p.stderr).strip().splitlines()[-6:]

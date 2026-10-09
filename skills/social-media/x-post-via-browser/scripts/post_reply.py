@@ -116,6 +116,26 @@ REPLY_POINT = """(() => {
 # The reply editor is the one that was not on the page before the click. The
 # send control is found by walking up from that editor, never by taking the
 # first enabled tweet button on the page.
+def box_ok(st: dict) -> bool:
+    """The reply composer, on either surface X mounts it.
+
+    A modal dialog is the familiar surface, but on some viewports the reply
+    control navigates to /compose/post instead — a full route with the parent
+    post rendered above the editor. Measured 2026-10-09 on the headed copy:
+    vw=1280, url=/compose/post, editors=1, dialogs=0; the in_dialog-only gate
+    reported NOT SENDING on a composer that was open and waiting. The route
+    alone is not proof — the main composer also lives on /compose/post — so
+    the parent post must be on the page too, and the editor must be FRESH
+    (mounted after this run's snapshot): a leftover main composer on the same
+    route with feed articles behind it would otherwise pass, and typing into
+    it publishes a standalone post where a reply was meant.
+    """
+    return bool(st.get("in_dialog")
+                or (st.get("route") == "/compose/post"
+                    and st.get("parent_visible")
+                    and st.get("is_new")))
+
+
 STATE = """(() => {
   const now = [...document.querySelectorAll('[data-testid="tweetTextarea_0"]')]
     .filter(n => n.className && n.className.indexOf(%s) >= 0
@@ -146,6 +166,10 @@ STATE = """(() => {
   }
   return {ok: true, len: text.length, text: text,
           in_dialog: !!e.closest('[role="dialog"]'), is_new: fresh.includes(e),
+          route: location.pathname,
+          parent_visible: [...document.querySelectorAll('article')].some(a =>
+            [...a.querySelectorAll("a[href*='/status/']")].some(x =>
+              (x.getAttribute('href') || '').split('/').pop() === SID)),
           editors: now.length, send: send ? send.dataset.testid : null,
           enabled: !!(send && !send.disabled)};
 })()""" % json.dumps(DRAFT_CLS)
@@ -361,6 +385,7 @@ def pick_target(c, want=""):
 
 def main() -> int:
     port, sid, arg = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+    allow_no_repo = "--allow-no-repo" in sys.argv[4:]
     text = open(arg, encoding="utf-8").read() if os.path.exists(arg) else arg
     for_sid = ""
     m = re.search(r"^#\s*target-status:\s*(\d{15,25})\s*$", text, re.M)
@@ -385,7 +410,20 @@ def main() -> int:
     # somewhere else is not a promotion of this account's work, so the owners
     # are matched rather than the host.
     repo = org_repos.find_repo(text)
-    if not repo:
+    if not repo and allow_no_repo:
+        # An opinion reply carries no link at all. The account owner
+        # authorised this shape for posts no project genuinely answers —
+        # but a link to somebody ELSE'S repository is still a refusal,
+        # flag or no flag.
+        foreign = re.search(r"https://github\.com/[\w.-]+/[\w.-]+", text or "")
+        if foreign:
+            print("REFUSING - opinion reply names a repository this account "
+                  "does not own: %s" % foreign.group(0), flush=True)
+            c.close()
+            return 1
+        print("no repository link — opinion reply (--allow-no-repo)",
+              flush=True)
+    elif not repo:
         print("REFUSING - %s" % org_repos.check(text), flush=True)
         c.close()
         return 1
@@ -478,8 +516,18 @@ def main() -> int:
       }
     })()""", wait=25, retries=4)
     time.sleep(1.0)
-    probe = js(c, STATE)
-    if not probe.get("ok") or not probe.get("in_dialog"):
+    # The route surface needs settle time: the click swaps /home for
+    # /compose/post and the parent article renders AFTER the route change, so
+    # a single probe taken 3.5s in can read a composer with no parent yet and
+    # fail a box that is, in fact, open (measured: gate failed while the
+    # composer sat waiting; the same probe a minute later saw everything).
+    probe = {}
+    for _ in range(8):
+        probe = js(c, STATE)
+        if probe.get("ok") and box_ok(probe):
+            break
+        time.sleep(1.5)
+    if not probe.get("ok") or not box_ok(probe):
         print("NOT SENDING - the reply box did not open. Measured on this "
               "browser: a synthesised mousedown/mouseup on the control "
               "changes nothing, and with the overlays gone focus does land "
@@ -487,6 +535,7 @@ def main() -> int:
               "real click opens it. Open the reply box yourself and the "
               "typing, the exact length check and the verification below "
               "all still work.", flush=True)
+        print("  last probe:", probe, flush=True)
         c.close()
         return 1
     # Nothing is typed when the target is not on this page: a missing reply
@@ -510,7 +559,7 @@ def main() -> int:
     print("  reply box: new=%s in_dialog=%s editors=%s send=%s:%s" % (
         st.get("is_new"), st.get("in_dialog"), st.get("editors"),
         st.get("send"), "en" if st.get("enabled") else "dis"), flush=True)
-    if not st.get("in_dialog"):
+    if not box_ok(st):
         print("  NOT SENDING - no reply box opened; the only editor is the "
               "main composer", flush=True)
         c.close()
@@ -573,7 +622,7 @@ def main() -> int:
         print("  text does not match, not sending", flush=True)
         c.close()
         return 1
-    if not st.get("in_dialog"):
+    if not box_ok(st):
         print("  NOT SENDING - the editor holding the text is not a reply "
               "box", flush=True)
         c.close()
