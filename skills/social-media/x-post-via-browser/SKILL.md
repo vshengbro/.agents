@@ -1,7 +1,7 @@
 ---
 name: x-post-via-browser
-description: "Use when posting to X/Twitter through the user's logged-in browser. The one path that works, and the four things that raise a dialog."
-version: 3.0.0
+description: "Use when posting or replying on X/Twitter through the user's logged-in browser. Compose and reply paths, and the visibility/verification traps that make a working path read as dead."
+version: 4.0.0
 author: local
 license: MIT
 platforms: [macos, linux]
@@ -15,6 +15,8 @@ metadata:
 
 Verified 2026-10-01 on a Premium account. Four long posts of 608–1060
 characters published and verified, then a 27-post series published on a timer.
+Revised 2026-10-07 with 12 replies published and each one verified on the
+target's own page — which corrected the reply path's stated cause.
 
 ## The path
 
@@ -357,26 +359,69 @@ Two rules about that directory, both learned by breaking them:
 - **Never re-post a reply text to reach a count.** If the directory holds fewer
   replies than the target, the honest answer is the smaller number.
 
-## Why the measured dead ends still hold
+## The reply editor does not mount in a hidden tab — activate it first
 
-The activation attempts below all fail, and none of them is in the working path
-— the working path dispatches mousedown/mouseup/click on the control, which
-does open the box, and then types with key events. They are recorded because
-they are the routes that read as "X ignores automation".
+**Corrected 2026-10-07. This supersedes the "X refuses synthetic input"
+conclusion that sat in this section.** That conclusion was wrong, and it was
+wrong for four separate reasons in a row, each based on a real measurement.
 
-| activation tried | result |
-|---|---|
-| `element.click()` | fires `click` only; X acts on mousedown/mouseup |
-| synthetic mousedown + mouseup + click on the element | no new editor, watched 12s |
-| full PointerEvent sequence (pointerdown included) | no new editor |
-| focus the editor, then Enter / Space | focus lands (`document.activeElement === el`), X ignores it |
-| focus the editor, then real CDP `dispatchKeyEvent` per character | `focused: true`, 41 characters sent, editor length stays 0 |
+The actual cause: `document.visibilityState === "hidden"`. A backgrounded tab
+throttles rendering and React work, so **the reply editor never mounts at
+all**. The symptom is consistent and unambiguous: the url moves to
+`/compose/post`, and then there are **0 dialogs and 0 editors** — forever, at
+any poll interval, with any event type. It looks exactly like "X ignored the
+click".
 
-That last row is the one that settles it. The editor takes focus — so a
-leftover overlay is not holding it — and then accepts nothing. X is refusing
-synthetic input, not the script being wrong. The routes that remain are a real
-pointer and a real keyboard, both of which this skill's boundaries forbid, and
-the API, which this account has closed.
+Same page, before and after `Target.activateTarget`:
+
+| | `visibilityState` | articles | title | search box |
+|---|---|---|---|---|
+| before | `hidden` | 1–2 | empty | absent from the DOM |
+| after | `visible` | 11 | loaded | present |
+
+The degraded shell also masquerades as every other failure you would guess
+first — an empty feed, a broken page, a page that needs a reload, a browser
+that needs restarting. Fixing any of those changes nothing.
+
+```python
+tab.send("Target.activateTarget", targetId=<tab target id>)
+```
+
+`activateTarget` is equivalent to raising a minimised window. In headless it
+moves no pointer and takes no OS focus, so it does not violate the
+no-mouse/no-keyboard rules. Activate at the top of every entry point, and
+re-activate after each navigation — it flips back to `hidden` on its own.
+
+**Check it before diagnosing anything else.** One line:
+`tab.js("document.visibilityState")` must be `"visible"`.
+
+## Dead ends that are still real
+
+These were measured while the tab was hidden, so they are contaminated — but
+the *structural* observations stand, and each one is a genuine trap worth
+keeping:
+
+- **A template returning `JSON.stringify(...)` while its siblings return
+  objects** makes a working path look completely dead. `js()` wraps the
+  string as `{"_raw": ...}` and every `.get()` on it returns `None`.
+- **`insertText` lights the send button up while the handler behind it still
+  sees an empty draft.** With the editor properly mounted, one `insertText`
+  for the whole body is both correct and fastest — but only after the tab is
+  visible. Per-character `dispatchKeyEvent` drops and reorders characters when
+  the editor is live (a 694-character reply came back with a run of the middle
+  missing). Do not "fix" a working path by switching to per-character keys.
+- **X renders each newline as an element**, so a source with N newlines reads
+  back N characters short. Compare normalised text, never raw length.
+
+And the ones that are simply true:
+
+- **Counting editors does not detect the reply box.** The main composer is
+  already in any page-wide list of editables, so a reply box appearing does
+  not change the count. Scope to a visible dialog instead.
+- **An editor-less `[role="dialog"]` captures focus.** `btn.focus()` returns
+  without throwing while `document.activeElement === btn` stays false, and
+  every later synthetic input goes into the void. Clear dialogs that contain
+  no editable element before concluding anything about the input channel.
 
 **A leftover dialog is still worth clearing before any of this.** An
 editor-less `[role="dialog"]` captures focus, `btn.focus()` returns without
@@ -398,3 +443,208 @@ Two further corrections that cost real time, recorded so they are not repeated:
   X empties the composer after a successful send. Composer length zero is
   ambiguous between "sent" and "never typed". Verify against the target's
   social context, a returned status id, and `in_reply_to`.
+
+## Telling a reply from a standalone post
+
+**The url cannot do this.** Clicking `[data-testid="reply"]` navigates to
+`https://x.com/compose/post` — the same url the standalone composer uses. A
+url-only classifier is wrong in both directions: it rejects a perfectly good
+reply box, and it waves through three standalone posts that were meant to be
+replies.
+
+The only reliable signal is the visible dialog text — the reply dialog ends
+with `回复 @someone` (Replying to @someone). Read it before typing anything.
+
+Confirming it is a real reply afterwards: open the **target's** status page and
+read the article order. The target's article is first, yours is after it. That
+is the one check that proved itself repeatedly; a sent reply also renders as
+its own top-level article, not nested under the target.
+
+## A reply, step by step
+
+What actually works, in order. Everything below was measured on 12 replies
+published and independently verified.
+
+1. **Navigate to the target's status page.** Stable in a way a virtualised
+   result list is not, and the parent post is on screen.
+2. **Assert the handle belongs to that id.** Read the first article's author on
+   the page. A matcher that resolves a handle and a pid independently can hand
+   you a handle from one post and an id from another's — which would @-mention
+   the wrong person in an unrelated thread. Abort on mismatch. This is not
+   hypothetical: a stale log showed one topic matching `@saltyAom` while the id
+   it carried belonged to `@AnkanXplorer`.
+3. **Click `[data-testid="reply"]`** on that page. Do not `scrollIntoView` — it
+   makes the target invalid in a virtualised list. Scroll the window
+   instead.
+
+   **Measured 2026-10-09: this click stopped opening the box, and the script now
+   refuses rather than typing blind.** A synthesised mousedown/mouseup on the
+   control changes nothing; with the editor-less overlays cleared, focus does
+   land on it, but X ignores a synthesised Enter and Space. The symptom is
+   `open reply: {'opened': True, 'top': N}` — the measured position of the
+   control — followed by `NOT SENDING - the reply box did not open`. A real click
+   is needed and taking the mouse is forbidden, so **the reply leg of
+   `engage_feed.py` cannot complete unattended on this browser**; the honest
+   report is 0 replies, not a retry. Re-measure with one manual click before
+   assuming it is still blocked — this section already records that "X refuses
+   synthetic input" was a script bug four separate times.
+4. **Confirm `回复 @someone` is in the dialog**, and that the editor took
+   focus. Refuse if not.
+5. **One `insertText` for the whole body**, then **compare the editor's
+   `textContent` against the source character for character.** Not length — X
+   renders each newline as an element. Never send on "the button is enabled".
+6. **Send.**
+7. **Verify by opening the target's page and reading the article order.** Wait
+   for the thread to render — a reply is not always present in the first
+   load, and concluding from one sample produces false failures.
+
+## Verify from YOUR reply's page, not only the target's
+
+When the target has posted several times in a row, opening "the target's
+status page" is ambiguous — the two posts can look near-identical, and
+verification lands on the wrong one. Measured: verification opened a
+neighbouring post by the same author and reported "not a reply" for a reply
+that had genuinely published.
+
+Open **your own reply's status id** instead. That page names the account it
+replies to and always shows the parent, so it settles the question in one
+read. When the target's own page is unreadable, fall back to your
+`/with_replies` tab and match on the reply's opening words.
+
+## One browser instance, or the socket dies
+
+Running several headless Chrome instances against the same debugging port
+produces a port that answers while the page renderer no longer does: CDP
+`/json/version` is fine, `Runtime.evaluate` times out forever. Measured as
+"CDP connection timed out" mid-run, with no crash report anywhere.
+
+Before blaming the socket, count what you started:
+
+```bash
+ps -eo pid,command | grep -c '[r]emote-debugging-port=9240'
+```
+
+More than one instance is the cause. `pkill -9 -f remote-debugging-port=9240`,
+confirm the port is free, then start exactly one. The failure looks like a
+network problem and is a process-management problem.
+
+## Three ways verification lied, and what they share
+
+All three were reported as *failure* for work that had genuinely published.
+Each proves "something appeared", not "the right thing appeared":
+
+| the check | what it actually proved | the fix |
+|---|---|---|
+| look for a child article under the target **on the search results page** | nothing — search results do not render reply threads at all | verify on the target's page, or on your own `/with_replies` tab |
+| profile `/with_replies`, break on first own post found | an *older* post from earlier in the day | keep scrolling past the first hit until the page settles |
+| profile, "a post of mine appeared that is not in the baseline" | any new post, including an unrelated one | require the text to start with **this** reply's first line, and seed the baseline before sending |
+
+**Do not stop a check the moment it looks satisfied.** A lazy timeline needs a
+few extra scroll rounds after the first hit before the newest item has
+rendered.
+
+And **one check failing is not proof the post failed.** Measured four times in
+one session: a single read of the target's status page reported "no reply of
+mine" for replies that had genuinely published, because the thread had not
+finished rendering. `send: ok` plus an exact pre-send character compare is
+strong evidence; a negative read from a freshly navigated page is weak. When
+the two disagree, re-read — preferably from a *different* surface (your
+`/with_replies` tab) rather than re-sending.
+
+The cost of getting this backwards in the other direction is a duplicate post
+to a real person, so a negative is never grounds for an immediate retry.
+
+## Every step that changes the surface must put it back
+
+Navigating to your profile to seed the baseline leaves the tab **on your
+profile**. The scan that follows then reads your own timeline — five of your
+posts plus five of someone else's — and reports "no match" for a target that
+was sitting on the correct page all along. Same class of bug, three times, in
+three places: the baseline step, a `wait_for_results` that measured 32 "results"
+while the url was `/with_replies`, and a url-settle check nested inside the
+`if` that only runs when navigation *fails* (so it silently never ran).
+
+**Assert the surface unconditionally**, not only in the failure branch: the
+url must be what you asked for, there must be articles, and they must not all
+be your own. Compare *position*, not just url — a page can have the right url
+and still be scrolled 131,618px deep into stale content.
+
+## Keyword search re-randomizes; author-scoped search does not
+
+Six identical loads of one keyword search returned 12, 14, 15, 12, 13 and 14
+articles, and a post that had been visible once was in none of them. An
+author-scoped query (`from:handle`) gives a stable set. Scope narrows where to
+look — the content match still has to happen inside it.
+
+Also: search results render lazily. `Page.navigate` plus a fixed sleep and
+then scroll-to-top lands *before* the results exist — measured 0 articles
+against a page that had 17 a moment later. Poll for content, do not sleep a
+guessed interval.
+
+And a long automation run keeps navigating while the result set churns under
+it. Re-load the surface periodically instead of scrolling one load for a
+hundred rounds.
+
+## Exit non-zero when nothing was sent
+
+A run that sends nothing and exits 0 is indistinguishable, to a human reading
+a notification, from a run that sent everything. That cost real confusion —
+several "completed normally" notices turned out to be runs that had sent
+nothing at all.
+
+```
+raise SystemExit(0 if sent else 1)
+```
+
+## What to write in a reply
+
+The replies that work are the ones that answer the post. Every one that
+worked conceded something real before making its point — "that is fair, and
+the frontend half is not what we solve", "this measures scaffolding, not the
+language", "it does not make generated code more readable". A reply that
+corrects its own subject, states what it does not do, and only then says
+what it does is read as an answer. A repository link with no argument around
+it is a link drop.
+
+Do not reply to posts that merely share a vocabulary. Three test posts were
+deleted on sight — posted to the right people, about nothing.
+
+## The account handle is read live, never hardcoded
+
+Every script once carried `ME = "eastspire_sheng"`. The account was renamed to
+**@vshengbro** (2026-10, same rename as the GitHub account) and each hardcoded
+copy broke in its own way: reply verification matched nothing, so sends that
+had landed were reported NOT VERIFIED, and the feed filter stopped excluding
+the account's own posts, so one 01:00 run replied to its own promotional
+posts. `scripts/handle.py` reads the handle from the nav bar's
+`AppTabBar_Profile_Link` at connect time; the module constant is only the
+fallback before the page paints. Any new script in this directory takes the
+handle from `handle.live(c)`, never from a literal.
+
+## Keyword targeting needs a blocklist, rotation, and cross-run state
+
+Measured the day the 30-minute engagement job was added:
+
+- **A keyword match is not a reason.** The first dry-run target of the bare
+  TOPICS filter was an adult-content post caught by 模型; the next was a
+  TOKEN2049 crypto-booth post caught by "token". `engage_feed.py` carries a
+  BLOCK list (adult, scam, crypto-shill vocabulary) that vetoes a post
+  whatever else it says.
+- **48 runs a day cannot send one text.** The per-run loop used to start at
+  `01.txt` every invocation. The state file
+  (`~/.hermes/cron/output/x-engagement/answered_sids.json`, `X_ENGAGE_STATE`
+  overrides) now persists both the answered status ids AND the next reply-text
+  index, shared between the 30-minute job and the nightly one: no post gets
+  two replies, and the same text never goes out twice in a row.
+- **Two runs can be scheduled on top of each other.** The nightly 36-reply
+  run overlaps any :00/:30 tick. `engage_feed.py` holds a non-blocking
+  `flock` (`engage.lock` next to the state file); a second run prints the
+  skip line and exits 0. A skipped run is correct, not a failure.
+
+## A reply verified by the 30-minute cadence
+
+`engage_feed.py <port> --likes 1 --replies 1` is one unit of work: home tab,
+one like, one reply bound live to its target, `VERIFIED reply by @<handle>`
+from the reply's own page, state saved. The cron job `40defaea9d3a` runs it
+every 30 minutes; the nightly job `b821f8f18340` runs the same script with
+`--likes 14 --replies 36`. Both honour the same lock and state file.

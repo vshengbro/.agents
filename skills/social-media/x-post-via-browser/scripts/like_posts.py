@@ -22,8 +22,9 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cdp as C                                          # noqa: E402
+import handle                                            # noqa: E402
 
-ME = "eastspire_sheng"
+ME = handle.FALLBACK  # resolved live from the page in main()
 
 # A like is worth making when the post is about the same work: languages an
 # agent writes, agent tooling, context and token cost, inference, compilers.
@@ -113,6 +114,11 @@ def main() -> int:
         print("no x.com tab", flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
+
+    # The handle moves when the account is renamed; read it from the page
+    # rather than trusting a constant written when it had a different name.
+    global ME
+    ME = handle.live(c)
 
     raw = c.js(READ, wait=30, retries=5)
     rows = json.loads(raw) if isinstance(raw, str) else raw

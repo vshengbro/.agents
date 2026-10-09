@@ -25,6 +25,7 @@ composed live, because the file is what the promotion rule is checked against.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import subprocess
@@ -48,8 +49,56 @@ TOPICS = ("rust", "cargo", "wasm", "webassembly", "compile", "compiler",
           "refactor", "debugging", "code", "programming", "developer",
           "编程", "模型", "编译", "工具", "宏", "上下文", "智能体", "推理", "代码")
 
+# A keyword match is never a reason by itself: adult and scam posts stuff the
+# same vocabulary (模型, token, code) into their text, and a promotional reply
+# under one of those does real damage to the account. Measured 2026-10-09:
+# the very first dry-run target was an uncensored-image-model post caught by
+# 模型. Skip the whole post on any of these, whatever else it says.
+BLOCK = ("少儿不宜", "成人内容", "未成年", "nsfw", "18+", "uncensored",
+         "约炮", "onlyfans", "porn", "adult content", "博彩", "彩票",
+         "刷单", "裸聊",
+         # crypto shill threads match "token" without ever being about token
+         # cost — TOKEN2049 booth posts, airdrops, pump talk
+         "token2049", "airdrop", "波场", "币圈", "土狗", "百倍",
+         "合约", "炒币", "跟单", "带单")
+
 sys.path.insert(0, str(HERE))
 import cdp as C                                          # noqa: E402
+import handle                                            # noqa: E402
+
+# Status ids this account has already consumed a reply on, persisted across
+# runs: the 30-minute job and the nightly job share this file, so a post that
+# was answered at 14:00 is not answered again at 14:30 just because the feed
+# still shows it. The same file rotates the reply text: a 30-minute cadence
+# would otherwise send 01.txt to every post, and 48 copies of one text in a
+# day is the exact pattern spam detection exists for. Sids sort
+# chronologically as equal-length strings, so the cap keeps the recent ones.
+STATE = Path(os.environ.get(
+    "X_ENGAGE_STATE",
+    os.path.expanduser(
+        "~/.hermes/cron/output/x-engagement/answered_sids.json")))
+
+
+def load_state() -> tuple:
+    """(answered sids, next reply-text index); tolerates the legacy list form."""
+    try:
+        raw = json.loads(STATE.read_text())
+    except Exception:
+        return set(), 0
+    if isinstance(raw, list):
+        return set(raw), 0
+    if isinstance(raw, dict):
+        return set(raw.get("sids") or []), int(raw.get("next") or 0)
+    return set(), 0
+
+
+def save_state(done: set, next_idx: int) -> None:
+    try:
+        STATE.parent.mkdir(parents=True, exist_ok=True)
+        STATE.write_text(json.dumps(
+            {"sids": sorted(done)[-5000:], "next": next_idx}))
+    except OSError as exc:
+        print("could not save the engagement state:", exc, flush=True)
 
 READ = """(() => {
   const out = [];
@@ -125,11 +174,26 @@ def main() -> int:
         return 1
 
     C.set_port(int(port))
+
+    # The 30-minute job and the long nightly job can be scheduled on top of
+    # each other, and two runs driving one tab at once is how a reply lands
+    # under the wrong post. A skipped run is a correct outcome — the next
+    # tick is 30 minutes away — so the lock is non-blocking.
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(STATE.parent / "engage.lock", "w")
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("another engagement run holds the lock — skipping this run",
+              flush=True)
+        return 0
+
     tabs = [t for t in C.tabs("page") if "x.com" in t.get("url", "")]
     if not tabs:
         print("no x.com tab — run ensure_browser.py first", flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
+    me = handle.live(c)
 
     # 1. back to the feed, so likes and replies both read a live timeline
     print("home:", c.js(GO_HOME, wait=25, retries=4), flush=True)
@@ -153,7 +217,7 @@ def main() -> int:
     # replies went to the same target. Remember the status ids this run has
     # already answered and skip them.
     liked, replied, said = 0, 0, 0
-    done: set[str] = set()
+    done, text_offset = load_state()
     stalls = 0
     while replied < args.replies and said < len(files) and stalls < 4:
         rows = js(c, READ)
@@ -161,8 +225,9 @@ def main() -> int:
             print("could not read the feed:", str(rows)[:120], flush=True)
             break
         target = next((r for r in rows
-                       if r.get("who") != "eastspire_sheng" and r.get("text")
+                       if r.get("who") != me and r.get("text")
                        and any(w in r["text"].lower() for w in TOPICS)
+                       and not any(w in r["text"].lower() for w in BLOCK)
                        and r.get("sid") and r["sid"] not in done), None)
         if not target:
             # Nothing new worth answering in view: scroll for more, and give up
@@ -183,12 +248,15 @@ def main() -> int:
                 stalls += 1
             continue
 
-        body_file = files[said]
+        body_file = files[(text_offset + said) % len(files)]
         said += 1
         # Mark the target before typing, not after: a reply that fails to
         # verify has still consumed the post's one answer, and re-picking it
-        # would spend the next reply text on the same target.
+        # would spend the next reply text on the same target. Persisting the
+        # mark — and the text rotation — is what keeps a later RUN from
+        # answering the same post again with the same text.
         done.add(target["sid"])
+        save_state(done, text_offset + said)
         print(f"\nreply {replied + 1}/{args.replies} -> "
               f"@{target['who']} {target['sid']} "
               f"[{body_file.name}]", flush=True)

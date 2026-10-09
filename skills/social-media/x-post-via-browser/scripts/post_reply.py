@@ -32,12 +32,13 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cdp as C                                          # noqa: E402
 import org_repos                                          # noqa: E402
+import handle                                            # noqa: E402
 
 DRAFT_CLS = "public-DraftEditor-content"
 # The member reply cap. The 280 that free accounts get does not apply here,
 # and checking against it once meant trimming drafts to a fifth of an answer.
 REPLY_LIMIT = 25000
-ME = "eastspire_sheng"
+ME = handle.FALLBACK  # resolved live from the page in main()
 
 SNAPSHOT = """(() => {
   window.__seenEditors = new Set(
@@ -372,6 +373,12 @@ def main() -> int:
         print("no x.com tab", flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
+
+    # The handle moves when the account is renamed; read it from the page so
+    # verification matches the account as it is called now, not as it was
+    # called when this constant was written.
+    global ME
+    ME = handle.live(c)
 
     # A reply here has two jobs: it has to answer the post it sits under, and
     # it has to carry a repository this account owns. A github.com link to
