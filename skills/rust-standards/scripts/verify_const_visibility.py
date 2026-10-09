@@ -26,6 +26,17 @@ Two finding classes:
                  keep-vs-delete is a human decision (§17.14 introspection
                  clause). Not counted in the exit-code violations.
 
+Constant-table crates (a crate whose entire public API *is* the constants,
+e.g. http-constant) are exempt by configuration, not by hardcoding
+(2026-10-09 user ruling): `<repo>/rust-standards.toml` carries
+
+    pub_const_exempt = ["http-constant"]
+
+a string array of package identifiers (`[package].name`). An exempt crate's
+own constants are never flagged (violation or unwired); it still counts as a
+reader for every other crate's analysis. The file obeys §2.5 (zero TOML
+comments).
+
 Usage:
     python3 verify_const_visibility.py [ROOT]
 """
@@ -39,6 +50,8 @@ from pathlib import Path
 PUB_CONST_RE = re.compile(r"^pub\s+(?P<kind>const|static)\s+(?P<name>[A-Za-z_]\w*)\b")
 IDENT_RE = re.compile(r"[A-Za-z_]\w*")
 SKIP_DIRS = {"target", ".git", "node_modules"}
+CONFIG_NAME = "rust-standards.toml"
+CONFIG_FIELD = "pub_const_exempt"
 
 LINE_COMMENT = re.compile(r"//[^\n]*")
 BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
@@ -110,11 +123,48 @@ def _iter_rs(root: Path):
         yield path
 
 
+def _load_pub_const_exempt(repo: Path) -> set[str]:
+    """Package identifiers exempt from the pub-const ban (constant-table
+    crates), from `<repo>/rust-standards.toml`. §2.5 forbids TOML comments,
+    so a flat-field scan over a comment-free file is exact for the
+    string-array field."""
+    cfg = repo / CONFIG_NAME
+    if not cfg.is_file():
+        return set()
+    try:
+        text = cfg.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    m = re.search(r"(?m)^" + CONFIG_FIELD + r"\s*=\s*\[(.*?)\]", text, re.S)
+    if not m:
+        return set()
+    return {
+        s
+        for pair in re.findall(r'"([^"]*)"|\'([^\']*)\'', m.group(1))
+        for s in pair
+        if s
+    }
+
+
+def _package_name(crate_root: Path) -> str | None:
+    """`[package].name` of the crate at `crate_root` (first bare `name =`)."""
+    try:
+        text = (crate_root / "Cargo.toml").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r'(?m)^name\s*=\s*"([^"]+)"', text)
+    return m.group(1) if m else None
+
+
 def analyze(repo: Path):
     """Return (violations, unwired) as lists of formatted strings."""
     crates = _crate_roots(repo)
     if not crates:
         return [], []
+    exempt_names = _load_pub_const_exempt(repo)
+    exempt_crates = {
+        c for c in crates if (_package_name(c) or c.name) in exempt_names
+    }
     texts: dict[Path, str] = {}
     for path in _iter_rs(repo):
         try:
@@ -145,6 +195,10 @@ def analyze(repo: Path):
     for path, text in texts.items():
         crate = crate_of[path]
         if crate is None or not _is_internal(path, crate):
+            continue
+        if crate in exempt_crates:
+            # Constant-table crate (rust-standards.toml): its pub constants
+            # are the API surface itself. Still a reader for other crates.
             continue
         outside = external_idents[crate]
         inside = internal_files[crate]
@@ -213,6 +267,13 @@ def main() -> int:
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
     violations, unwired = analyze(root)
+    exempt = _load_pub_const_exempt(root)
+    if exempt:
+        print(
+            f"=== const-visibility: {len(exempt)} crate(s) exempt via "
+            f"{CONFIG_NAME}: {', '.join(sorted(exempt))} ===",
+            file=sys.stderr,
+        )
     if unwired:
         # Report-only class goes to stderr: stdout carries violations only,
         # so audit wrappers can count lines without filtering two classes.

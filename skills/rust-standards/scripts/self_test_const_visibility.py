@@ -124,6 +124,26 @@ def main() -> int:
         if not any("USED_EXTERNALLY" in h for h in lib_hits) or not any("VIA_TESTS" in h for h in lib_hits):
             failures.append(f"audit_one must flag externally-read consts too (absolute ban): {lib_hits}")
 
+        # constant-table exemption via rust-standards.toml (2026-10-09 ruling)
+        (tmp / "gamma/src").mkdir(parents=True, exist_ok=True)
+        (tmp / "gamma/Cargo.toml").write_text(
+            "[package]\nname = \"gamma\"\nversion = \"0.1.0\"\n"
+        )
+        (tmp / "gamma/src/lib.rs").write_text("pub const GAMMA_TABLE: u8 = 42;\n")
+        with (tmp / "beta/src/lib.rs").open("a") as fh:
+            fh.write("\npub fn read_gamma() -> u8 {\n    gamma::GAMMA_TABLE\n}\n")
+        violations, unwired = verifier.analyze(tmp)
+        if not any(" GAMMA_TABLE'" in v for v in violations):
+            failures.append(f"GAMMA_TABLE must be a violation before exemption: {violations}")
+        (tmp / "rust-standards.toml").write_text('pub_const_exempt = ["gamma"]\n')
+        violations, unwired = verifier.analyze(tmp)
+        if any("GAMMA" in v for v in violations) or any("GAMMA" in u for u in unwired):
+            failures.append(f"exempt crate still flagged: {violations} {unwired}")
+        if not any("INTERNAL_ONLY" in v for v in violations):
+            failures.append(f"exemption must be per-crate, alpha still flagged: {violations}")
+        if verifier.audit_one(tmp / "gamma/src/lib.rs"):
+            failures.append("audit_one must honor the exemption for the staged file")
+
         # fixer: dry-run must not write
         target = tmp / "alpha/src/const.rs"
         before = target.read_text()
@@ -163,6 +183,8 @@ def main() -> int:
             failures.append("USED_EXTERNALLY not reduced (absolute ban)")
         if "pub(crate) const VIA_TESTS: u8 = 2;" not in lib_fixed:
             failures.append("VIA_TESTS not reduced (absolute ban)")
+        if (tmp / "gamma/src/lib.rs").read_text() != "pub const GAMMA_TABLE: u8 = 42;\n":
+            failures.append("fixer must not rewrite an exempt constant-table crate")
         violations_after, _ = verifier.analyze(tmp)
         if violations_after:
             failures.append(f"violations remain after fix: {violations_after}")
