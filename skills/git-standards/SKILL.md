@@ -322,6 +322,93 @@ The escape hatch is narrow on purpose: a stylesheet that starts *executing*
 something (`@import` of a script, `url()` pulling in a `.js`, a `behavior:`
 binding) has crossed from presentation into code and routes to a PR.
 
+#### 3.3a.1b Layer A'' — CSS embedded in a host language (the `.rs` case)
+
+**Layer A′ is a path decision, and that assumption is wrong for every framework
+that declares CSS inside a compiled language.** euv writes every rule as
+
+```rust
+// ui/src/style/class/shell/fn.rs
+class! {
+    pub c_app_nav {
+        width: var!(nav-width);
+        border-left: format!("2px solid {}", var!(border));
+        display: "flex";
+    }
+}
+```
+
+so `is_style()` saw `.rs`, handed the file to Layer B, and the lexer reported
+`border-left: format!(...)` as a changed statement → **NEEDS_PR**. Verified
+2026-10-09 on euv-dev/euv PR #300: deleting one CSS declaration opened a PR,
+when the user's rule says presentation direct-pushes. The `format!` is an
+argument to a declaration, not behaviour.
+
+**So the test is the changed line, not the extension.** If every added and
+removed line is a CSS declaration inside a style block, it is presentation —
+whatever language the block is written in. Implemented in
+`scripts/style_blocks.py`, called from `classify_change.py` step 4c.
+
+| Changed line | Route | Why |
+|---|---|---|
+| `border-left: format!("2px solid {}", var!(border));` | 直推 | a declaration; the `format!` is its value |
+| `color: var!(accent);` / `padding: "4px";` | 直推 | paint |
+| a `//` comment inside the block | 直推 | documentation |
+| `display: none;` / `pointer-events: …` | **PR** | hides a subtree / changes hit-testing |
+| `:hover { … }` / `&:active { … }` | **PR** | a state rule, not paint |
+| `@media (max-width: 767px) { … }` | **PR** | a conditional the engine evaluates |
+| `transition:` / `animation:` / `transform:` | **PR** | motion, and engine-evaluated |
+| `let x = 1;` or a changed `fn` in the same file | **PR** | real code wins over the container (§3.3a.3) |
+
+The rule is deliberately narrow — **flat declarations only**. A nested
+selector binds to markup, and `@media` / `display: none` are behaviour the
+engine acts on, so they keep their PR even though they are syntactically CSS.
+A file that also holds ordinary statements is judged by those statements.
+
+Verify it on both sides (12 cases, including every NEEDS_PR row above):
+
+```bash
+python3 ~/.agents/skills/git-standards/scripts/style_blocks_test.py
+python3 ~/.agents/skills/git-standards/scripts/classify_change.py --self-test
+```
+
+### 3.3a.1c Enforcement — `route_gate.py` is what makes the rule binding
+
+**A rule with no enforcement point is a suggestion.** The classifier computed a
+verdict that four skills documented and **no hook consumed**, which is precisely
+how PR #300 happened. `scripts/route_gate.py` closes the loop at commit time
+and is wired into the **live** `pre-commit`
+(`rust-standards/references/hooks/pre-commit`, which `core.hooksPath` resolves
+through `~/.agents/hooks/pre-commit` → symlink). It sits **above** the
+Rust-repo detection, because that check returns early for non-Rust repos and an
+empty staging area — a gate below it would never see a docs-only commit.
+
+| Staging | Branch | Verdict |
+|---|---|---|
+| docs / config / presentation / comment-only | default | allowed |
+| executable code | default | **blocked** — branch first, then PR |
+| docs / config / presentation | feature | **blocked** — it should have direct-pushed |
+| executable code | feature | allowed |
+| classifier cannot run | either | **blocked** (exit 2, 从严) |
+
+Run it by hand exactly as the hook does:
+
+```bash
+python3 ~/.agents/skills/git-standards/scripts/route_gate.py --repo .
+```
+
+**Pitfall 24 — the live hook is not `~/.git-hooks/pre-commit`.** On this machine
+`core.hooksPath` is `~/.agents/hooks`, whose `pre-commit` is a **symlink** to
+`~/.agents/skills/rust-standards/references/hooks/pre-commit`. A stale, near-
+identical `~/.git-hooks/pre-commit` also exists and is **dead**. An edit there
+installs cleanly, `bash -n` passes, and the gate never runs — the same trap as
+§3.6.5 / pitfall 21. Confirm the real target before editing:
+
+```bash
+git config --get core.hooksPath
+realpath "$(git config --get core.hooksPath)/pre-commit"
+```
+
 #### 3.3a.2 Layer B — everything else (diff content decides)
 
 Source files, scripts, build files, lockfiles and binaries are **lexed** and
@@ -665,12 +752,21 @@ non-obvious consequence: a local `.git/hooks/pre-commit` in a repo is
 Verified 2026-09-28 — a throwaway repo's own `pre-commit` never ran until
 `core.hooksPath` was pointed at it explicitly.
 
-The guard therefore lives in `~/.git-hooks/prepare-commit-msg` (the global
-path, which nothing shadows) and asks one question per commit:
+The guard therefore lives in `prepare-commit-msg` (the global path, which
+nothing shadows) and asks one question per commit:
 
 ```
 is this repo mine according to GitHub → --no-verify is a violation
 ```
+
+> **CORRECTION 2026-10-09 (pitfall 24).** This section originally stated that
+> `core.hooksPath` is `~/.git-hooks`. It is not — on this machine it is
+> `~/.agents/hooks`, and its `prepare-commit-msg` symlinks to
+> `~/.git-hooks/prepare-commit-msg` while its `pre-commit` symlinks to
+> `~/.agents/skills/rust-standards/references/hooks/pre-commit`. So `~/.git-hooks`
+> holds a **live** `prepare-commit-msg` and a **dead** `pre-commit`. Always
+> resolve the target rather than assuming:
+> `realpath "$(git config --get core.hooksPath)/<hook>"`.
 
 ```bash
 # what the guard decides for the current repo
@@ -751,6 +847,25 @@ wrong — the audit script is the source of truth, not your reading of it.
 22. **Enumerating orgs with `/users/<account>/orgs`** — that endpoint returns only orgs with *public* membership. On this machine it returned 2 (`hyperlane-dev`, `crates-dev`) and silently omitted the private `euv-dev` and `docs-pages`, i.e. four repos that the gate is supposed to protect. Use `/user/orgs`, which needs the `read:org` scope. This is the failure mode of any silently-truncated enumeration: it looks complete, and it leaves exactly the private repos unprotected. Cross-check the count before trusting it.
 23. **Hardcoding the owned-owner list in the hook** — an org created after the script was written is not in the list and is silently exempt. Ownership is resolved live per commit (§3.6.1), so a new org is covered without editing anything. Corollary: a live API call can fail, so every failure mode must return `ERROR` → treated as `ENFORCED`. Verified: `gh` off PATH, `GH_TOKEN=invalid_token_xyz`, and `GH_HOST=127.0.0.1:1` all return ERROR/exit 2 on a repo that *is* yours — never EXEMPT. Never let an unanswerable question become a free pass.
 
+24. **Editing a hook that is not the live hook** — on this machine
+    `core.hooksPath` is `~/.agents/hooks`, and its `pre-commit` is a symlink to
+    `~/.agents/skills/rust-standards/references/hooks/pre-commit`. A
+    near-identical `~/.git-hooks/pre-commit` also exists and is dead. An edit
+    there applies cleanly, `bash -n` passes, and the gate never fires — which is
+    the same failure as pitfall 21, reached from the other direction (there the
+    guard was installed in the wrong place; here it was edited in the wrong
+    place). Verified 2026-10-09: the route gate was added to the dead copy, a
+    real `git commit` of a NEEDS_PR change on master sailed straight through,
+    and `git log` showed the commit recorded. Fix: resolve the live target with
+    `realpath "$(git config --get core.hooksPath)/pre-commit"` before editing,
+    and **prove** a gate fires with a throwaway commit before trusting it.
+25. **Routing a CSS declaration written in Rust as code** — Layer A′ matched
+    only `.css`/`.scss`/`.less` paths, so a `class! { pub c_x { border-left: …;
+    } }` block in a `.rs` file fell to Layer B and became NEEDS_PR, because the
+    declaration wrapped a `format!` call. Observed on euv PR #300. The user rule
+    is about the changed line being presentation, not the file's extension — see
+    §3.3a.1b and `scripts/style_blocks.py`.
+
 ## 5. Quick reference card
 
 ```
@@ -770,6 +885,10 @@ author:   git config --global user.name  "eastspire"
           (never -c user.email=… or GIT_AUTHOR_EMAIL, see §7)
 check:    python3 ~/.agents/skills/git-standards/scripts/classify_change.py
           → VERDICT: DIRECT_PUSH | NEEDS_PR   (exit 0 / 1 / 2=error)
+gate:     python3 ~/.agents/skills/git-standards/scripts/route_gate.py --repo .
+          → wired into the LIVE pre-commit; blocks NEEDS_PR-on-default and
+            DIRECT_PUSH-on-feature. Verify the target first:
+            realpath "$(git config --get core.hooksPath)/pre-commit"
 bypass:   git commit --no-verify   FORBIDDEN in your own repos (§3.6)
           owned = every repo GitHub reports under your account
                    or under any org you belong to (enumerated live,
@@ -790,6 +909,8 @@ bypass:   git commit --no-verify   FORBIDDEN in your own repos (§3.6)
 | [§3.3](#33-push--open-pr) | Full PR flow (code changes) |
 | [§3.3a](#33a-route-by-change-type-not-by-repo--文档配置直推代码走-pr) | **Routing rule** — 文档/配置/样式直推, 代码走 PR; classifier script |
 | [§3.3a.1a](#33a1a-layer-a--presentation-only-sources-path-decides) | **Layer A′** — `.css`/`.scss`/`.less` frontend style direct-push, and what it excludes |
+| [§3.3a.1b](#33a1b-layer-a--css-embedded-in-a-host-language-the-rs-case) | **Layer A″** — CSS declared inside Rust/TS (`class!` blocks); what stays a PR; `style_blocks.py` |
+| [§3.3a.1c](#33a1c-enforcement--route_gatepy-is-what-makes-the-rule-binding) | **Enforcement** — `route_gate.py` in the live pre-commit; pitfall 24 (the hook that is not live) |
 | [§3.3b](#33b-why-the-file-extension-cannot-be-the-test) | Why extension is not the test; auxiliary pre-judgment table |
 | [§3.4](#34-after-pr-is-open) | After the PR is open |
 | [§3.5](#35-quick-routing-check) | One-command routing check |
