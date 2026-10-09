@@ -71,14 +71,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-# The baseline temp file must keep a `.rs` suffix: every verifier entry point
-# starts with `if path.suffix != ".rs" ... return []` (see
-# verify_const_visibility.audit_one), so a temp named `foo.rs.head-baseline`
-# silently audits to ZERO findings and every legacy violation in the touched
-# file is then reported as "introduced by this commit" -- the exact
-# legacy-debt blindness this gate exists to avoid. Insert the marker BEFORE the
-# extension so the basename still parses as Rust.
+# The baseline temp file must keep the original extension: every verifier
+# entry point decides scope from the path (e.g.
+# verify_const_visibility.audit_one starts with `if path.suffix != ".rs" ...
+# return []`), so a temp named `foo.rs.head-baseline` silently audits to
+# ZERO findings and every legacy violation in the touched file is then
+# reported as "introduced by this commit" -- the exact legacy-debt blindness
+# this gate exists to avoid. The marker is appended after the full name, so
+# `mod.rs` -> `mod.rs.head-baseline.rs` and `Cargo.toml` ->
+# `Cargo.toml.head-baseline.toml`; scope-aware verifiers strip the suffix
+# before deciding. TOML baselines keep `.toml` so repo-wide `*.rs` rglobs
+# (e.g. verify_no_panicking_option_getter) never parse TOML as Rust.
 SUFFIX = ".head-baseline.rs"
+TOML_SUFFIX = ".head-baseline.toml"
+
+
+def _suffix_for(target: Path) -> str:
+    return TOML_SUFFIX if target.name.endswith(".toml") else SUFFIX
 
 # Minimum Jaccard overlap for a staged new file to be treated as a split of
 # a staged-deleted source. Conservative on purpose: a wrong pairing would hide
@@ -151,10 +160,20 @@ VERIFIERS = {
     "verify_pub_group_order": "pub items grouped before pub(crate)/private in const.rs/static.rs §18",
     "verify_const_visibility": "pub const/static needs an external reader §18",
     "verify_no_pub_in_tests": "single-reader tests/ items never need pub §18",
+    # §2.5 (2026-10-09, absolute): zero comments in every *.toml and every
+    # mod.rs. The only verifier that accepts `.toml` files, which is why
+    # TOML_AWARE exists: the gate now lets staged .toml through the pipeline
+    # but every other verifier still sees .rs only.
+    "verify_no_toml_mod_comments": "no comments in *.toml / mod.rs §2.5",
 }
 
 # Verifiers that only make sense for a specific file name.
 FILE_SCOPED = {"verify_lib_rs_doc_comment": "lib.rs"}
+
+# Verifiers that accept staged `.toml` files in addition to `.rs`. Every
+# other verifier assumes Rust content, so a staged Cargo.toml must never
+# reach their audit_one.
+TOML_AWARE = {"verify_no_toml_mod_comments"}
 
 
 def die(message: str, code: int = 2) -> int:
@@ -325,7 +344,7 @@ def _content_lines(text: str) -> list[str]:
 
 def materialise(target: Path, text: str) -> Path:
     """Write `text` beside `target` so path-relative logic still resolves."""
-    tmp = target.with_name(target.name + SUFFIX)
+    tmp = target.with_name(target.name + _suffix_for(target))
     tmp.write_text(text)
     return tmp
 
@@ -414,6 +433,8 @@ def _check_file(rel: str) -> tuple[list[str], int, list[str]]:
         required_name = FILE_SCOPED.get(name)
         if required_name and working.name != required_name:
             continue
+        if rel.endswith(".toml") and name not in TOML_AWARE:
+            continue
         before = audit(module, baseline_path, warnings) if baseline_path else []
         after = audit(module, working, warnings)
         if len(after) > len(before):
@@ -476,9 +497,11 @@ def main() -> int:
     if scripts_dir is None:
         return die("rust-standards skill scripts not found")
 
-    rs_files = [f for f in dict.fromkeys(staged) if f.endswith(".rs")]
+    rs_files = [
+        f for f in dict.fromkeys(staged) if f.endswith((".rs", ".toml"))
+    ]
     if not rs_files:
-        print("staged_file_gate: no staged .rs files, nothing to check")
+        print("staged_file_gate: no staged .rs/.toml files, nothing to check")
         return 0
 
     # Fixture support: run a subset of the gate's verifiers so one rule's
@@ -535,7 +558,7 @@ def main() -> int:
     print("staged_file_gate: new-violation gate (staged vs HEAD)")
     print(f"  repo:    {repo_root}")
     print(f"  scripts: {scripts_dir}")
-    print(f"  .rs files: {len(rs_files)}")
+    print(f"  .rs/.toml files: {len(rs_files)}")
     print("============================================================")
 
     jobs = _jobs(len(rs_files))
@@ -549,12 +572,13 @@ def main() -> int:
     # Any stale temp from a previously killed run is swept up front, and
     # every temp this run may have created is removed at the end, whichever
     # path (pool, serial fallback, exception) produced it.
-    for stale in repo_root.rglob(f"*{SUFFIX}"):
-        if "/target/" not in str(stale):
-            try:
-                stale.unlink()
-            except OSError:
-                pass
+    for pattern in (f"*{SUFFIX}", f"*{TOML_SUFFIX}"):
+        for stale in repo_root.rglob(pattern):
+            if "/target/" not in str(stale):
+                try:
+                    stale.unlink()
+                except OSError:
+                    pass
     try:
         if jobs <= 1:
             _init_worker(ctx)
@@ -580,7 +604,7 @@ def main() -> int:
     finally:
         for rel in rs_files:
             target = repo_root / rel
-            tmp = target.with_name(target.name + SUFFIX)
+            tmp = target.with_name(target.name + _suffix_for(target))
             try:
                 tmp.unlink(missing_ok=True)
             except OSError:

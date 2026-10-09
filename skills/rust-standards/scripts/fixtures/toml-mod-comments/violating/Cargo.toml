@@ -1,0 +1,9 @@
+# leading comment
+[package]
+name = "violating" # trailing comment
+version = "0.1.0"
+edition = "2024"
+description = "keep # this string"
+
+[dependencies]
+serde = "1"
