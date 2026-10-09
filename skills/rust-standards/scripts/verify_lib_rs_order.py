@@ -207,7 +207,14 @@ def audit_one(path: Path) -> list[str]:
                         f"group 6): {stripped[:70]}"
                     )
             seen_any = True
-            blank_before = False
+            if not stripped.startswith("#"):
+                # A non-decl CODE line glues the following decl to whatever
+                # precedes it. An outer attribute is different: it belongs to
+                # the NEXT decl, so it must not consume the blank line above
+                # it — `mod xxx;` + blank + `#[cfg(...)]` + `use super::*;`
+                # is the only fmt-stable way to cfg-gate a use, and rustfmt
+                # rejects a blank between an attribute and its item.
+                blank_before = False
             continue
         seen_any = True
         bucket = BUCKET_OF[g]
