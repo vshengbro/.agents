@@ -23,6 +23,11 @@ Exempt, with a reason rather than by accident:
     line it asserts on; hoisting either into lib.rs removes nothing. The rule
     is about a path the crate *consumes*. engine/src/emit/const.rs and its
     matching assertion in engine/tests/generate/fn.rs are the live case.
+  * `macro_rules!` bodies and `quote!` / `quote_spanned!` bodies. The tokens
+    inside are *emitted* into the downstream crate that expands the macro, so
+    they must stay fully qualified — a root import in the defining crate
+    never reaches the expansion site (std-macro-extensions and lombok-macros
+    are the live cases, 2026-10-09).
 
 Usage:
     python3 verify_no_qualified_std_path.py [ROOT]
@@ -55,8 +60,18 @@ SKIP_DIRS = {"target", ".git"}
 # `use std::rc::Rc;` into the crate it generates has to spell it somewhere,
 # and hoisting it into lib.rs would not remove it. This is the same category
 # as the `fn fmt` exemption above - the rule is about *consuming* a path.
+#
+# The char-literal alternative matches EXACTLY one character or escape:
+# with `(?:\\.|[^'\\])*` a lifetime apostrophe (`'a`, `'_`) pairs with the
+# next quote far away and blanks real code between them (measured: 27 of 203
+# hits on ctares were being silently re-swallowed downstream, 2026-10-09).
+# Raw strings need a backreference: content runs until a quote followed by the
+# SAME number of `#` (`r#"{"a":1}"#`); without it a JSON fixture's inner quote
+# opens a phantom string.
 STRING_LITERAL = re.compile(
-    r"r?#*\"(?:\\.|[^\"\\])*\"#*|r?'(?:\\.|[^'\\])*'",
+    r'b?r(#*)"(?:.*?)"\1'  # raw string / raw byte string
+    r"|b?\"(?:\\.|[^\"\\])*\""  # normal / byte string
+    r"|b?'(?:\\.|[^'\\])'",  # char / byte literal: exactly one char or escape
     re.S,
 )
 
@@ -68,18 +83,60 @@ def iter_rs(root: Path):
         yield path
 
 
+def _blank_macro_token_bodies(blanked: str) -> str:
+    """Blank `macro_rules!` / `quote!` / `quote_spanned!` bodies.
+
+    Runs on text whose string/char literals are ALREADY blanked, so a `quote!`
+    mentioned inside a string is invisible here, and braces inside macro-body
+    strings no longer exist to disturb the balanced scan.
+    """
+    spans: list[tuple[int, int]] = []
+    pairs = {"(": ")", "{": "}", "[": "]"}
+    for m in re.finditer(r"(?:macro_rules!\s*\w+|quote!|quote_spanned!)\s*([({\[])", blanked):
+        stack: list[str] = []
+        i = m.end(1) - 1
+        while i < len(blanked):
+            c = blanked[i]
+            if c in pairs:
+                stack.append(pairs[c])
+            elif stack and c == stack[-1]:
+                stack.pop()
+                if not stack:
+                    spans.append((m.end(1) - 1, i + 1))
+                    break
+            elif c in ")}]":
+                break  # malformed: bail without a span
+            i += 1
+    if not spans:
+        return blanked
+    chars = list(blanked)
+    for s, e in spans:
+        for i in range(s, e):
+            if chars[i] != "\n":
+                chars[i] = " "
+    return "".join(chars)
+
+
 def check_file(path: Path, label: str) -> list[str]:
     """Violations in one file, labelled `label` for the message."""
     if path.name in TOP_LEVEL:
         return []
+    text = path.read_text(errors="ignore")
+    # Blank string/char literals over the WHOLE file (multi-line strings span
+    # lines; per-line blanking flags their interior lines, which the rule
+    # exempts). Newlines are preserved so reported line numbers stay exact.
+    blanked = STRING_LITERAL.sub(lambda s: re.sub(r"[^\n]", " ", s.group(0)), text)
+    blanked = _blank_macro_token_bodies(blanked)
     found: list[str] = []
-    for number, line in enumerate(path.read_text(errors="ignore").splitlines(), 1):
+    for number, (line, line_blank) in enumerate(
+        zip(text.splitlines(), blanked.splitlines()), 1
+    ):
         if USE_LINE.match(line):
             continue
-        code = line.split("//", 1)[0]
+        code = line_blank.split("//", 1)[0]
         if TRAIT_FMT_RETURN.search(code):
             continue
-        for m in QUALIFIED.finditer(STRING_LITERAL.sub(lambda s: " " * len(s.group(0)), code)):
+        for m in QUALIFIED.finditer(code):
             found.append(
                 f"{label}:{number}: `{m.group(0)}` names the standard library "
                 f"directly - import it in the outermost lib.rs / mod.rs"

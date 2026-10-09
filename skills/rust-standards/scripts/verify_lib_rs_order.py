@@ -119,6 +119,14 @@ def _dependency_roots(lib_rs: Path) -> set[str]:
         name = line.split("=", 1)[0].strip().strip('"')
         if name and not name.startswith("["):
             roots.add(name)
+            # Cargo package names use hyphens; the crate name Rust code
+            # imports replaces them with underscores. Without this alias a
+            # dep like `lombok-macros` never matches the path segment
+            # `lombok_macros` and the pub use is misclassified as group 2
+            # (local), producing phantom "group 2 after group 3" hits.
+            roots.add(name.replace("-", "_"))
+    # std / core / alloc are external crates that never appear in a manifest.
+    roots.update({"std", "core", "alloc"})
     return roots
 
 
