@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [debugging, nodejs, node-inspect, cdp, breakpoints, ui-tui]
-    related_skills: [systematic-debugging, python-debugpy]
+    related_skills: [systematic-debugging]
 ---
 
 # Node.js Inspect Debugger
@@ -222,7 +222,7 @@ Interacting with the TUI (typing in its window) continues to advance execution; 
 
 ### Debugging `_SlashWorker` / PTY child processes
 
-Those are Python, not Node — use the `python-debugpy` skill for them. Only Node portions (Ink UI, tui_gateway client, tsx-run tests under `ui-tui/`) use this skill.
+Those are Python, not Node — out of scope here. Only Node portions (Ink UI, tui_gateway client, tsx-run tests under `ui-tui/`) use this skill.
 
 ## Running Vitest Tests Under the Debugger
 

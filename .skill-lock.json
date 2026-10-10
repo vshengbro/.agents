@@ -131,16 +131,6 @@
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "5578b102e45e5d0c75598c71700e2335dcced3d7"
     },
-    "buddy-sings": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/buddy-sings/SKILL.md",
-      "installedAt": "2026-07-16T04:07:58.236Z",
-      "updatedAt": "2026-10-01T13:03:04.877Z",
-      "skillFolderHash": "259f7dd93941fbfc21e8eeb7447e066b704e3e88",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main"
-    },
     "code-formatting-tools": {
       "source": "local",
       "sourceType": "local",
@@ -181,14 +171,6 @@
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "2d5daab7ecc531e81e9ae647f84ac6a4bbc8dee3"
     },
-    "github-tree-api-multi-file-commit": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/devops/github-tree-api-multi-file-commit/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "2c91671547f8e9f9a2d5e439dbf092d13a1c8070"
-    },
     "hermes-cronjob-daily-news-html": {
       "source": "local",
       "sourceType": "local",
@@ -205,22 +187,6 @@
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "b614fd17351eb4c746e4aeceaa11dc7c668b3db6"
     },
-    "rust-crate-docs-html-sync": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/devops/rust-crate-docs-html-sync/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "0f74f4202c92b322c7fc22171efb821445b83cf1"
-    },
-    "rust-pr-contribution-workflow": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/devops/rust-pr-contribution-workflow/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "a1bea42a1e1c104246b8dda4245e7e0d9913ad0c"
-    },
     "rust-pr-validation-checklist": {
       "source": "local",
       "sourceType": "local",
@@ -228,14 +194,6 @@
       "installedAt": "2026-09-30T14:23:40.504Z",
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "b52a5856bc328cc1cb24a63727261019cc8d486f"
-    },
-    "sdlc-review": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/devops/sdlc-review/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "9417c265fdba61e819a8823aa97242b219078061"
     },
     "static-site-deploy-verification": {
       "source": "local",
@@ -252,14 +210,6 @@
       "installedAt": "2026-09-30T06:14:23.478Z",
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "db893037c807403b94f3a782a5317d82c28d8666"
-    },
-    "docs-rs-api-fetcher": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/docs-rs-api-fetcher/SKILL.md",
-      "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "2820cde1839aefd3dca5cd9fabf32faa17494f39"
     },
     "dogfood": {
       "source": "local",
@@ -292,14 +242,6 @@
       "installedAt": "2026-07-10T13:50:00.000Z",
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "fc8e547ddc81ef9bf0af7fe3bf86a6cdc78fb4bb"
-    },
-    "euv-app": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/euv-app/SKILL.md",
-      "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "e824207cf139f08a438801a9d07807a5d2cc79a7"
     },
     "euv-docs-styling": {
       "source": "local",
@@ -385,16 +327,6 @@
       "installedAt": "2026-08-15T01:08:07.343Z",
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "96a78c28cfd4b042aee647f979aafa9604d7f5f9"
-    },
-    "gif-sticker-maker": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/gif-sticker-maker/SKILL.md",
-      "installedAt": "2026-07-16T04:08:46.732Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "6e541fe75ca988c0bcf7d6b1c4a7274553a482bd",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main"
     },
     "git-standards": {
       "source": "local",
@@ -606,24 +538,6 @@
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "3b6bab798293c86b346fedea86e750ed26c54da7"
     },
-    "obsidian": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/note-taking/obsidian/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "d4856784fa45f413847ea33dd8a20026b571924c"
-    },
-    "pptx-generator": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/pptx-generator/SKILL.md",
-      "installedAt": "2026-07-16T04:10:23.268Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "57921b6d56f8e14cd49fb9790b6eae6627a97d5b",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main"
-    },
     "project-memory": {
       "source": "local",
       "sourceType": "local",
@@ -704,16 +618,6 @@
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "0df79086c32a6614829caa371f08a3e230c4026e"
     },
-    "shader-dev": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/shader-dev/SKILL.md",
-      "installedAt": "2026-07-16T04:11:05.878Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "19ecd11c86b7b4b8cd0a5e0d0124330429cd28f0",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main"
-    },
     "skill-index-and-english-titles": {
       "source": "local",
       "sourceType": "local",
@@ -721,14 +625,6 @@
       "installedAt": "2026-08-15T01:08:07.343Z",
       "updatedAt": "2026-08-15T01:09:15.607Z",
       "skillFolderHash": "a2ba1363b1b0cd75ca01f3760231f42beb53be40"
-    },
-    "openhue": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/smart-home/openhue/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "d28ad17bfccb4cf3f920d3acd214b44e8421a58a"
     },
     "twitter-promo-drafting": {
       "source": "local",
@@ -802,14 +698,6 @@
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "f5705ef6e07e81ec9eebbdbdef99ab56835094a8"
     },
-    "python-debugpy": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/software-development/python-debugpy/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "514a59f7437f22661f9c5674a5dc14739cd5918f"
-    },
     "requesting-code-review": {
       "source": "local",
       "sourceType": "local",
@@ -833,14 +721,6 @@
       "installedAt": "2026-09-30T14:23:40.504Z",
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "e5d214b2f1f566ff1b4a0495b4f40365017d0355"
-    },
-    "spike": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/software-development/spike/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "0f923369ca4540b5299ea41e6656f688eec43ea8"
     },
     "systematic-debugging": {
       "source": "local",

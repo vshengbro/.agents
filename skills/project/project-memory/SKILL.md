@@ -232,25 +232,21 @@ When a task involves a project below, load the entry skill first, then the stand
 | `euv` (entry)                 | euv framework                                                  | API/pitfall cheatsheet; loads `euv-standards`, `euv-ui-standards` |
 | `euv-standards`               | euv framework                                                  | Complete API table + 13-class pitfall list   |
 | `euv-ui-standards`            | euv framework                                                  | 306 design tokens + 22 `euv_*` components    |
-| `euv-app`                     | euv example app                                                | Tauri 2.x Android packaging                  |
 | `euv-html-macro-traps`        | euv framework                                                  | 9 html! macro pitfalls                        |
 | `euv-engine-design`           | euv-engine                                                     | `Engine` zero-sized façade contract          |
 | `euv-hook-context-collision`  | euv framework                                                  | `HookContext::current()` thread_local hazards |
 | `hyperlane` (entry)           | hyperlane framework                                            | Hyperlane API + pitfalls                     |
 | `hyperlane-standards`         | hyperlane framework                                            | Full API + pitfall list                      |
 | `hyperlane-upload`            | hyperlane framework                                            | Deploy to ltpp.vip                           |
-| `docs-rs-api-fetcher`         | all crates                                                     | Pulls docs.rs / crates.io live data          |
 | `gh-pr-creation-workflow`     | all PRs                                                        | gh CLI PR lifecycle cheatsheet               |
 | `github-pr-workflow`          | all PRs                                                        | Full PR lifecycle with fork decisions        |
 | `github-issue-to-pr`          | all repos                                                      | Issue → PR pipeline                          |
 | `git-standards`               | all repos                                                      | Commit + PR conventions                      |
 | `rust-standards`              | all Rust                                                       | Auditable Rust coding rules                  |
 | `code-formatting-tools`       | all langs                                                      | Format MD/YAML/TOML/Rust/web before commit  |
-| `rust-pr-contribution-workflow` | external Rust crates                                          | External crate PR pipeline                   |
 | `rust-pr-validation-checklist` | external Rust crates                                          | Pre-PR validation                            |
 | `rust-cargo-mirror-setup`     | local dev                                                      | Cargo mirror config (TUNA)                   |
 | `computer-use`                | desktop automation                                             | cua-driver behind-the-scenes control         |
-| `obsidian`                    | local notes                                                    | Obsidian vault read/write                    |
 
 ## Out of scope for this skill
 

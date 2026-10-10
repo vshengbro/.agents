@@ -1,6 +1,6 @@
 ---
 name: rust-pr-validation-checklist
-description: 提交 Rust 项目 PR 前必跑的硬性验证清单 + 调研陷阱清单。在 user 提到 "PR / rust doc fix / 改 typo / wording" 时,涉及 Rust 工作必加载。结合 rust-pr-contribution-workflow 使用,聚焦"改后必跑 + 调研必复现"两件事。
+description: 提交 Rust 项目 PR 前必跑的硬性验证清单 + 调研陷阱清单。在 user 提到 "PR / rust doc fix / 改 typo / wording" 时,涉及 Rust 工作必加载。聚焦"改后必跑 + 调研必复现"两件事。
 ---
 
 # Rust PR 验证 + 调研 硬性清单
@@ -358,12 +358,11 @@ gh pr create --repo owner/repo --base master --head eastspire:fix/<scope>-<desc>
 
 ## 9. 与已有 skill 的关系
 
-- **rust-pr-contribution-workflow**: 找项目 → 选 issue → 提交 PR 的端到端工作流,**流程层**
 - **rust-pr-validation-checklist** (本 skill): 提交前必跑的硬性验证 + 调研陷阱清单,**执行层**
 - **rust-standards**: Rust 代码规范,**代码层**
 - **rust-crate-use**: 第三方 crate 查询 + docs.rs,**依赖层**
 
-加载顺序: rust-pr-contribution-workflow → rust-pr-validation-checklist → (按需) 其他
+加载顺序: rust-pr-validation-checklist → (按需) 其他
 
 ---
 
