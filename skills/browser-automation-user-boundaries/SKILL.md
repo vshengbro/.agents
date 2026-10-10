@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [browser-automation, cdp, user-boundaries, focus, tabs, confirmation, triage, network]
-    related_skills: [chrome-real-profile-launch, cdp-browser-harness-speed, web-access, hermes-real-profile-browser]
+    related_skills: [chrome-real-profile-launch, cdp-browser-harness-speed, web-access]
 ---
 
 # Driving a real browser on the user's machine

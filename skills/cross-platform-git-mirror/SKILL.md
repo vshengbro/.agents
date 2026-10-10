@@ -137,7 +137,7 @@ curl -H "Authorization: Bearer $GH_TOKEN" \
 # Canonical copy lives in the sibling skill's templates/ dir; expanduser keeps it
 # portable — never bake a machine-local absolute path into this skill.
 TEMPLATE = os.path.expanduser(
-    "~/.hermes/skills/github-cross-platform-mirror/templates/mirror.yml")
+    "~/.hermes/skills/cross-platform-git-mirror/templates/mirror.yml")
 content_b64 = base64.b64encode(open(TEMPLATE, "rb").read()).decode()
 body = json.dumps({
     "message": "ci: add mirror sync workflow for gitee/gitcode",
@@ -155,7 +155,7 @@ subprocess.run([
 
 ### 3c. The workflow file (verified working)
 
-**Do not paste the YAML by hand.** Copy `github-cross-platform-mirror/templates/mirror.yml` —
+**Do not paste the YAML by hand.** Copy `templates/mirror.yml`(本 skill 自带) —
 byte-identical to what `euv` / `hyperlane` / `ctares` ship at `.github/workflows/mirror.yml`:
 
 ```bash
@@ -165,7 +165,7 @@ curl -s -X PUT -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: applicatio
         "message": "ci: add mirror sync workflow for gitee/gitcode",
         "content": base64.b64encode(open(sys.argv[1],"rb").read()).decode(),
         "branch": sys.argv[2]}))' \
-        ~/.hermes/skills/github-cross-platform-mirror/templates/mirror.yml master)"
+        ~/.hermes/skills/cross-platform-git-mirror/templates/mirror.yml master)"
 ```
 
 The properties that matter, and why you must not "simplify" them:

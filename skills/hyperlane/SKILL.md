@@ -9,7 +9,7 @@ license: MIT
 
 ## 0. 必须先了解
 
-- **Monorepo 布局**(2026-09 起):7 个 member crate + 根 shim,见 `hyperlane-standards/SKILL.md` §1
+- **Monorepo 布局**(2026-09 起):7 个 member crate + 根 shim
 - **Workspace 成员**:根 `hyperlane`(re-export shim) + `hyperlane-core` + `hyperlane-macros` + `http-type` + `http-compress` + `http-constant` + `http-request` + `hyperlane-cli`
 - **crate 名 ≠ 目录名**:`type/` → `http-type`;`request/` → `http-request`;`compress/` → `http-compress`;`constant/` → `http-constant`(路径仍叫原名,crates.io publish 时是 `http-*`)
 - **Tokio 异步 HTTP server**,`panic = "unwind"`
@@ -144,7 +144,5 @@ impl ServerHook for Index {
 
 ## 6. 相关 skill
 
-- **`hyperlane-standards`**:workspace 布局 + crate 关系 + 跨 crate 规则(`[workspace.package]` / sync_workspace_version / member crate 互依赖图 / version bump 铁律)
-- **`hyperlane-standards/references/release-bump-flow.md`**:bump 流程
-- **`hyperlane-standards/references/monorepo-migration-checklist.md`**:从旧版单仓迁移到 monorepo 的检查清单
+- **`references/release-bump-flow.md`**:bump 流程
 - **`rust-standards`**:Rust 通用规范

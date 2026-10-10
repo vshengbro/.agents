@@ -200,7 +200,7 @@ async def main():
 asyncio.run(main())
 ```
 
-For CJK-heavy pages, verify via DOM inspection rather than `vision_analyze` on screenshots — see `euv-docs-contribution` history and the `css-edge-cases` skill for the CJK rendering caveat.
+For CJK-heavy pages, verify via DOM inspection rather than `vision_analyze` on screenshots — see `euv-docs-contribution` history for the CJK rendering caveat.
 
 After local verification, run `gh pr merge` and wait for the GitHub Actions Pages deploy (`gh run list --branch master --limit 1`), then probe the live site at `https://euv-dev.github.io/euv-docs/...` to confirm the deploy actually picked up the change (this catches the cargo-cache and Pages-cdn-cache failure modes).
 

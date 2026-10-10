@@ -8,7 +8,7 @@ platforms: [macos, linux, windows]
 metadata:
   hermes:
     tags: [chrome, cdp, browser-automation, real-profile, logins, headless, remote-debugging, cookies, authenticated, script-driven]
-    related_skills: [chrome-devtools-protocol, hermes-real-profile-browser, blocked-page-recovery, inspecting-hermes-desktop-dom]
+    related_skills: [chrome-devtools-protocol, blocked-page-recovery, inspecting-hermes-desktop-dom]
 ---
 
 # Chrome on a COPY of the real profile
@@ -173,8 +173,8 @@ removed a planted `STALE_MARKER` (force-overwrite), and came back ready.
   trace showed `[ 1 -ne 0 ]` returning true. When a readiness flag is involved,
   trace the guard once.
 - **macOS TCC.** Reading `~/Library/Application Support/Google/*` can fail with
-  `EPERM` rather than a file lock — that is Full Disk Access. See
-  `hermes-real-profile-browser` for the probe that tells the two apart.
+  `EPERM` rather than a file lock — that is Full Disk Access. The former
+  `hermes-real-profile-browser` skill documented the probe that tells the two apart.
 
 ## What the flags buy you
 

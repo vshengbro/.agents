@@ -2,7 +2,7 @@
 
 > **本文件是索引** — 每个坑的详细 repro / 修复 / 不该做的事放在各自 reference 文档中。
 
-## 22 个核心坑(hyperlane-standards §10 原版)
+## 22 个核心坑(原 hyperlane-standards §10)
 
 > 维护:这些是 hyperlane 框架反复踩过的坑,任何 hyperlane PR 提交前**逐条对照**。
 
@@ -36,12 +36,12 @@
 | # | 坑 | 详细 |
 |---|---|---|
 | 23 | `hyperlane-cli` 只有 `watch / new / template / help / version`;**不要**找 `hyperlane fmt` | `references/api-cli.md` |
-| 24 | `bump / sync / fmt / publish` 在外部 `crate-cli`(`~/.cargo/bin/crate`),不是 `hyperlane-cli` | `hyperlane-standards/references/release-bump-flow.md` |
-| 25 | bump commit 只改根 `Cargo.toml`,**不要**对 7 个 sub-crate 做任何 sed | `hyperlane-standards/references/release-bump-flow.md` |
-| 26 | CI `sync_workspace_version` 在 master push 上自动补齐 sub-crate `Cargo.toml` | `hyperlane-standards/references/release-bump-flow.md` |
-| 27 | publish 顺序: `http-constant → http-compress → http-type → http-request → hyperlane-core → hyperlane-macros → hyperlane-cli`(拓扑序;`http-type` 依赖 constant+compress,`hyperlane-macros` 硬依赖 core,**不能**把 type/macros 提前)| `hyperlane-standards/references/release-bump-flow.md` |
-| 28 | monorepo 切换:旧版 21.3.x 单仓无 path-dep;新版 21.7.x monorepo 必须 path-dep | `hyperlane-standards/references/monorepo-migration-checklist.md` |
-| 29 | `readme = "../../README.md"` 拒绝陷阱:子 crate 写错路径会让 crates.io publish 失败 | `hyperlane-standards/references/release-bump-flow.md` |
+| 24 | `bump / sync / fmt / publish` 在外部 `crate-cli`(`~/.cargo/bin/crate`),不是 `hyperlane-cli` | `references/release-bump-flow.md` |
+| 25 | bump commit 只改根 `Cargo.toml`,**不要**对 7 个 sub-crate 做任何 sed | `references/release-bump-flow.md` |
+| 26 | CI `sync_workspace_version` 在 master push 上自动补齐 sub-crate `Cargo.toml` | `references/release-bump-flow.md` |
+| 27 | publish 顺序: `http-constant → http-compress → http-type → http-request → hyperlane-core → hyperlane-macros → hyperlane-cli`(拓扑序;`http-type` 依赖 constant+compress,`hyperlane-macros` 硬依赖 core,**不能**把 type/macros 提前)| `references/release-bump-flow.md` |
+| 28 | monorepo 切换:旧版 21.3.x 单仓无 path-dep;新版 21.7.x monorepo 必须 path-dep | 原 hyperlane-standards 迁移清单(已移除) |
+| 29 | `readme = "../../README.md"` 拒绝陷阱:子 crate 写错路径会让 crates.io publish 失败 | `references/release-bump-flow.md` |
 | 30 | `http-request` 客户端不能用 `use super::parser::*` 跨 crate 模块;**用绝对路径** `crate::request::parser::fn::split_*`(parser 子模块的文件是 `fn.rs`,不是 `wire.rs`) | `api-request.md` |
 
 ## 工具冲突 quick map

@@ -235,7 +235,6 @@ When a task involves a project below, load the entry skill first, then the stand
 | `euv-engine-design`           | euv-engine                                                     | `Engine` zero-sized façade contract          |
 | `euv-hook-context-collision`  | euv framework                                                  | `HookContext::current()` thread_local hazards |
 | `hyperlane` (entry)           | hyperlane framework                                            | Hyperlane API + pitfalls                     |
-| `hyperlane-standards`         | hyperlane framework                                            | Full API + pitfall list                      |
 | `hyperlane-upload`            | hyperlane framework                                            | Deploy to ltpp.vip                           |
 | `gh-pr-creation-workflow`     | all PRs                                                        | gh CLI PR lifecycle cheatsheet               |
 | `github-pr-workflow`          | all PRs                                                        | Full PR lifecycle with fork decisions        |

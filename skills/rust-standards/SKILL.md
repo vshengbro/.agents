@@ -1,6 +1,6 @@
 ---
 name: rust-standards
-description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此为准)。**任何写 / 改 / 审查 Rust 代码、`.rs` 文件、`Cargo.toml`、cargo 命令、euv / hyperlane / wasm / proc-macro / ServerHook / Signal 的任务,在写第一行代码 / 第一次回答之前必须 `skill_view("rust-standards")` —— 不靠 description 软触发。不加载本 skill 写出的 Rust 代码会被开发者 review 直接驳回,不得 commit / push / 提 PR**。互锁:euv 任务必同时加载 `euv-ui-standards`;hyperlane 任务必同时加载 `hyperlane-standards`。**完工闭环**(2026-09-27 user 钦定):编码后**必须**跑 `python3 scripts/rust_pre_commit.py <repo>` 直到 exit 0,commit 时由 `~/.git-hooks/pre-commit` 强制 gate 新引入违规(只挡 staged 文件,不拦历史债)。适用于:新项目脚手架、现有 Rust 代码维护、PR 审查、重构、模块划分、命名、错误处理、性能优化、依赖管理、测试策略。涵盖硬性规则:9 种关键字文件纯净 / raw identifier / mod.rs 三段式 / lib.rs 集中导入 / 显式类型 / 泛型 where / WASM 禁 inline / fmt 双幂等 / 测试放 tests/。'
+description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此为准)。**任何写 / 改 / 审查 Rust 代码、`.rs` 文件、`Cargo.toml`、cargo 命令、euv / hyperlane / wasm / proc-macro / ServerHook / Signal 的任务,在写第一行代码 / 第一次回答之前必须 `skill_view("rust-standards")` —— 不靠 description 软触发。不加载本 skill 写出的 Rust 代码会被开发者 review 直接驳回,不得 commit / push / 提 PR**。互锁:euv UI 任务必同时加载 `euv-ui-standards`。**完工闭环**(2026-09-27 user 钦定):编码后**必须**跑 `python3 scripts/rust_pre_commit.py <repo>` 直到 exit 0,commit 时由 `~/.git-hooks/pre-commit` 强制 gate 新引入违规(只挡 staged 文件,不拦历史债)。适用于:新项目脚手架、现有 Rust 代码维护、PR 审查、重构、模块划分、命名、错误处理、性能优化、依赖管理、测试策略。涵盖硬性规则:9 种关键字文件纯净 / raw identifier / mod.rs 三段式 / lib.rs 集中导入 / 显式类型 / 泛型 where / WASM 禁 inline / fmt 双幂等 / 测试放 tests/。'
 ---
 
 # Rust 开发规范
@@ -32,7 +32,7 @@ description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此�
 |---------|---------|
 | 用户说"写 Rust 代码"、"改 Cargo.toml"、"修 .rs 文件" | ✅ |
 | 用户提到 cargo / rustc / clippy / cargo fmt / cargo test | ✅ |
-| 用户提到 euv / hyperlane / html! / class! / ServerHook / Signal | ✅(互锁 `euv-ui-standards` / `hyperlane-standards`) |
+| 用户提到 euv / hyperlane / html! / class! / ServerHook / Signal | ✅(UI 任务互锁 `euv-ui-standards`) |
 | 用户提到 wasm / wasm-pack / WebAssembly / wasm32 | ✅ |
 | 用户提到 proc-macro / 过程宏 / `#[proc_macro_derive]` / `#[proc_macro_attribute]` | ✅ |
 | 用户给一段 Rust 代码让你 review / 改 / 优化 / 重构 | ✅ |
@@ -109,18 +109,18 @@ description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此�
 
 ## Mutual-Lock Routing(把 description 的互锁写明)
 
-description 里写了"euv 任务必同时加载 euv-ui-standards,hyperlane 任务必同时加载 hyperlane-standards",但**只说"必加载"不说"加载后跳到哪"**。下表把 description 里的互锁关系展开成显式跳转目标(章节名为该 skill SKILL.md 中的 `##` 标题,不是 anchor —— 跨文件 anchor 在大多数 Markdown 渲染器里不可靠),确保 agent 拿到 task 后能 1 步命中正确的子章节。
+description 里写了"euv UI 任务必同时加载 euv-ui-standards",但**只说"必加载"不说"加载后跳到哪"**。下表把 description 里的互锁关系展开成显式跳转目标(章节名为该 skill SKILL.md 中的 `##` 标题,不是 anchor —— 跨文件 anchor 在大多数 Markdown 渲染器里不可靠),确保 agent 拿到 task 后能 1 步命中正确的子章节。
 
 | 任务类型 | 互锁 skill | 命中后跳到该 skill 的章节(按顺序) |
 | --- | --- | --- |
 | 写 / 改 euv 项目任意文件 | `euv`(入口) | `## 0. 必须先了解` → 跳转表 → 按需加载 `references/api-*.md`;UI 任务再叠加 `euv-ui-standards` |
 | 写 / 改 euv UI 页面 / 组件 / 样式 | `euv-ui-standards` | `## Index` → `## 0. Source of Truth` → `## 1. Design Tokens` → `## 2. Global Skeleton` → `## 3. Core Component HTML Templates` → `## 4. Home / Hero Page Spec` → `## 5. Class Naming Conventions` → `## 6. Responsive / Breakpoints` → `## 7. Accessibility / Touch` → `## 8. New Page Standard Template` → `## 9. Quick Notes / Anti-Patterns` |
-| 写 / 改 hyperlane 路由 / handler / middleware / hook | `hyperlane-standards` | `## Index` → `## 0. Mutual-Lock Skills` → `## 1. Project Metadata` → `## 2. Installation` → `## 3. 5-Line Minimum Call` → `## 4. Full Server Builder API` → `## 5. ServerHook trait + HookType enum` → `## 6. Context Reference` → `## 7. RoutePattern / RouteSegment / RouteParams` → `## 8. ServerConfig / RequestConfig` → `## 9. hyperlane-macros Procedural Macros` → `## 10. 22 Common Pitfalls` → `## 11. 7 Interlocking Ecosystem Crates` |
+| 写 / 改 hyperlane 路由 / handler / middleware / hook | `hyperlane`(入口) | 跳转表 → 按需加载 `references/api-*.md`(40 篇分主题 API 文档) + `references/pitfalls.md` |
 | 写 euv-engine 2D / 3D 游戏 | `euv`(入口) | `euv` 的 `## euv-engine (optional)` 章节 |
-| 写 hyperlane WebSocket / SSE / broadcast | `hyperlane-standards` | `## Index` → `## 11. 7 Interlocking Ecosystem Crates` → 选 `hyperlane-plugin-websocket` / `hyperlane-broadcast` 行 |
+| 写 hyperlane WebSocket / SSE / broadcast | `hyperlane`(入口) | `references/hyperlane-plugin-websocket.md` / `references/sse.md` / `references/hyperlane-broadcast.md` |
 | 写 Rust 通用代码(模块划分、命名、错误处理) | 本 skill 即可 | `## 检索方式` + `## 关键硬性规则` |
 
-**加载顺序**:`rust-standards`(本 skill,**总是第一**)→ 入口 skill(`euv` 或 `hyperlane`) → standards skill → UI skill(仅 euv UI 任务)。**回退**:任何找不到的细节,先查 `hyperlane-standards` 的 `## Index` 表 → 再查 `references/`(euv / hyperlane 的 references/ 通过 `scripts/sync-references.sh` 同步 docs-pages 内容)。
+**加载顺序**:`rust-standards`(本 skill,**总是第一**)→ 入口 skill(`euv` 或 `hyperlane`) → UI skill(仅 euv UI 任务)。**回退**:任何找不到的细节,查入口 skill 的 `references/`(euv / hyperlane 各有分主题 API 文档)。
 
 ## 检索方式(优先用这个)
 

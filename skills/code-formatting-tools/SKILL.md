@@ -116,6 +116,6 @@ cargo fmt --all
 ## 7. 互锁 / 邻近 skill
 
 - **`euv`**（/ `euv-ui-standards`）—— euv 项目代码里用 `euv fmt`。该 skill 的 `## euv-cli` 章节现在已能引用本 skill。
-- **`hyperlane`**（/ `hyperlane-standards`）—— hyperlane 项目代码里用 `hyperlane fmt`。
+- **`hyperlane`** —— hyperlane 项目代码里用 `hyperlane fmt`。
 - **`git-standards`** —— commit / PR 文案规范（与本 skill 互补,本 skill 管代码格式、git-standards 管 commit 措辞）。
 - **`rust-standards`** —— Rust 项目通用规范,Rust fmt 工具链走本 skill。

@@ -24,7 +24,7 @@ Source of truth for these steps: <https://agent.qq.com/doc/cli-setup.md>. Manage
 - "CLI 报 command not found" on a new machine
 - Setting up Agent Mail on a fresh workstation or a new agent
 
-Don't use for: sending/reading mail once setup is done (use `agently-mail`), or general inbox triage policy (use `email-inbox-triage`).
+Don't use for: sending/reading mail once setup is done (use `agently-mail`).
 
 ## Prerequisites
 

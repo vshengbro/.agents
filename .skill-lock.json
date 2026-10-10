@@ -179,38 +179,6 @@
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "21067d83e340a0563b48cd40239a2e64281d25e1"
     },
-    "docs-github-url-audit": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/docs-github-url-audit/SKILL.md",
-      "installedAt": "2026-09-30T06:14:23.478Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "db893037c807403b94f3a782a5317d82c28d8666"
-    },
-    "dogfood": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/dogfood/SKILL.md",
-      "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "a7fdbfc118f8beab0bfa38de1fea5b80f5f29b46"
-    },
-    "email-inbox-triage": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/email/email-inbox-triage/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "2946bd34fcec549f5d38723acf8951ca09768c98"
-    },
-    "himalaya": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/email/himalaya/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "34e5e857c91db5403b5b0cc5476199fbfe5a8d66"
-    },
     "euv": {
       "source": "local",
       "sourceType": "local",
@@ -227,43 +195,6 @@
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "8c8cd0f4c9578990aac51d7411eb5facc7fbbbbf"
     },
-    "find-skills": {
-      "source": "vercel-labs/skills",
-      "sourceType": "github",
-      "skillPath": "skills/find-skills/SKILL.md",
-      "installedAt": "2026-04-21T23:51:38.184Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "50592fdc9ceb7db078ddf2dbb57f93565abbea50",
-      "sourceUrl": "https://github.com/vercel-labs/skills.git"
-    },
-    "css-edge-cases": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/frontend/css-edge-cases/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "90b6c3f12d8ba0ed6dd43762a74b74f504a1d533"
-    },
-    "frontend-dev": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/frontend-dev/SKILL.md",
-      "installedAt": "2026-07-16T04:08:22.666Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "0d57330865afc1d8b46fd12242599e482a96cd18",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main"
-    },
-    "fullstack-dev": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/fullstack-dev/SKILL.md",
-      "installedAt": "2026-07-16T04:08:35.844Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "4db63aaa4c2f3625d22332e42cc534bdf022cf4a",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main"
-    },
     "gh-pr-creation-workflow": {
       "source": "local",
       "sourceType": "local",
@@ -279,14 +210,6 @@
       "installedAt": "2026-08-15T01:08:07.343Z",
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "f2fc0a37e4721c375241af47bf2c0b9a4fce5929"
-    },
-    "git-subtree-monorepo-merge": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/git-subtree-monorepo-merge/SKILL.md",
-      "installedAt": "2026-09-30T06:14:23.478Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "5adea5e35cdff8b432234b2f12758aa580799de0"
     },
     "codebase-inspection": {
       "source": "local",
@@ -344,46 +267,6 @@
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "4bc0dc7c48907c6983750ecfb1221f9172f2f336"
     },
-    "github-cross-platform-mirror": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/github-cross-platform-mirror/SKILL.md",
-      "installedAt": "2026-09-30T06:14:23.478Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "f4de6050632bfcbe16154946e74588781832436d"
-    },
-    "github-mass-clone": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/github-mass-clone/SKILL.md",
-      "installedAt": "2026-09-30T06:14:23.478Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "5e15041dca9c04f3d97907f1c9c3b9cdc6e6b56d"
-    },
-    "github-org-bulk-clone": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/github-org-bulk-clone/SKILL.md",
-      "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "c9e1d88a97cc044f2917d45a497fc81236ec43f0"
-    },
-    "github-pat-scope-check": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/github-pat-scope-check/SKILL.md",
-      "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "e0c43f1c5abc7f88c3ff53ae668758b16f9a5056"
-    },
-    "hermes-real-profile-browser": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/hermes-real-profile-browser/SKILL.md",
-      "installedAt": "2026-09-30T06:14:23.478Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "32b09c5a2a81c51cb640ac4ef53414754d273527"
-    },
     "hyperlane": {
       "source": "local",
       "sourceType": "local",
@@ -392,14 +275,6 @@
       "updatedAt": "2026-09-30T06:14:23.478Z",
       "skillFolderHash": "48c23f05714fddc98c930302ab30523bf5a83a70"
     },
-    "hyperlane-standards": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/hyperlane-standards/SKILL.md",
-      "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-09-30T06:14:23.478Z",
-      "skillFolderHash": "c4c07cea4e9305a663b20e85318409ab37a2dc14"
-    },
     "hyperlane-upload": {
       "source": "local",
       "sourceType": "local",
@@ -407,14 +282,6 @@
       "installedAt": "2026-07-10T13:50:00.000Z",
       "updatedAt": "2026-08-15T01:09:15.607Z",
       "skillFolderHash": "92d8c7595959c52293b3412fbbaf2fd8d417d22a"
-    },
-    "im-setup": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/im-setup/SKILL.md",
-      "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-08-15T01:09:15.607Z",
-      "skillFolderHash": "9f966a94a787e28f61d8288978c20d335e52467b"
     },
     "ios-simulator": {
       "source": "local",
@@ -447,22 +314,6 @@
       "installedAt": "2026-09-30T14:23:40.504Z",
       "updatedAt": "2026-09-30T14:23:40.504Z",
       "skillFolderHash": "000c0aa36a202791b4825d32540af40e7d17a862"
-    },
-    "openclaw-migration": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/migration/openclaw-migration/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "b60c4131d8cd705aee07b24bcace08fe25feed0f"
-    },
-    "huggingface-hub": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/mlops/huggingface-hub/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-09-30T14:23:40.504Z",
-      "skillFolderHash": "06c069d92de21b38a1010e4d363c3fa4d4831454"
     },
     "multi-agent-team-setup": {
       "source": "local",

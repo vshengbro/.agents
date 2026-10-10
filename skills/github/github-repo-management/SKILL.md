@@ -193,7 +193,7 @@ curl -s -X POST \
 
 A newly created repo ships with `.github/workflows/mirror.yml` — the push-triggered
 GitHub → gitee + gitcode mirror, byte-identical to the canonical copy in
-`github-cross-platform-mirror/templates/mirror.yml`. Same file name, same path, every repo.
+`cross-platform-git-mirror/templates/mirror.yml`. Same file name, same path, every repo.
 
 Copy it in and commit it on the repo's first push:
 
@@ -203,7 +203,7 @@ gh api -X PUT "repos/$OWNER/$REPO/contents/.github/workflows/mirror.yml" \
       "message": "ci: add mirror sync workflow for gitee/gitcode",
       "content": base64.b64encode(open(sys.argv[1],"rb").read()).decode(),
       "branch": sys.argv[2]}))' \
-      ~/.hermes/skills/github-cross-platform-mirror/templates/mirror.yml master)
+      ~/.hermes/skills/cross-platform-git-mirror/templates/mirror.yml master)
 
 git add .github/workflows/mirror.yml
 git commit -m "ci: add mirror sync workflow for gitee/gitcode"
@@ -231,7 +231,7 @@ curl -X POST -H "Content-Type: application/json" -H "private-token: $GITCODE" \
   https://gitcode.com/api/v5/user/repos
 ```
 
-See `github-cross-platform-mirror` for the full batch procedure, secret encryption, and the
+See `cross-platform-git-mirror` for the full batch procedure, secret encryption, and the
 three-way SHA parity audit.
 
 ### From a Template

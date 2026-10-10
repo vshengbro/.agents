@@ -25,7 +25,7 @@ hermes cronjob create \
 
 ### 关键参数说明
 - `--schedule`：标准 crontab 5 字段格式（分 时 日 月 周）
-- `--push-to`：推送目标（origin = 飞书，需先在 im-setup 配置）
+- `--push-to`：推送目标（origin = 飞书，需先配置飞书 webhook）
 - `--prompt`：任务执行逻辑的完整 prompt，要包含所有步骤和工具名
 - `--skills`：逗号分隔的 skill 列表。**如果 skills 不在系统 ~/.hermes/skills/ 下，必须传空字符串或省略，否则任务加载报错**
 - `--timezone`：可选，默认 UTC；如果用户在中国，时区要注意（"0 8 * * *" UTC = 北京时间 16:00）
