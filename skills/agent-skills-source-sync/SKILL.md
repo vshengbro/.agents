@@ -5,6 +5,11 @@ description: 对账并修复 `.agents/skills/*/SKILL.md` 中过时的版本号/�
 
 # Agent Skills 与源仓库对账
 
+## 仓库硬规则（2026-10-10 user 钦定，每次会话注入）
+
+1. **不得自动新增 skill**：平时任务中 agent 不允许自行创建新 skill，只有用户明确要求时才创建。
+2. **禁止临时文件进 `.agents`**：`.pyc` / `__pycache__/` / 缓存 / scratch 输出一律不得写入 `.agents/` 目录；临时产物写到 `~/.hermes/cache/scratch`（$TMPDIR）。`.gitignore` 已覆盖 `*.pyc` + `__pycache__/`，新增类别的临时产物先把模式补进 `.gitignore`。
+
 ## 适用场景
 - `.agents/skills/*/SKILL.md` 文档中声明了具体版本号（如 `euv = "0.13.3"`）、class 计数、组件计数、子 crate 列表等
 - 这些声明可能因为源仓库升级而漂移
