@@ -340,7 +340,7 @@ Two behaviours that are correct and should not be "fixed":
 - **A reply box that already holds text is refused, not reused.** That draft is
   not ours to delete, and clearing it is the one thing this skill forbids.
   Close the box and open a fresh one instead.
-- **A reply must carry a repository from `org_repos.OWNERS`**, or it is refused
+- **A reply must carry a repository from `org_repos.owner_set()`**, or it is refused
   before a character is typed. A reply that links someone else's project is not
   promotion of this account's work.
 
@@ -669,6 +669,18 @@ agent carries the words:
 3. `engage_feed.py <port> --reply-to <sid> --file <path>` sends it through
    post_reply.py and records the sid in the shared state. Opinion replies
    add `--allow-no-repo`; a foreign repository link is refused even then.
+
+**Steps 2 and 3 are two separate invocations, and the feed is virtualised
+between them.** Measured 2026-10-10: `--suggest 5` returned five candidates,
+and by the time the composed reply was sent `--reply-to` reported
+`open reply: {'why': 'target not on page'}` → `NOT SENDING - target not on
+page` → `NOT MARKED - <sid> stays available for a later batch`. The post had
+scrolled out of the DOM; the feed is a window, not a store. The sid survives
+in state, so this is a correct refusal and a correct skip — report it and
+stop. Do not reopen a tab, re-suggest, or pick a different post to force the
+number up. The fix is upstream (the reply leg has to navigate to the target's
+status page, which this path does not do), not something to retry at send
+time.
 
 ## The reply dialog only mounts on the headless surface
 

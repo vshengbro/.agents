@@ -201,8 +201,16 @@ def main() -> int:
     # --reply-to: send one caller-composed reply and record it. Everything
     # mechanical — the owned-repository gate, the exact-text compare, the
     # landing verification — stays in post_reply.py; this mode only adds the
-    # cross-run bookkeeping. Marking happens BEFORE the send, as in the
-    # classic loop: a failed send has still consumed the post's one answer.
+    # cross-run bookkeeping.
+    #
+    # Marking happens AFTER the send, and only when the send verified. It used
+    # to happen before, on the theory that a failed send has still consumed the
+    # post's one answer — which is true of the POST but not of the CANDIDATE.
+    # Measured: a run with a stale owner allowlist refused every link-bearing
+    # reply, and each refusal burned a sid, so 7 candidates were permanently
+    # skipped and never answered even after the allowlist was fixed. A refusal
+    # is a bug in this pipeline, not an editorial decision, so it must leave the
+    # candidate retryable.
     if args.reply_to:
         sid = args.reply_to
         if not args.file or not os.path.exists(args.file):
@@ -214,8 +222,6 @@ def main() -> int:
             print(f"REFUSING - {sid} is already answered (state file)",
                   flush=True)
             return 1
-        done.add(sid)
-        save_state(done, 0)
         cmd = [sys.executable, str(REPLY), port, sid, args.file]
         if args.allow_no_repo:
             cmd.append("--allow-no-repo")
@@ -224,6 +230,14 @@ def main() -> int:
         for line in tail:
             print("  " + line, flush=True)
         ok = any("VERIFIED reply by" in ln for ln in tail)
+        if ok:
+            done.add(sid)
+            save_state(done, 0)
+        else:
+            # Deliberately NOT marked: leave it for a later batch. Say so
+            # loudly, because a silent retry loop on one post wastes the run.
+            print(f"  NOT MARKED - {sid} stays available for a later batch",
+                  flush=True)
         print(f"engage_once: {'VERIFIED' if ok else 'NOT VERIFIED'} {sid}",
               flush=True)
         return 0 if ok else 1

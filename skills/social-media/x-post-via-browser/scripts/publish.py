@@ -167,6 +167,127 @@ def stray_linkifiers(text: str, urls) -> list:
             if w not in hosts]
 
 
+def warm(c) -> None:
+    """Send one throwaway ASCII space so the editor accepts the next character.
+
+    A fresh Draft block — the composer itself, or any block Enter just opened —
+    swallows the first character typed into it. Measured four ways on the same
+    body: under char events the leading '中' was gone, under keyDown/keyUp it
+    was gone, with a 30ms per-character delay it was gone, and with the caret
+    explicitly collapsed to the start it was still gone. One ASCII space first
+    initialises the block and the body then arrives exact. Delete it afterwards.
+    """
+    c.send("Input.dispatchKeyEvent", type="char", text=" ")
+    time.sleep(0.25)
+
+
+def type_keys(c, text: str) -> None:
+    """Type a non-ASCII body as real key events, one character at a time.
+
+    Input.insertText writes to the DOM without touching the editor's state, so
+    a CJK run sent that way is discarded: measured, a 597-character Chinese
+    body came back holding only its 30-character ASCII URL, and 5-, 48- and
+    190-character Chinese probes all arrived as a single newline. Real key
+    events update the editor model, and the reply path — which sends Chinese
+    this way — lands its text every time.
+
+    A key event cannot carry a character no keyboard produces, so non-ASCII
+    goes as a `char` event and ASCII as keyDown/keyUp. Enter is a real key.
+
+    THE WARM-UP CHARACTER IS LOAD-BEARING. In an empty Draft block the very
+    first character of any sequence is swallowed, whatever it is and however it
+    is sent: measured, '中文测试' arrived as '文测试' under char events, under
+    keyDown/keyUp, with a 30ms per-character delay, and with the caret
+    explicitly collapsed to the end. One ASCII space first initialises the
+    block and the body then arrives exact.
+
+    URLS GO IN AS SLOW KEY EVENTS. Two faster paths both truncate them:
+    key events at full speed arrive as 'https://github.c' — the punctuation
+    run is what the editor drops — and a single insertText at the caret
+    position inserts nothing at all, silently. The URL characters go one at a
+    time with a pause, which is the same path that carries the body correctly.
+    """
+    parts = re.split(r"(https?://\S+)", text)
+    for block in parts:
+        if not block:
+            continue
+        is_url = bool(re.match(r"^https?://\S+$", block))
+        if is_url:
+            # Re-focus before the URL. Measured: typed into an empty composer
+            # the URL arrives whole, but after ~570 characters of body it is
+            # cut to 'https://github.c' at exactly the same place every time.
+            # The cutoff is not a timing race (0ms and 150ms per character give
+            # the identical truncation) and not the URL's own characters — it
+            # is the editor's state after a long insert, so reset it here.
+            c.js("""(() => {
+              const all = [...document.querySelectorAll(
+                '[data-testid="tweetTextarea_0"]')]
+                .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
+                             && n.offsetParent !== null);
+              const e = all.find(x => x === document.activeElement) || all[0];
+              if (!e) return false;
+              e.focus();
+              // Collapse the caret to the end so the URL lands after the body.
+              const sel = window.getSelection();
+              const r = document.createRange();
+              r.selectNodeContents(e);
+              r.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(r);
+              return true;
+            })()""", wait=20, retries=3)
+            time.sleep(1.2)
+        else:
+            warm(c)
+        for i, ch in enumerate(block):
+            if ch == "\n":
+                c.send("Input.dispatchKeyEvent", type="keyDown", key="Enter",
+                       code="Enter", windowsVirtualKeyCode=13, text="\r")
+                c.send("Input.dispatchKeyEvent", type="keyUp", key="Enter",
+                       code="Enter", windowsVirtualKeyCode=13)
+                # Enter starts a fresh block, and the first character typed
+                # into a fresh block is swallowed the same way: measured, a
+                # two-paragraph body arrived with '第二段' read back as '二段'.
+                warm(c)
+            elif ord(ch) < 0x80:
+                c.send("Input.dispatchKeyEvent", type="keyDown", key=ch,
+                       text=ch)
+                c.send("Input.dispatchKeyEvent", type="keyUp", key=ch)
+            else:
+                c.send("Input.dispatchKeyEvent", type="char", text=ch)
+            # A URL's punctuation needs air between characters or the editor
+            # eats the run; 40ms is measured, not guessed.
+            if is_url or i % 25 == 24:
+                time.sleep(0.04 if is_url else 0.4)
+    time.sleep(1.5)
+
+    # Remove one warm-up space per block: they sit at the head of every block,
+    # so collapse to the start, delete forward, and repeat.
+    for _ in range(text.count("\n") + 1):
+        c.js("""(() => {
+          const all = [...document.querySelectorAll(
+            '[data-testid="tweetTextarea_0"]')]
+            .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
+                         && n.offsetParent !== null);
+          const e = all.find(x => x === document.activeElement) || all[0];
+          if (!e) return false;
+          const sel = window.getSelection();
+          const r = document.createRange();
+          r.selectNodeContents(e);
+          r.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(r);
+          return true;
+        })()""", wait=20, retries=3)
+        time.sleep(0.35)
+        c.send("Input.dispatchKeyEvent", type="keyDown", key="Delete",
+               code="Delete", windowsVirtualKeyCode=46)
+        c.send("Input.dispatchKeyEvent", type="keyUp", key="Delete",
+               code="Delete", windowsVirtualKeyCode=46)
+        time.sleep(0.6)
+    time.sleep(2.0)
+
+
 def main() -> int:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9240
     if "--show" in sys.argv:
@@ -239,13 +360,32 @@ def main() -> int:
             c.close()
             return 1
     else:
-        print(f"  empty — inserting {len(text)} characters in one insertText",
-              flush=True)
-        # One insertText for the WHOLE body, URL included. 2500 characters
-        # land in no time. The URL is not special to the editor; splitting it
-        # out to compose or paste it is what broke the text, five ways.
-        c.send("Input.insertText", text=text, wait=40, retries=6)
-        time.sleep(2.0)
+        # The input method depends on the SCRIPT, measured — not on habit.
+        #
+        # Input.insertText sends the string straight to the DOM and does not
+        # touch the editor's own state. X's Draft editor therefore keeps its
+        # composition model at whatever it had, and a CJK run sent that way is
+        # discarded: measured, a 597-character Chinese body came back holding
+        # only its 30-character ASCII URL, every Han character gone, at every
+        # length tried (5, 48 and 190 characters all arrived as one newline).
+        # Pure ASCII survives insertText intact, which is why the failure only
+        # ever appeared once the copy was written in Chinese.
+        #
+        # Real key events are the path a person uses and they update the model.
+        # Measured cost: ~600 characters is a few seconds, which is nothing
+        # against a ten-minute gap between language versions. So: any text
+        # containing non-ASCII goes per character; pure ASCII keeps the single
+        # fast insertText.
+        needs_keys = any(ord(ch) > 127 for ch in text)
+        if needs_keys:
+            print(f"  empty — typing {len(text)} characters as key events "
+                  f"(body is not pure ASCII)", flush=True)
+            type_keys(c, text)
+        else:
+            print(f"  empty — inserting {len(text)} characters in one "
+                  f"insertText (pure ASCII)", flush=True)
+            c.send("Input.insertText", text=text, wait=40, retries=6)
+            time.sleep(2.0)
 
     c.close_composition("")     # never leave an open composition behind
     st = read(c)
