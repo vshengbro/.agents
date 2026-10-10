@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [github, docs, url-audit, monorepo, readme, crates.io]
-    related_skills: [gh-pr-creation-workflow, euv-docs-contribution, docs-pages-docs-contribution, rust-crate-use]
+    related_skills: [gh-pr-creation-workflow, euv-docs-contribution, docs-pages-docs-contribution]
 ---
 
 # Docs GitHub URL Audit

@@ -177,4 +177,3 @@ re-render 写入一起计。**唯一可靠的判据是"注入的 global 被调�
 - **跨 PR 合并后 master 集成检查 + sync_workspace_version 失败 (2026-09-11 14-PR batch 教训)**: `references/post-merge-cross-pr-integration-check.md`
 - **12-PR 批次流程教训 (2026-09-11)**: `references/lessons-from-12-pr-batch-2026-09-11.md`
 - CDP mount bench 模板(浏览器渲染等价性验证):`templates/cdp-mount-bench.py`
-- euv 框架 API/坑表:`euv-standards` skill

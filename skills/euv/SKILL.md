@@ -9,7 +9,7 @@ license: MIT
 
 ## 0. 必须先了解
 
-- **Workspace 布局**:workspace 根 `euv` (re-export 包) + 7 个子 crate(`core` + `engine` + `macros` + `ui` + `cli` + `example` + `docs`),见 `euv-standards/SKILL.md` §1
+- **Workspace 布局**:workspace 根 `euv` (re-export 包) + 7 个子 crate(`core` + `engine` + `macros` + `ui` + `cli` + `example` + `docs`)
 - **Rust edition**:2024;**Framework 是 WASM target**(非 native)
 - **依赖管理**:用 `crate-cli`(`~/.cargo/bin/crate`),**不要用 `euv-cli`** 做 fmt/bump/publish
 - **skill 不维护版本号**:查根 `Cargo.toml` `[workspace.package] version`
@@ -80,9 +80,7 @@ license: MIT
 |---|---|
 | 写任何 Rust 代码 | `rust-standards` |
 | 写 design class / 用 `var!()` 引用 CSS token | `euv-ui-standards`(class 索引 + design tokens) |
-| 编译到 WASM | `rust-crate-use` 提供 `wasm-pack` / `wasm-bindgen` 文档 |
-| 跑 example / 验证 demo | `euv-wasm-gh-pages-deploy-pitfalls`(WASM 部署)|
-| PR / bump 流程 | `rust-pr-validation-checklist` + `euv-standards/SKILL.md` §17 |
+| PR / bump 流程 | `rust-pr-validation-checklist` |
 
 ## 3. 5-行最小调用
 
@@ -117,11 +115,7 @@ fn main() {
 
 ## 6. 相关 skill
 
-- **`euv-standards`**:workspace 布局 + crate 关系 + 跨 crate 规则(`[workspace.package]` / sync_workspace_version / 7 个 crate 互依赖 / version bump 铁律)
 - **`euv-ui-standards`**:design class catalogue + var token 索引(查具体 class 含义)
 - **`euv/euv-ui-class-verification`**:改 `class!{}` 后验证 class 注册表一致
 - **`euv/euv-engine-webgpu-completion-workflow`**:WebGPU renderer API 补完流程
-- **`euv/euv-hyperlane-fullstack-mobile`**:euv + hyperlane + 移动端 wasm 整合
-- **`euv/euv-game-real-api-notes`**:euv-engine 真实 API notes
-- **`euv/euv-app`**:euv-app (Tauri 2.x Android packaging)
 - **`rust-standards`**:Rust 通用规范

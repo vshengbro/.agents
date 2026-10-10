@@ -47,7 +47,7 @@ grep -rn 'euv *=' .agents/skills/*/SKILL.md
 ### 5. 精准 patch（用 `replace_all: false`，匹配前必须读文件确认）
 ```bash
 # 必读后改
-sed -n '5,15p' .agents/skills/euv-standards/SKILL.md
+sed -n '5,15p' .agents/skills/rust-standards/SKILL.md
 # 然后 patch 精确字符串
 ```
 
@@ -78,7 +78,7 @@ git push origin <branch>
 **经验：当文档声称"宏展开的 N 个"时，必须搜宏展开后的 token 模式，不是宏定义本身**
 
 ### ❌ 误把 crate 依赖版本当作主库版本
-例如：`euv-app/SKILL.md` 提到 `reqwest 0.12.28`，这是 **reqwest 自身版本**，不要替换为 euv 版本
+例如：某 skill 提到 `reqwest 0.12.28`，这是 **reqwest 自身版本**，不要替换为 euv 版本
 **经验：grep 出来的版本号必须先看上下文，确认是哪个 crate 的版本**
 
 ### ❌ git add 看不到改动

@@ -15,7 +15,6 @@ metadata:
     related_skills:
       - euv
       - euv-ui-standards
-      - euv-standards
       - rust-pr-validation-checklist
       - mobile-web-debugging
 ---
@@ -111,7 +110,7 @@ cd /root/github/euv-dev/euv/example/www
 python3 -m http.server 8765 &
 ```
 
-Then with Playwright (chromium / chrome — see `euv-standards` §0 for the local chromium path `/root/LTPP-MINIMAX/chrome-linux/chrome`):
+Then with Playwright (chromium / chrome — local chromium path `/root/LTPP-MINIMAX/chrome-linux/chrome`):
 
 ```python
 import asyncio
@@ -209,7 +208,7 @@ Cross-reference against the names in `ui/src/style/var/fn.rs`. Same for `c_xxx()
 
 ### 5.6 `class!` block inheritance — call form, not `extends`
 
-A child block reuses a parent via `c_parent();` inside the child body, not via a keyword. Same-name properties follow CSS cascade (last wins). Verified by inspection of `ui/src/style/class/fn.rs` and noted in `euv-standards` §5.
+A child block reuses a parent via `c_parent();` inside the child body, not via a keyword. Same-name properties follow CSS cascade (last wins). Verified by inspection of `ui/src/style/class/fn.rs`.
 
 ### 5.7 `Cargo.toml` exclude = `www` = index.html drift
 
@@ -422,7 +421,6 @@ iterations.
 ## Related skills
 
 - `euv-ui-standards` — full class catalogue + design tokens(`grep -cE "^\s+pub c_" ui/src/style/class/fn.rs` 看当前 count;load for naming)
-- `euv-standards` — macro syntax + 28 euv-ui components (load for component API)
 - `rust-pr-validation-checklist` — generic Rust PR checks (cargo build / test / fmt / clippy); does **not** cover the wasm-pack + Playwright steps here
 - `mobile-web-debugging` — for runtime browser-layer CSS issues not caught by class! edits (env()/safe-area etc.)
 - `inspecting-hermes-desktop-dom` — for desktop DOM inspection, not wasm pages

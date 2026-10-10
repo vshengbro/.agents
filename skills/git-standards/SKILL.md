@@ -35,7 +35,7 @@ license: MIT
 
 ### 1.2 `scope` (optional but recommended)
 
-- Prefer the **skill name** if change is scoped to one skill: `euv`, `euv-standards`, `hyperlane`, `hyperlane-standards`, `rust-standards`, `git-standards`
+- Prefer the **skill name** if change is scoped to one skill: `euv`, `hyperlane`, `hyperlane-standards`, `rust-standards`, `git-standards`
 - Use a short area: `skills`, `references`, `scripts`, `templates`, `docs`, `ci`
 - Skip scope if change is repo-wide
 

@@ -217,7 +217,7 @@ sweep #1.
 
 ## 10. CI workflow (rust.yml)
 
-Adapt euv's `rust.yml` (the full file is in `euv-standards` references) to
+Adapt euv's `rust.yml` to
 your crate list:
 
 - `setup` + `sync_workspace_version` (master push only) +

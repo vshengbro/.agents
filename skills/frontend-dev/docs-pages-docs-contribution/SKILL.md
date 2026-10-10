@@ -9,7 +9,6 @@ metadata:
     - frontend-dev/euv-docs-contribution
     - gh-pr-creation-workflow
     - rust-standards
-    - rust-wasm-gh-pages-deploy-pitfalls
 ---
 
 # docs-pages-docs contribution (docs-pages/docs)

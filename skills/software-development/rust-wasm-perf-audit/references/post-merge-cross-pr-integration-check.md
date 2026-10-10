@@ -34,7 +34,7 @@ If any fails, that's a cross-PR integration break — open a "fix post-merge bui
 
 ## Pitfall 7 (SKILL.md): CI sync_workspace_version May Not Fire
 
-Euv's euv-standards §17 says CI `sync_workspace_version` job auto-propagates root Cargo.toml's `[package] version` to all 6 sub-crate `[package] version` fields + the `[workspace.dependencies]` path-deps on every master push.
+Euv's version-bump rule (formerly euv-standards §17) says CI `sync_workspace_version` job auto-propagates root Cargo.toml's `[package] version` to all 6 sub-crate `[package] version` fields + the `[workspace.dependencies]` path-deps on every master push.
 
 **Reality (2026-09-11)**: After 14 squash merges to master, **zero** `chore: sync all package versions to X.Y.Z` commits appeared. Reasons unknown — could be:
 - Squash merges don't trigger the push webhook the job depends on
@@ -47,7 +47,7 @@ gh pr list --repo <repo> --state all --limit 30 \
   --jq '.[] | select(.mergedAt != null) | .mergedAt'
 git log --oneline --grep='sync all package versions' | head
 ```
-If the last sync is older than your recent merges, **you must open a manual bump PR**: only modify root `Cargo.toml`'s `[package] version` (euv-standards §17 strict rule), let CI propagate. Or if the job is clearly broken, open a follow-up to manually sync all sub crates.
+If the last sync is older than your recent merges, **you must open a manual bump PR**: only modify root `Cargo.toml`'s `[package] version` (strict version-bump rule), let CI propagate. Or if the job is clearly broken, open a follow-up to manually sync all sub crates.
 
 **Don't assume** "if I didn't change the version, no bump is needed" — for a feature/perf batch with N merged PRs, the version SHOULD advance at least patch-level (0.X.Y → 0.X.Y+1). If the last sync is from before your merges, you have an unbumped release.
 
@@ -89,11 +89,11 @@ If cargo check fails: STOP the batch. Open a separate "fix post-merge build brea
 
 After the last merge, run:
   git log --oneline --grep='sync all package versions' | head -3
-If the most recent sync_workspace_version commit is older than the merged PRs, open a manual bump PR per euv-standards §17.
+If the most recent sync_workspace_version commit is older than the merged PRs, open a manual bump PR per the version-bump rule.
 ```
 
 ## Related
 
 - `references/pr-194-scope-leak-from-stale-base.md` — pitfall 5 (PR scope leak from stale base) — combines with pitfall 6 to give a complete "merge N PRs in sequence" protocol
 - `references/euv-fmt-non-idempotent-block-comments.md` — pitfall 3 detail (the fmt noise that triggered the workaround discipline)
-- euv-standards §17 — the version bump rule that CI sync_workspace_version is supposed to honor
+- The version bump rule (formerly euv-standards §17) that CI sync_workspace_version is supposed to honor

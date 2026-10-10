@@ -2067,14 +2067,13 @@ VERSION="$VERSION" python3 -c "import re,pathlib,os; p=pathlib.Path('docs/Cargo.
 The user deleted this script in preference of having authors update
 `docs/Cargo.toml` by hand in the same PR that bumps root. After
 deletion the euv workflow has zero `version =` writes and verifier
-returns exit 0 cleanly. Trade-off documented in
-`rust-workspace-release` "Non-workspace-member manifests" sub-section.
+returns exit 0 cleanly. Trade-off previously documented in the (since-removed)
+`rust-workspace-release` skill.
 
 The allowlist-marker path (`# ci-allow-version-write: docs mirror`)
 was the alternative; the user rejected it because it required adding a
 comment to the workflow, which conflicted with the same user's "no
-explanatory comments in CI" rule (`rust-workspace-release` "Keep CI
-workflows free of explanatory comments" sub-section).
+explanatory comments in CI" rule (from the since-removed `rust-workspace-release` skill).
 
 If a new repo shows the same shape, the decision is repo-local — ask
 the user which side of the trade-off they prefer; do not default.

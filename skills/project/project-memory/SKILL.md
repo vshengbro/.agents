@@ -229,8 +229,7 @@ When a task involves a project below, load the entry skill first, then the stand
 
 | Skill                         | Project                                                        | What it covers                              |
 | ----------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
-| `euv` (entry)                 | euv framework                                                  | API/pitfall cheatsheet; loads `euv-standards`, `euv-ui-standards` |
-| `euv-standards`               | euv framework                                                  | Complete API table + 13-class pitfall list   |
+| `euv` (entry)                 | euv framework                                                  | API/pitfall cheatsheet; loads `euv-ui-standards` |
 | `euv-ui-standards`            | euv framework                                                  | 306 design tokens + 22 `euv_*` components    |
 | `euv-html-macro-traps`        | euv framework                                                  | 9 html! macro pitfalls                        |
 | `euv-engine-design`           | euv-engine                                                     | `Engine` zero-sized façade contract          |

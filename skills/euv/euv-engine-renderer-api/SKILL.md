@@ -14,7 +14,6 @@ metadata:
       - webgpu
     related_skills:
       - euv
-      - euv-standards
       - euv-engine-webgpu-completion-workflow
       - rust-standards
 ---

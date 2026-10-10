@@ -85,5 +85,4 @@
 ## 跨引用
 
 - 0.18.36 快照：`references/euv-perf-findings-0.18.36.md`
-- euv 框架 API/坑表：`euv-standards` skill
 - Rust 开发规范：`rust-standards` skill

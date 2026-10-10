@@ -1,7 +1,7 @@
 # ltpp.vip mirror behavior
 
 Verified 2026-08-30 (docs-pages/docs #24, euv/euv-docs GH Pages via
-`rust-wasm-gh-pages-deploy-pitfalls` pitfall 9).
+the former `rust-wasm-gh-pages-deploy-pitfalls` skill, pitfall 9).
 
 ltpp.vip mirrors several GitHub Pages repos at fixed paths. The rules below
 apply to **every** mirrored repo — not specific to docs-pages/pages.
@@ -57,7 +57,7 @@ To force a refresh from CI or locally:
 
 # Locally:
 scripts/sync-pages.sh <owner>/<repo>
-# → see rust-wasm-gh-pages-deploy-pitfalls/scripts/sync-pages.sh
+# → 本 skill scripts/ 自带副本(原 rust-wasm-gh-pages-deploy-pitfalls 抢救)
 ```
 
 The API returns `{"code":200,"message":"Success","data":"Synced",...}` on success.

@@ -375,7 +375,7 @@ response 经 `request/src/request/mod.rs` 的 `pub(crate) use {config::*, parser
 
 ## 7. Version Bump Rule
 
-跟 `euv-standards §17` 同模式。简版:
+简版:
 
 ```bash
 cd /root/github/hyperlane-dev/hyperlane
@@ -408,6 +408,5 @@ CI sync 在 master push 上自动补齐上述字段(`chore: sync all package ver
 | **`hyperlane/references/api-constant.md`** — http-constant 常量模块清单 |
 - **`hyperlane/references/api-cli.md`** — hyperlane-cli pub API(5 个子命令)
 | **`hyperlane/references/pitfalls.md`** — 核心坑 + monorepo/工具链坑索引 |
-- **`crates-cli-usage`** — 跨 monorepo 通用 `crate-cli` 工具使用(替代废弃的 `hyperlane fmt`)
 - **`rust-standards`** — Rust 通用规范(同时必加载)
 - **`rust-pr-validation-checklist`** — Rust PR 提交前必跑的硬性验证清单

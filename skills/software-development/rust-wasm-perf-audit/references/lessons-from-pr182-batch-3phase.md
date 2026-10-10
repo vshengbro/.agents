@@ -80,7 +80,7 @@ Execute PR-X: <one-line description>.
 <for each: file:line in master, current state, exact fix, diff size, type, risk>
 
 # Workflow
-1. Load skills: rust-standards, rust-wasm-perf-audit, euv-standards [+euv-ui-standards for ui/].
+1. Load skills: rust-standards, rust-wasm-perf-audit [+euv-ui-standards for ui/].
 2. cd to repo, switch to clean origin/master:
    git checkout master && git pull --rebase && git fetch origin master
    git checkout -b perf/<branch-name> origin/master

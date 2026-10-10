@@ -526,7 +526,7 @@ When the user reports a layout bug on a single page (e.g. "essay/09-19.html has 
 A robust single-shot version — fire all routes in sequence with a small `setTimeout` between each, appending to a workspace array, then read it back once:
 
 ```python
-# browser_exec — see the euv-docs-styling skill for the hash-routing workflow
+# browser_exec — hash-routing workflow
 import time, json
 results = []
 for name, hash in targets:
@@ -606,7 +606,7 @@ Css::inject_css("\
 ");
 ```
 
-**Trade-off:** changing `justify-content` from `space-between` to `flex-start` means pagination+footer no longer pin to the viewport bottom on short pages — they sit directly under the article. This matches VuePress / Docusaurus default behaviour. The user previously REJECTED `position: sticky` on the footer (see `euv-docs-styling` pitfall), but normal-flow positioning is not the same as fixed-positioning and is the standard SPA-docs choice.
+**Trade-off:** changing `justify-content` from `space-between` to `flex-start` means pagination+footer no longer pin to the viewport bottom on short pages — they sit directly under the article. This matches VuePress / Docusaurus default behaviour. The user previously REJECTED `position: sticky` on the footer, but normal-flow positioning is not the same as fixed-positioning and is the standard SPA-docs choice.
 
 ### 8.4 Verification after fix
 

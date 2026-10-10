@@ -8,7 +8,7 @@ category: devops
 metadata:
   hermes:
     tags: [rust, cargo, sccache, build-performance, vm-24-7]
-    related_skills: [rust-cargo-mirror-setup, rust-wasm-gh-pages-deploy-pitfalls]
+    related_skills: [rust-cargo-mirror-setup]
 ---
 
 # Rust build performance on VM-24-7-opencloudos
@@ -139,4 +139,3 @@ sccache -s | head -25
 ## Related skills
 
 - `rust-cargo-mirror-setup` — handles the `[source.crates-io]` / rsproxy sparse-protocol part of `~/.cargo/config.toml`. Pairs with this skill.
-- `rust-wasm-gh-pages-deploy-pitfalls` — uses `cargo build` heavily; sccache no-op affects deploy iteration speed.

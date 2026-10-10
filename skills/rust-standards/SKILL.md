@@ -1,6 +1,6 @@
 ---
 name: rust-standards
-description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此为准)。**任何写 / 改 / 审查 Rust 代码、`.rs` 文件、`Cargo.toml`、cargo 命令、euv / hyperlane / wasm / proc-macro / ServerHook / Signal 的任务,在写第一行代码 / 第一次回答之前必须 `skill_view("rust-standards")` —— 不靠 description 软触发。不加载本 skill 写出的 Rust 代码会被开发者 review 直接驳回,不得 commit / push / 提 PR**。互锁:euv 任务必同时加载 `euv-standards` + `euv-ui-standards`;hyperlane 任务必同时加载 `hyperlane-standards`。**完工闭环**(2026-09-27 user 钦定):编码后**必须**跑 `python3 scripts/rust_pre_commit.py <repo>` 直到 exit 0,commit 时由 `~/.git-hooks/pre-commit` 强制 gate 新引入违规(只挡 staged 文件,不拦历史债)。适用于:新项目脚手架、现有 Rust 代码维护、PR 审查、重构、模块划分、命名、错误处理、性能优化、依赖管理、测试策略。涵盖硬性规则:9 种关键字文件纯净 / raw identifier / mod.rs 三段式 / lib.rs 集中导入 / 显式类型 / 泛型 where / WASM 禁 inline / fmt 双幂等 / 测试放 tests/。'
+description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此为准)。**任何写 / 改 / 审查 Rust 代码、`.rs` 文件、`Cargo.toml`、cargo 命令、euv / hyperlane / wasm / proc-macro / ServerHook / Signal 的任务,在写第一行代码 / 第一次回答之前必须 `skill_view("rust-standards")` —— 不靠 description 软触发。不加载本 skill 写出的 Rust 代码会被开发者 review 直接驳回,不得 commit / push / 提 PR**。互锁:euv 任务必同时加载 `euv-ui-standards`;hyperlane 任务必同时加载 `hyperlane-standards`。**完工闭环**(2026-09-27 user 钦定):编码后**必须**跑 `python3 scripts/rust_pre_commit.py <repo>` 直到 exit 0,commit 时由 `~/.git-hooks/pre-commit` 强制 gate 新引入违规(只挡 staged 文件,不拦历史债)。适用于:新项目脚手架、现有 Rust 代码维护、PR 审查、重构、模块划分、命名、错误处理、性能优化、依赖管理、测试策略。涵盖硬性规则:9 种关键字文件纯净 / raw identifier / mod.rs 三段式 / lib.rs 集中导入 / 显式类型 / 泛型 where / WASM 禁 inline / fmt 双幂等 / 测试放 tests/。'
 ---
 
 # Rust 开发规范
@@ -32,7 +32,7 @@ description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此�
 |---------|---------|
 | 用户说"写 Rust 代码"、"改 Cargo.toml"、"修 .rs 文件" | ✅ |
 | 用户提到 cargo / rustc / clippy / cargo fmt / cargo test | ✅ |
-| 用户提到 euv / hyperlane / html! / class! / ServerHook / Signal | ✅(互锁 `euv-standards` + `euv-ui-standards` / `hyperlane-standards`) |
+| 用户提到 euv / hyperlane / html! / class! / ServerHook / Signal | ✅(互锁 `euv-ui-standards` / `hyperlane-standards`) |
 | 用户提到 wasm / wasm-pack / WebAssembly / wasm32 | ✅ |
 | 用户提到 proc-macro / 过程宏 / `#[proc_macro_derive]` / `#[proc_macro_attribute]` | ✅ |
 | 用户给一段 Rust 代码让你 review / 改 / 优化 / 重构 | ✅ |
@@ -109,18 +109,18 @@ description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此�
 
 ## Mutual-Lock Routing(把 description 的互锁写明)
 
-description 里写了"euv 任务必同时加载 euv-standards + euv-ui-standards,hyperlane 任务必同时加载 hyperlane-standards",但**只说"必加载"不说"加载后跳到哪"**。下表把 description 里的互锁关系展开成显式跳转目标(章节名为该 skill SKILL.md 中的 `##` 标题,不是 anchor —— 跨文件 anchor 在大多数 Markdown 渲染器里不可靠),确保 agent 拿到 task 后能 1 步命中正确的子章节。
+description 里写了"euv 任务必同时加载 euv-ui-standards,hyperlane 任务必同时加载 hyperlane-standards",但**只说"必加载"不说"加载后跳到哪"**。下表把 description 里的互锁关系展开成显式跳转目标(章节名为该 skill SKILL.md 中的 `##` 标题,不是 anchor —— 跨文件 anchor 在大多数 Markdown 渲染器里不可靠),确保 agent 拿到 task 后能 1 步命中正确的子章节。
 
 | 任务类型 | 互锁 skill | 命中后跳到该 skill 的章节(按顺序) |
 | --- | --- | --- |
-| 写 / 改 euv 项目任意文件 | `euv-standards` | `## Index` → `## 1. Quick Start` → `## 3. html! macro` → `## 4. class! macro` → `## 5. vars!/var! macros` → `## 6. computed! macro` → `## 7. watch! macro` → `## 8. #[component] attribute macro` → `## 9. Reactive Signal System` → `## 10. Virtual DOM` → `## 11. Event System` → `## 12. Component System` → `## 13. Form Handling` → `## 14. Async Operations` → `## 15. Animation` → `## 16. Keep-Alive` → `## 17. CLI Tool` |
+| 写 / 改 euv 项目任意文件 | `euv`(入口) | `## 0. 必须先了解` → 跳转表 → 按需加载 `references/api-*.md`;UI 任务再叠加 `euv-ui-standards` |
 | 写 / 改 euv UI 页面 / 组件 / 样式 | `euv-ui-standards` | `## Index` → `## 0. Source of Truth` → `## 1. Design Tokens` → `## 2. Global Skeleton` → `## 3. Core Component HTML Templates` → `## 4. Home / Hero Page Spec` → `## 5. Class Naming Conventions` → `## 6. Responsive / Breakpoints` → `## 7. Accessibility / Touch` → `## 8. New Page Standard Template` → `## 9. Quick Notes / Anti-Patterns` |
 | 写 / 改 hyperlane 路由 / handler / middleware / hook | `hyperlane-standards` | `## Index` → `## 0. Mutual-Lock Skills` → `## 1. Project Metadata` → `## 2. Installation` → `## 3. 5-Line Minimum Call` → `## 4. Full Server Builder API` → `## 5. ServerHook trait + HookType enum` → `## 6. Context Reference` → `## 7. RoutePattern / RouteSegment / RouteParams` → `## 8. ServerConfig / RequestConfig` → `## 9. hyperlane-macros Procedural Macros` → `## 10. 22 Common Pitfalls` → `## 11. 7 Interlocking Ecosystem Crates` |
-| 写 euv-engine 2D / 3D 游戏 | `euv-standards` + `euv` | `euv-standards` 的 9-17 章 + `euv` 的 `## euv-engine (optional)` 章节 |
+| 写 euv-engine 2D / 3D 游戏 | `euv`(入口) | `euv` 的 `## euv-engine (optional)` 章节 |
 | 写 hyperlane WebSocket / SSE / broadcast | `hyperlane-standards` | `## Index` → `## 11. 7 Interlocking Ecosystem Crates` → 选 `hyperlane-plugin-websocket` / `hyperlane-broadcast` 行 |
 | 写 Rust 通用代码(模块划分、命名、错误处理) | 本 skill 即可 | `## 检索方式` + `## 关键硬性规则` |
 
-**加载顺序**:`rust-standards`(本 skill,**总是第一**)→ 入口 skill(`euv` 或 `hyperlane`) → standards skill → UI skill(仅 euv UI 任务)。**回退**:任何找不到的细节,先查 `euv-standards`/`hyperlane-standards` 的 `## Index` 表 → 再查 `references/`(euv / hyperlane 的 references/ 通过 `scripts/sync-references.sh` 同步 docs-pages 内容)。
+**加载顺序**:`rust-standards`(本 skill,**总是第一**)→ 入口 skill(`euv` 或 `hyperlane`) → standards skill → UI skill(仅 euv UI 任务)。**回退**:任何找不到的细节,先查 `hyperlane-standards` 的 `## Index` 表 → 再查 `references/`(euv / hyperlane 的 references/ 通过 `scripts/sync-references.sh` 同步 docs-pages 内容)。
 
 ## 检索方式(优先用这个)
 
@@ -309,7 +309,7 @@ description 里写了"euv 任务必同时加载 euv-standards + euv-ui-standards
     - **Pitfall(用户偏好:不在 `.worktrees/` 子目录工作,在项目根目录直接修改)**(2026-09-26 钦定):User 在修复 audit 类多 commit 任务时明确要求**删除 `.worktrees/audit-fix` 之类的 worktree 子目录,在项目根目录直接编辑并 commit 到 `master`**。理由:worktree 子目录对小修小补增加不必要的管理负担,且 `git worktree prune` 之后 uncommitted 改动会丢失。**默认行为**:rust-standards 类多 commit 任务应该直接在项目根目录 `/Users/sqs/code/<project>` 跑 `git checkout master` → 改 → `git commit`,不要 `git worktree add` 开子分支。除非任务明确说"建独立 PR 分支"或者 worktree 是为了同时跑两个分支避免互相影响。
 14. **禁止使用 `#[allow(...)]` / `#[allow(...)]` 类宏遮蔽 lint**(参见 14)。从根源修复 warn,不通过属性宏遮蔽。**验证脚本**:`scripts/verify_no_allow_lints.py` 扫描整个 src/ 树(跳过 `tests/` 与 `#[cfg(test)] mod tests` 内部,这些是 test-helper 例外),捕 `#[allow(...)]` / `#[expect(...)]` 任何变体。被 `audit_rust_standards.py` check 30 调用,exit 1 即违规。**配合 check 2**:check 2 仅扫 git diff(用于 PR review 期间防新增),check 30 全树扫描(防止历史 PR 已经引入的 `#[allow]` 累积到当前 baseline)。两者并存:git-diff 给 PR 加 gate,tree-wide 给 baseline 把关。ctares 实测:check 30 报 4 真违规;euv 实测:check 30 报 1 真违规。(2026-09-14 user 原话:"从根源修复warn,禁止使用allow宏")。clippy / rustc 任何 warning(`needless_range_loop` / `unused_imports` / `dead_code` / `clippy::all` 等)**必须从根源修复**,**禁止用 `#[allow]`、`#[allow(unused)]`、`#[allow(clippy::xxx)]` 跳过**。
    - 例:`for j in i+1..i+end_len { out.push(bytes[j]); }` 触发 `clippy::needless_range_loop` → 改成 `for &b in &bytes[i+1..i+end_len] { out.push(b); }`,**不是** `#[allow(clippy::needless_range_loop)]`。
-   - 例:`static_mut_refs` 安全情况下,改用 `&mut *(*std::ptr::addr_of_mut!(STATIC)).get_0().get()` 表达式包装,**不是** `#[allow(static_mut_refs)]`(参见 `euv-standards/references/signal-subscription-bindings.md` 2026-09-12 实测)。
+   - 例:`static_mut_refs` 安全情况下,改用 `&mut *(*std::ptr::addr_of_mut!(STATIC)).get_0().get()` 表达式包装,**不是** `#[allow(static_mut_refs)]`。
    - **例外**(2 个真实工作流场景):(a) 第三方宏展开产生的 dead_code,无法在源层消除(极罕见);(b) `#[cfg(test)] mod tests` 内测试专用 helper 函数,production build 看不到 — 这两类先用 clippy `#[expect(...)]` 配合 issue 编号注释,**默认仍禁止**。
 15. **`fn.rs` / `impl.rs` / `mod.rs` 文件体内禁止硬编码 byte / char / 多字符 string literal**(§R1.3c literal purity,2026-09-14 euv PR #233 实测,**2026-09-26 第三轮 user 加强到所有字符串**)。任何 `b"<script"` / `b'<'` / `b'>'` / `"<!--"` / `"-a1b2c3"` 这类 magic byte / string literal 必须移到同目录的 `const.rs`(或更上游的 module-level const),通过 `pub(crate) const HTML_LT: u8 = b'<';` + `use super::*;` 引用(可见性按 §18:默认 `pub(crate)`,有外部消费者才 `pub`)。**user 第三轮加强范围**:不仅 magic byte,**所有 ≥ 4 个非平凡字符的字符串字面量**都必须到 const.rs(e.g. `let path: &str = "/usr/local/bin"` 在 fn.rs 违规,要先在 const.rs 加 `pub(crate) const BIN_PATH: &str = "/usr/local/bin";` 再 `let path: &str = BIN_PATH;`)。**验证脚本**:
    - **subset (fn.rs-only)**: `audit_rust_standards.py` check 18,历史 script 覆盖 byte/char/multi-char 字面量

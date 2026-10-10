@@ -360,7 +360,6 @@ gh pr create --repo owner/repo --base master --head eastspire:fix/<scope>-<desc>
 
 - **rust-pr-validation-checklist** (本 skill): 提交前必跑的硬性验证 + 调研陷阱清单,**执行层**
 - **rust-standards**: Rust 代码规范,**代码层**
-- **rust-crate-use**: 第三方 crate 查询 + docs.rs,**依赖层**
 
 加载顺序: rust-pr-validation-checklist → (按需) 其他
 

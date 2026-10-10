@@ -115,7 +115,7 @@ rest, and verify on the auto-commit that lands.
 
 - PR #171: patch bump 0.20.0 → 0.20.1, clean single-commit flow.
 - PR #220: patch bump with the `cargo publish` curl-35 post-verify false-alarm
-  pitfall. See euv-standards `references/minor-bump-ci-red-by-design.md` for
+  pitfall. See `references/minor-bump-ci-red-by-design.md` for
   the full story (also applies to hyperlane post-monorepo).
 - euv PR #196/197: sync_workspace_version wrote the wrong version because
   it read stale root content -- recovery flow shown above.

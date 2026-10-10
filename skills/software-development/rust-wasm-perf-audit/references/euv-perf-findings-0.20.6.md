@@ -245,4 +245,3 @@ render/impl.rs:775-805（属性 signal）、810-829（InnerHtmlSignal）、831-8
 - 上一轮清单：`references/euv-perf-findings-0.18.58.md`（含 OPT-10/11 落地记录）
 - 更早快照：`references/euv-perf-findings-0.18.36.md`
 - CDP mount bench 验证模板：`templates/cdp-mount-bench.py`
-- euv 框架 API/坑表：`euv-standards` skill

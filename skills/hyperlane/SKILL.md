@@ -89,8 +89,8 @@ license: MIT
 | 你要做... | 加载 |
 |---|---|
 | 写任何 Rust 代码 | `rust-standards` |
-| 用 `bump / sync / fmt / publish` | `crates-cli-usage`(外部 `crate-cli` 工具)|
-| monorepo 内部依赖 / publish 顺序 | `crates-cli-usage` + `references/release-bump-flow.md` |
+| 用 `bump / sync / fmt / publish` | `crate` CLI(外部 crate-cli 工具) |
+| monorepo 内部依赖 / publish 顺序 | `references/release-bump-flow.md` |
 | 写 WebSocket 服务 | `references/hyperlane-plugin-websocket.md` |
 | 写 SSE | `references/sse.md` + `references/hyperlane-broadcast.md` |
 | 写客户端(HTTP request) | `references/api-request.md` |
@@ -145,7 +145,6 @@ impl ServerHook for Index {
 ## 6. 相关 skill
 
 - **`hyperlane-standards`**:workspace 布局 + crate 关系 + 跨 crate 规则(`[workspace.package]` / sync_workspace_version / member crate 互依赖图 / version bump 铁律)
-- **`crates-cli-usage`**:跨 monorepo 通用 `crate-cli` 工具使用(替代废弃的 `hyperlane fmt`)
 - **`hyperlane-standards/references/release-bump-flow.md`**:bump 流程
 - **`hyperlane-standards/references/monorepo-migration-checklist.md`**:从旧版单仓迁移到 monorepo 的检查清单
 - **`rust-standards`**:Rust 通用规范

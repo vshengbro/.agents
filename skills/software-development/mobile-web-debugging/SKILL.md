@@ -58,7 +58,7 @@ python3 scripts/css-byte-diff.py \
 
 脚本输出 JSON:每个 class 一对 `{reference: "...", target: "..."}`,identical=true/false,首个差异位置 + 差异前后 30 字符。**identical=true ⇒ runtime 行为等价**(env() 永远 0 的局限被绕开,因为差异在 CSS 字符串层而非渲染层)。`cssText` 可能含 media query 或嵌套 selector;脚本只挑 `selectorText === .{class}` 的规则,跳过 `.class.other` / `.class:hover` / `@media` 嵌套 —— 这是故意的,只想确认"裸 class 定义"是否对齐。
 
-如果对比发现 `c_mobile_header` 的 target 缺 `var(--euv-mobile-safe-top, 0px)` 模式,根因通常是上游 dep 版本漂移(坑见 `rust-wasm-gh-pages-deploy-pitfalls` §euv-ui pin drift)。
+如果对比发现 `c_mobile_header` 的 target 缺 `var(--euv-mobile-safe-top, 0px)` 模式,根因通常是上游 dep 版本漂移。
 
 ### 4. 修复设计原则（本用户偏好，euv PR #53-59 教训）
 
@@ -96,7 +96,7 @@ ASCII art 能看清布局结构（边框线 = 全宽暗行、logo = 实心方块
 
 ## iOS Safari `<div>` + 委托 `onclick` 在滚动/fixed 容器内 silently dead（2026-09-14 PR #231/PR #232 经验）
 
-iOS WebKit 把 tap 误判为"开始滚动"→ 直接 suppress synthetic click，所以 `euv` 的 `Registry::delegation("click")` 监听 window 但 iOS 根本不派发 click。`euv_button` 是真 `<button>` 不受影响。修复 = 给 clickable-`<div>` 类加 `touch-action: manipulation` + `user-select: none` (+ `-webkit-` 前缀)。6 个 affected classes（已合并到 `euv-standards` §12 坑表）：`c_tab_item_active` / `c_tab_item_inactive` / `c_modal_overlay` / `c_vconsole_overlay` / `c_euv_drawer_overlay` / `c_mobile_overlay`。
+iOS WebKit 把 tap 误判为"开始滚动"→ 直接 suppress synthetic click，所以 `euv` 的 `Registry::delegation("click")` 监听 window 但 iOS 根本不派发 click。`euv_button` 是真 `<button>` 不受影响。修复 = 给 clickable-`<div>` 类加 `touch-action: manipulation` + `user-select: none` (+ `-webkit-` 前缀)。6 个 affected classes：`c_tab_item_active` / `c_tab_item_inactive` / `c_modal_overlay` / `c_vconsole_overlay` / `c_euv_drawer_overlay` / `c_mobile_overlay`。
 
 **用户报告"修了但还坏"时，不要假设 user 错了，用 CDP 验证 fix 真的进了 production wasm：**
 
@@ -158,7 +158,7 @@ PY
 
 **判定**：
 
-- `touchAction != "manipulation"` → fix 没 deploy，deploy 链断了。检查 ltpp mirror sync + 仓库 wasm mtime + `wasm-pack build` 是否漏跑（参考 `rust-wasm-gh-pages-deploy-pitfalls`）。
+- `touchAction != "manipulation"` → fix 没 deploy，deploy 链断了。检查 ltpp mirror sync + 仓库 wasm mtime + `wasm-pack build` 是否漏跑。
 - `touchAction == "manipulation"` 但 touch event 后 active tab 没切换 → fix 不够（罕见；考虑改用 `touch-action: none` 完全禁 gesture，或 `<div>` 改 `<button>`）。
 - `touchAction == "manipulation"` 且 touch event 后 active tab 切换 → fix 在生产实际工作，**用户侧的"还坏"是 CDN/浏览器缓存**（ltpp reference `static-site-deploy-verification` 明确 iOS Safari / Chinese Android 浏览器忽略 `cache-control: no-store`）。让用户清缓存或加 `?v=N` cache-buster 复测，**不要继续改代码**。
 
