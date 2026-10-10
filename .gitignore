@@ -54,3 +54,4 @@ skills/.hub/
 
 # Daily skill-sync worker output (transient staging)
 skills/_pending/
+*.pyc
