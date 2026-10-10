@@ -52,6 +52,5 @@ skills/.curator_state
 skills/.usage.json
 skills/.hub/
 
-# Daily skill-sync worker output (transient staging)
-skills/_pending/
+# Bytecode caches (temp files never belong in this repo)
 *.pyc

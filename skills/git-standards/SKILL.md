@@ -559,8 +559,10 @@ Pitfalls specific to the direct-push route:
 - **`<scope>` is the skill name**, not a file path. `feat(rust-standards)` not
   `feat(skills/rust-standards/scripts)`. Several files in one skill → one
   commit, `<scope>` = skill name, with a `## Changes` bullet list in the body.
-- **`skills/_pending/` is intentionally untracked** — the daily skill-sync cron
-  writes there as a staging area. Leave it alone if it appears in `git status`.
+- **The daily skill-sync cron staging area is untracked** — it lives at
+  `~/.hermes/cron/output/skill-sync/pending/` (outside this repo since
+  2026-10-10, per the no-temp-files-in-.agents rule). Nothing in this repo
+  should reference `skills/_pending/` anymore.
 - **Comment-only does not mean unreviewable.** A comment can rot: a rewritten
   doc comment that no longer matches the function is worse than no comment.
   Reading your own diff before pushing is still expected.
