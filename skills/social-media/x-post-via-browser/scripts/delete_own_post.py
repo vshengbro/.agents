@@ -9,7 +9,7 @@ deleting the wrong post is unrecoverable, so the id is the whole input.
 
 Confirm before it acts:
 
-    python3 delete_own_post.py 9240 <status-id> --expect "first words"
+    python3 delete_own_post.py [port] <status-id> --expect "first words"
 
 Opens the post in the existing tab, deletes it, then reads the thread back and
 reports whether the status id is still there. Never reloads, never navigates to
@@ -21,8 +21,11 @@ import argparse
 import json
 import sys
 import time
+from pathlib import Path
 
-import cdp
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cdp                                                # noqa: E402
+import xconfig                                            # noqa: E402
 
 WHO = r"""(() => {
   const d = document.querySelector('[data-testid="User-Name"]');
@@ -87,15 +90,18 @@ def js(c, tmpl: str, pid: str):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("port")
+    ap.add_argument("port", nargs="?", type=int,
+                    help="CDP port; defaults to what xconfig resolves")
     ap.add_argument("sid")
     ap.add_argument("--expect", required=True,
                     help="text this post must start with, so a wrong id is caught")
     args = ap.parse_args()
 
-    tabs = [t for t in cdp.tabs("page") if "x.com" in t.get("url", "")]
+    cdp.set_port(args.port or xconfig.port())
+    tabs = [t for t in cdp.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first")
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first")
         return 1
     c = cdp.Cdp(tabs[0]["webSocketDebuggerUrl"])
 

@@ -1,6 +1,6 @@
 ---
 name: x-post-via-browser
-description: "Use when posting or replying on X/Twitter through the user's logged-in browser. Compose and reply paths, and the visibility/verification traps that make a working path read as dead."
+description: "Use when acting on X/Twitter in the user's logged-in browser. Post, reply, quote, repost, edit, delete, upload media, like, bookmark, read a profile or thread, work the feed — and the traps that make a working path read as dead."
 version: 4.0.0
 author: local
 license: MIT
@@ -13,10 +13,10 @@ metadata:
 
 # Posting to X from the user's logged-in browser
 
-Verified 2026-10-01 on a Premium account. Four long posts of 608–1060
-characters published and verified, then a 27-post series published on a timer.
-Revised 2026-10-07 with 12 replies published and each one verified on the
-target's own page — which corrected the reply path's stated cause.
+Exercised on a Premium account: four long posts of 608–1060 characters
+published and verified, then a 27-post series published on a timer, then 12
+replies published with each verified on the target's own page — which
+corrected the reply path's stated cause.
 
 ## The path
 
@@ -136,8 +136,8 @@ held the right characters; only the timeline read proves it was published.
 ## Launching: headed, and through the local proxy
 
 ```bash
-bash ~/.agents/skills/software-development/chrome-real-profile-launch/scripts/run.sh \
-  --headed --port 9240 --fresh --no-tab
+# $X_LAUNCHER is resolved for you; --port must match $X_PORT
+bash "$X_LAUNCHER" --headed --port "$X_PORT" --fresh --no-tab
 ```
 
 `run.sh` probes 7897/7890/7891/8080/10809/1080 and passes `--proxy-server` for
@@ -236,34 +236,93 @@ every call site checks it.
 | `scripts/run_queue_tick.py` | Idempotent queue runner — one item per invocation, for a cron series. Verifies on the timeline **before** recording an item as posted, so a click that did not land stays queued instead of being counted as done. |
 | `scripts/run_project_day.py` | One project per invocation: its zh/en/ja/ko versions in order, `--gap` seconds apart. Records the project only after all four verify, so a failed version retries the whole project rather than losing a language. |
 | `scripts/engage_feed.py` | Home feed: click the home tab, like what is worth liking, then reply once per post up to a target. Reads the feed live and dedupes by status id. |
+| `scripts/gh_trending.py` | GitHub's trending repositories for a window, read live over HTTPS. `--community` drops this account's own repos; `--self-test` proves the row parser. |
 | `scripts/verify_no_unsafe_posting.py` | The commit gate. `--self-test` proves every rule fires. |
 
 ```bash
 # once, and only if no instance is up
-bash ~/.agents/skills/software-development/chrome-real-profile-launch/scripts/run.sh \
-  --headed --port 9240 --fresh --no-tab
+bash "$X_LAUNCHER" --headed --port "$X_PORT" --fresh --no-tab
 
-python3 scripts/publish.py 9240 --show            # read the copy first
-python3 scripts/publish.py 9240 --post 0          # type and compare, no click
-python3 scripts/publish.py 9240 --post 0 --go     # click
-python3 scripts/whose_posts.py 9240              # find the status id
-python3 scripts/verify_post.py 9240 <sid> x_copy_example.json 0
+python3 scripts/publish.py "$X_PORT" --show        # read the copy first
+python3 scripts/publish.py "$X_PORT" --post 0      # type and compare, no click
+python3 scripts/publish.py "$X_PORT" --post 0 --go # click
+python3 scripts/whose_posts.py "$X_PORT"           # find the status id
+python3 scripts/verify_post.py "$X_PORT" <sid> x_copy_example.json 0
 
-X_COPY=/path/to/other.json python3 scripts/publish.py 9240 --post 0 --go
+X_COPY=/path/to/other.json python3 scripts/publish.py "$X_PORT" --post 0 --go
 ```
 
 The copy defaults to `scripts/x_copy_example.json` next to the script — posts
 that were actually published. Replace it or point `X_COPY` elsewhere; the
 content is yours, not the skill's.
 
-## The gate is registered, not just written
+## Configuration is environment-only
 
-`verify_no_unsafe_posting.py` runs from the **global pre-commit hook**
-(`~/.git-hooks/pre-commit`, installed via `core.hooksPath`), before the Rust
-detection, so it applies to every repo — including the skills repo, which the
-existing hook skips for having no `Cargo.toml`. A rule that lives only in this
-document is a rule the next person breaks without knowing why; that has
-happened to every rule on this list.
+No account name, port, path or owner is baked into the code. Every
+environment-specific value has a working default, so a fresh checkout runs
+with nothing set; the variables exist to override that default, not to make
+it work.
+
+**Every one of these is read at CALL time, inside the function that needs
+it — never at import time.** This is deliberate and it is easy to get wrong:
+a module-level `PORT = os.environ.get("X_PORT", ...)` freezes the value the
+moment the module is imported, so exporting `X_PORT` afterwards — which is
+exactly what a cron wrapper or a shell that sets it after the import chain
+starts does — silently has no effect. If you add a variable, read it inside
+the function, not at the top of the module.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `X_PORT` | the browser's CDP debug port, read from `~/.hermes/state/chrome-real-profile.port` | which browser instance to drive |
+| `X_SITE` | `x.com` | the site whose tabs count as "the" tab |
+| `X_HANDLE` | empty | handle fallback for a page that has not painted yet; empty means "read it live or refuse" |
+| `X_LAUNCHER` | `chrome-real-profile-launch/scripts/run.sh`, found by glob | the script that starts the real-profile browser |
+| `X_STATE_DIR` | `~/.hermes/state/x-post-via-browser` | where per-feature state files are written |
+| `X_GITHUB_OWNERS` | owners derived from real git remotes under `~/code` | which repositories this account may promote; an empty set **refuses** promotion rather than widening the gate |
+| `X_TOPICS` | the built-in topic list | keywords that select a feed post as a candidate |
+| `X_BLOCK` | the built-in adult / scam / crypto-shill list | vocabulary that vetoes a post whatever else it says |
+| `X_COPY` | `scripts/x_copy_example.json` | the post text to publish |
+| `X_ENGAGE_STATE` | `~/.hermes/cron/output/x-engagement/answered_sids.json` | answered status ids and the reply-text rotation index, shared across runs |
+| `X_QUEUE` | the queue file beside the scripts | which items a queue runner takes next |
+| `X_POST_STATE` | the state file beside the scripts | which queue items have already been posted |
+
+## The gate: what is actually wired
+
+`verify_no_unsafe_posting.py` is a real script with real rules. The intended
+wiring — and the part worth checking, because it is what was broken — is the
+**global pre-commit hook** at `~/.git-hooks/pre-commit`, which git finds
+through `core.hooksPath` (`git config --global core.hooksPath
+~/.git-hooks`). That hook is supposed to run the guard over the **staged**
+Python files and exit non-zero on a violation, which blocks the commit.
+
+**Status as of writing: the hook does not contain that call yet.** An empty
+`grep -n "verify_no_unsafe_posting" ~/.git-hooks/pre-commit` means the gate is
+**documented but not enforced** and the rules below are advice, not a gate.
+Verify before trusting this section rather than the reverse:
+
+```bash
+grep -n "verify_no_unsafe_posting" ~/.git-hooks/pre-commit
+```
+
+That distinction is the whole point: a rule that lives only in this document
+is a rule the next person breaks without knowing why, and that has happened to
+every rule on this list.
+
+The shape the wiring is meant to have, and the one to hold it to:
+
+- **It is a staged-file gate, not a full-repo audit.** It only sees what is
+  about to be committed. A violation already sitting in the working tree, or
+  in history, is invisible to it.
+- **It fires only when a staged path is under
+  `skills/social-media/x-post-via-browser/scripts/`.** Every other repo, and
+  every other path, skips it silently and costs nothing.
+- **It runs before the hook's non-Rust early-exit.** That ordering matters:
+  the hook skips repos with no `Cargo.toml`, and the skills repo has none, so
+  a gate placed after that check would never execute here at all. That was
+  the original defect — the section that used to sit here claimed the gate
+  "applies to every repo, including the skills repo", which was true only of
+  the intent.
+- **It is bypassed by `git commit --no-verify`,** like every hook.
 
 | Rule | What it stops |
 |---|---|
@@ -301,12 +360,12 @@ it.
 
 ## The reply path works, and it was the script that was broken
 
-Revised 2026-10-02. `post_reply.py` now opens a reply box, types with real key
+`post_reply.py` now opens a reply box, types with real key
 events, sends, and reads the reply back off the timeline. Four replies
 published and verified live, one of them carrying all the fixes below. Nothing
 here needed the API, a real pointer, or the OS keyboard.
 
-The 2026-10-01 finding — "X refuses synthetic input" — was **four script bugs,
+The early finding — "X refuses synthetic input" — was **four script bugs,
 not a wall in X**. Each one produced a silent failure, and each one looked
 exactly like the next. This is the record, because the shape repeats:
 
@@ -346,8 +405,8 @@ Two behaviours that are correct and should not be "fixed":
 
 ## Replies are composed live, never pre-written
 
-**Superseded 2026-10-09** — the `replies/*.txt` pool this section described is
-deleted. The account owner's standing rule: canned reply files are forbidden;
+**The `replies/*.txt` pool this section described is
+deleted.** The account owner's standing rule: canned reply files are forbidden;
 every reply is composed at send time by the firing agent, grounded in source
 read during the same run. See "Reply content is composed live, never
 pre-written" below for the flow.
@@ -363,7 +422,7 @@ Two rules from the pool era still hold:
 
 ## The reply editor does not mount in a hidden tab — activate it first
 
-**Corrected 2026-10-07. This supersedes the "X refuses synthetic input"
+**Corrected. This supersedes the "X refuses synthetic input"
 conclusion that sat in this section.** That conclusion was wrong, and it was
 wrong for four separate reasons in a row, each based on a real measurement.
 
@@ -479,7 +538,7 @@ published and independently verified.
    makes the target invalid in a virtualised list. Scroll the window
    instead.
 
-   **Measured 2026-10-09: this click stopped opening the box, and the script now
+   **Measured: this click stopped opening the box, and the script now
    refuses rather than typing blind.** A synthesised mousedown/mouseup on the
    control changes nothing; with the editor-less overlays cleared, focus does
    land on it, but X ignores a synthesised Enter and Space. The symptom is
@@ -523,10 +582,10 @@ produces a port that answers while the page renderer no longer does: CDP
 Before blaming the socket, count what you started:
 
 ```bash
-ps -eo pid,command | grep -c '[r]emote-debugging-port=9240'
+ps -eo pid,command | grep -c "[r]emote-debugging-port=$X_PORT"
 ```
 
-More than one instance is the cause. `pkill -9 -f remote-debugging-port=9240`,
+More than one instance is the cause. `pkill -9 -f remote-debugging-port=$X_PORT`,
 confirm the port is free, then start exactly one. The failure looks like a
 network problem and is a process-management problem.
 
@@ -613,15 +672,16 @@ deleted on sight — posted to the right people, about nothing.
 
 ## The account handle is read live, never hardcoded
 
-Every script once carried `ME = "eastspire_sheng"`. The account was renamed to
-**@vshengbro** (2026-10, same rename as the GitHub account) and each hardcoded
-copy broke in its own way: reply verification matched nothing, so sends that
-had landed were reported NOT VERIFIED, and the feed filter stopped excluding
-the account's own posts, so one 01:00 run replied to its own promotional
-posts. `scripts/handle.py` reads the handle from the nav bar's
-`AppTabBar_Profile_Link` at connect time; the module constant is only the
-fallback before the page paints. Any new script in this directory takes the
-handle from `handle.live(c)`, never from a literal.
+Every script once carried its own hardcoded `ME = "..."`. The account was
+renamed once, and each hardcoded copy broke in its own way: reply
+verification matched nothing, so sends that had landed were reported NOT
+VERIFIED, and the feed filter stopped excluding the account's own posts, so
+one 01:00 run replied to its own promotional posts. `scripts/handle.py` reads
+the handle from the nav bar's `AppTabBar_Profile_Link` at connect time; the
+module constant is only the fallback before the page paints. Any new script
+in this directory takes the handle from `handle.live(c)`, never from a
+literal. The fallback itself is now empty unless `X_HANDLE` sets it, so a
+rename can no longer be papered over by a stale constant.
 
 ## Keyword targeting needs a blocklist, rotation, and cross-run state
 
@@ -645,16 +705,46 @@ Measured the day the 30-minute engagement job was added:
 
 ## A reply verified by the 30-minute cadence
 
-`engage_feed.py <port> --likes 1` is one unit of work for the likes: home tab,
-one like, state saved. Replies are a separate explicit step — `--suggest` to
-collect candidates, `--reply-to` to send the composed text (see the
-live-composition section below). The cron job `40defaea9d3a` runs the pair
-every 30 minutes; the nightly job `b821f8f18340` runs the same pair with 14
-likes and up to 36 replies. Both honour the same lock and state file.
+`engage_feed.py "$X_PORT" --likes 1` is one unit of work for the likes: home
+tab, one like, state saved. Replies are a separate explicit step — `--suggest`
+to collect candidates, `--reply-to` to send the composed text (see the
+live-composition section below). The 30-minute engagement cron runs the pair
+on that cadence; the nightly engagement cron runs the same pair with 14 likes
+and up to 36 replies. Both honour the same lock and state file.
+
+## A trending repository is read live, never named in a prompt
+
+A promotion post has to be about a repository that is genuinely hot now, and
+"hot now" is a fact about github.com/trending. `gh_trending.py` is that read:
+
+```bash
+python3 scripts/gh_trending.py --self-test          # parser, offline
+python3 scripts/gh_trending.py --limit 8            # today's daily window
+python3 scripts/gh_trending.py --community --limit 5
+python3 scripts/gh_trending.py --lang rust          # GitHub's own filter
+```
+
+It needs no token and no cookie, so it runs before the browser is involved and
+cannot disturb the composer. A repository name written into a cron prompt goes
+stale within hours; this returns whatever is hot on the day it runs.
+
+Two details that matter when the result is used as a promotion target:
+
+- **`mine` is derived at call time** from `org_repos.owner_set()`, so the
+  account's own repositories are marked without a second hardcoded owner list
+  going stale after an org rename.
+- **An empty result is a stop, not an invitation to recall one.** The script
+  exits non-zero with no rows, and the honest move is to skip that day and say
+  so. A post about a repository that was trending last week, composed from
+  memory, is exactly the failure this replaces.
+
+Grounding for the copy is the trending repository's own README, read the same
+way an owned repository's is — a community repository is promoted by saying
+something true about what it does, and the README is where that is.
 
 ## Reply content is composed live, never pre-written
 
-Standing rule from the account owner (2026-10-09): canned reply files are
+Standing rule from the account owner: canned reply files are
 forbidden. The firing agent composes every reply at send time, grounded in
 source it read during the same run. The scripts carry the mechanics, the
 agent carries the words:
@@ -671,7 +761,7 @@ agent carries the words:
    add `--allow-no-repo`; a foreign repository link is refused even then.
 
 **Steps 2 and 3 are two separate invocations, and the feed is virtualised
-between them.** Measured 2026-10-10: `--suggest 5` returned five candidates,
+between them.** Measured: `--suggest 5` returned five candidates,
 and by the time the composed reply was sent `--reply-to` reported
 `open reply: {'why': 'target not on page'}` → `NOT SENDING - target not on
 page` → `NOT MARKED - <sid> stays available for a later batch`. The post had

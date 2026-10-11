@@ -175,6 +175,39 @@ def _may_load_pages(path: Path) -> bool:
     return path.stem in PAGE_LOAD_EXEMPT
 
 
+# The files allowed to empty an editor, each for its own narrow reason.
+#
+# The no-clearing rule exists because clearing raises Chrome's unsaved-changes
+# dialog, which then blocks every later CDP call until a human dismisses it.
+# That cost is real, and these five still clear — but they clear their OWN
+# debris, in a deliberate act the operator asked for by name, which is not the
+# same act as a publish path wiping a box it does not own:
+#
+#   clear_own_composer  the operator naming the exact text to remove
+#   empty_draft_editor  empty a draft while the operator watches
+#   verify_type_keys    measured input path: every variant starts from empty
+#   probe_cjk_insert    measurement harness; same reason
+#   publish             only for debris THIS script left behind, and only when
+#                       the composer's text differs from the target by a prefix
+#                       — anything else is refused and left for a human
+#
+# The exemption is by exact stem, so a new script cannot opt in by naming
+# itself the same way a script cannot opt into loading a page. The self-test
+# asserts both halves: each name is allowed, and a sixth differently-named
+# file doing the same thing is still blocked.
+CLEARING_EXEMPT = {
+    "clear_own_composer",
+    "empty_draft_editor",
+    "verify_type_keys",
+    "probe_cjk_insert",
+    "publish",
+}
+
+
+def _may_clear(path: Path) -> bool:
+    return path.stem in CLEARING_EXEMPT
+
+
 def check_file(path: Path) -> list[str]:
     """Report every banned call in one file, with its real line number.
 
@@ -212,6 +245,8 @@ def check_file(path: Path) -> list[str]:
             continue                      # committed, therefore fine
         if rid == "no-page-load" and _may_load_pages(path):
             continue                      # bringing the browser up is its job
+        if rid == "no-clearing" and _may_clear(path):
+            continue                      # a named script, clearing its own box
         shown = sorted(lines)[:6]
         problems.append(
             f"{path}: [{rid}] {banned} — {why}"
@@ -322,6 +357,33 @@ def self_test() -> int:
         if got:
             failures.append(f"false positive on {name}: {got}")
         p.unlink(missing_ok=True)
+
+    # The clearing exemption is by exact stem, so the same clear() under any
+    # other name must still be blocked. An exemption that cannot leak to other
+    # names is not an exemption, it is a hole — and an untested one is how the
+    # page-load exemption became a claim in prose with nothing behind it.
+    d = Path("/tmp/_xguard_clear_exempt")
+    d.mkdir(exist_ok=True)
+    for fname, should_fire in (("clear_own_composer.py", False),
+                               ("empty_draft_editor.py", False),
+                               ("verify_type_keys.py", False),
+                               ("probe_cjk_insert.py", False),
+                               ("publish.py", False),
+                               ("clear_someone_elses_draft.py", True),
+                               ("publish_helper.py", True),
+                               ("x_thread.py", True)):
+        p = d / fname
+        p.write_text("import time\n" + FIXTURES["no-clearing-2"] + "\n",
+                     encoding="utf-8")
+        hits = [h for h in check_file(p) if "[no-clearing]" in h]
+        p.unlink(missing_ok=True)
+        if should_fire and not hits:
+            failures.append(
+                f"clearing exemption leaked: {fname} was allowed to clear "
+                f"the composer")
+        if not should_fire and hits:
+            failures.append(
+                f"clearing exemption did not apply to {fname}: {hits}")
     if failures:
         print("SELF-TEST FAILED", file=sys.stderr)
         for f in failures:

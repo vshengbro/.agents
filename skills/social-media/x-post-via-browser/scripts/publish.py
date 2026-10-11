@@ -18,9 +18,9 @@ These do NOT work, and none of them is here:
   * looking for button[data-testid="tweetButton"] — the inline composer mounts
     tweetButtonInline and often mounts no tweetButton at all
 
-  python3 publish.py 9240 --post 0 --go
-  python3 publish.py 9240 --show          # the copy, touches nothing
-  python3 publish.py 9240 --tabs          # the open X tab, touches nothing
+  python3 publish.py [port] --post 0 --go
+  python3 publish.py [port] --show          # the copy, touches nothing
+  python3 publish.py [port] --tabs          # the open X tab, touches nothing
 """
 from __future__ import annotations
 
@@ -32,8 +32,9 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cdp as C                                          # noqa: E402
+import xconfig                                           # noqa: E402
 
 COPY = os.environ.get("X_COPY") or os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "x_copy_example.json")
@@ -168,20 +169,36 @@ def stray_linkifiers(text: str, urls) -> list:
 
 
 def warm(c) -> None:
-    """Send one throwaway ASCII space so the editor accepts the next character.
+    """Send one throwaway character so the editor accepts the next one.
 
     A fresh Draft block — the composer itself, or any block Enter just opened —
     swallows the first character typed into it. Measured four ways on the same
     body: under char events the leading '中' was gone, under keyDown/keyUp it
     was gone, with a 30ms per-character delay it was gone, and with the caret
     explicitly collapsed to the start it was still gone. One ASCII space first
-    initialises the block and the body then arrives exact. Delete it afterwards.
+    initialises the block and the body then arrives exact.
+
+    The warm-up character is a SPACE, and it is removed afterwards. Do not
+    change it to a visible marker: measured, the removal pass deletes forward
+    from the start of each block, and a leading space is the one thing that
+    survives that pass without leaving the body visibly wrong if it is missed.
     """
     c.send("Input.dispatchKeyEvent", type="char", text=" ")
     time.sleep(0.25)
 
 
-def type_keys(c, text: str) -> None:
+def current_text(c) -> str:
+    """The focused Draft editor's text, for a mid-run comparison."""
+    return c.js("""(() => {
+      const all = [...document.querySelectorAll('[data-testid="tweetTextarea_0"]')]
+        .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
+                     && n.offsetParent !== null);
+      const e = all.find(x => x === document.activeElement) || all[0];
+      return (e && e.innerText) || '';
+    })()""", wait=20, retries=3) or ""
+
+
+def type_keys(c, text: str, initial: str | None = None) -> None:
     """Type a non-ASCII body as real key events, one character at a time.
 
     Input.insertText writes to the DOM without touching the editor's state, so
@@ -208,35 +225,63 @@ def type_keys(c, text: str) -> None:
     time with a pause, which is the same path that carries the body correctly.
     """
     parts = re.split(r"(https?://\S+)", text)
+    # The URL goes in FIRST, before any body text, and the body follows it.
+    #
+    # imeSetComposition is the only measured path that delivers a URL intact —
+    # per-character key events lose the tail to linkification ('https://github.c',
+    # identically at 0/40/80/150 ms per character, in an empty editor and after a
+    # body, with the caret re-focused and with a blur/refocus reset), and
+    # Input.insertText inserts nothing.
+    #
+    # It only works against an EMPTY composer. Measured: called as the first
+    # thing after focusing a blank Draft editor the URL lands whole; called
+    # after the body has been typed it lands zero times, and no error is
+    # reported either way — so the count gate is what distinguishes them.
     for block in parts:
         if not block:
             continue
         is_url = bool(re.match(r"^https?://\S+$", block))
         if is_url:
-            # Re-focus before the URL. Measured: typed into an empty composer
-            # the URL arrives whole, but after ~570 characters of body it is
-            # cut to 'https://github.c' at exactly the same place every time.
-            # The cutoff is not a timing race (0ms and 150ms per character give
-            # the identical truncation) and not the URL's own characters — it
-            # is the editor's state after a long insert, so reset it here.
-            c.js("""(() => {
-              const all = [...document.querySelectorAll(
-                '[data-testid="tweetTextarea_0"]')]
-                .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
-                             && n.offsetParent !== null);
-              const e = all.find(x => x === document.activeElement) || all[0];
-              if (!e) return false;
-              e.focus();
-              // Collapse the caret to the end so the URL lands after the body.
-              const sel = window.getSelection();
-              const r = document.createRange();
-              r.selectNodeContents(e);
-              r.collapse(false);
-              sel.removeAllRanges();
-              sel.addRange(r);
-              return true;
-            })()""", wait=20, retries=3)
-            time.sleep(1.2)
+            # imeSetComposition, whole URL, then WAIT. Two things that look
+            # harmless and are not, both measured here:
+            #
+            #   reading the composer to check the URL landed — the read beats
+            #     the composition, so it looks like a failure, and the key
+            #     events sent to recover cut the composition: the URL came back
+            #     as 'b.com/euv-dev/euv', first ten characters gone.
+            #   committing it afterwards — an insertText commit inserts the URL
+            #     a SECOND time, and the post went out with the link duplicated
+            #     while every presence gate passed, because presence is not
+            #     count.
+            #
+            # So: one call, one wait, nothing else. The URL count gate in main()
+            # is what reports failure.
+            c.send("Input.imeSetComposition", text=block,
+                   selectionStart=len(block), selectionEnd=len(block),
+                   wait=40, retries=6)
+            # Wait it out. NOTHING reads the composer between this call and the
+            # body's first character — not even to confirm the URL landed. The
+            # read is what breaks it: measured, the identical sequence works
+            # when the composer is never read and loses the URL entirely when
+            # one read lands in the window between the composition and the body.
+            # `initial` is what the composer already held when this run started,
+            # captured by the caller before any of this — it is the only reading
+            # taken on the way in, and taking it is not optional either: the
+            # same call fails against a composer that already has a space in it.
+            time.sleep(2.5)
+            # A SPACE, not Enter, separates the URL from the body. Enter opens a
+            # new block, and the warm-up removal pass then deletes from the
+            # start of every block — including the URL's own, where the head
+            # character is real text: measured, the leading 'euv' went missing
+            # that way. One block keeps the removal pass unambiguous.
+            c.send("Input.dispatchKeyEvent", type="char", text=" ")
+            time.sleep(0.4)
+            # Done with this block — imeSetComposition already delivered it.
+            # Falling through to the per-character loop retyped the URL on top
+            # of it, and linkification then kept only the tail: measured,
+            # 'https://github.com/euv-dev/euv' came back as
+            # 'ub.com/euv-dev/euv'.
+            continue
         else:
             warm(c)
         for i, ch in enumerate(block):
@@ -255,41 +300,78 @@ def type_keys(c, text: str) -> None:
                 c.send("Input.dispatchKeyEvent", type="keyUp", key=ch)
             else:
                 c.send("Input.dispatchKeyEvent", type="char", text=ch)
-            # A URL's punctuation needs air between characters or the editor
-            # eats the run; 40ms is measured, not guessed.
-            if is_url or i % 25 == 24:
-                time.sleep(0.04 if is_url else 0.4)
+            # A pause between characters, and one every 25 on top. Measured:
+            # without the per-character pause the editor drops whole stretches
+            # mid-body — a 447-character Chinese body came back holding only its
+            # last 215 characters. And the whole of this loop is the only thing
+            # between an intact URL and the finished text: run by hand, the same
+            # sequence put 408 characters of Chinese after an imeSetComposition
+            # URL and the URL was still there at the end, count 1 throughout.
+            time.sleep(0.012)
+            if i % 25 == 24:
+                time.sleep(0.4)
     time.sleep(1.5)
 
-    # Remove one warm-up space per block: they sit at the head of every block,
-    # so collapse to the start, delete forward, and repeat.
-    for _ in range(text.count("\n") + 1):
-        c.js("""(() => {
-          const all = [...document.querySelectorAll(
-            '[data-testid="tweetTextarea_0"]')]
-            .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
-                         && n.offsetParent !== null);
-          const e = all.find(x => x === document.activeElement) || all[0];
-          if (!e) return false;
-          const sel = window.getSelection();
-          const r = document.createRange();
-          r.selectNodeContents(e);
-          r.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(r);
-          return true;
-        })()""", wait=20, retries=3)
-        time.sleep(0.35)
+    # Remove the warm-up space at the head of each block.
+    #
+    # Delete FORWARD from the start of the composer, repeatedly, and stop as
+    # soon as the compare passes — never a fixed count. The count that a fixed
+    # loop needs is wrong whenever the block structure is not exactly one
+    # block per newline: measured, 9 blocks against 8 warm-ups deleted one
+    # real character ('euv里每个' came back as 'DOM元素'), which the length
+    # check cannot see because the removed and the trailing space cancel out.
+    # Guessing the count loses real text; checking the text cannot.
+    # Remove the warm-up space the body block opens with.
+    #
+    # ONE pass, and the block is located by the SOURCE, never by "starts with a
+    # space". Both of those matter, and both were arrived at the hard way:
+    #
+    #   a loop kept finding the same block and ran to its limit, deleting real
+    #     characters ('euv里每个' arrived as 'DOM元素');
+    #   "any leaf starting with a space" finds X's linkified URL element —
+    #     whose innerText is link text, so it does not even contain "http" —
+    #     and deletes it. Measured: the URL was whole at the insert and read
+    #     back at zero occurrences, 410 characters against a 438 character
+    #     source, with the text behind it untouched.
+    #
+    # The source's first body characters are the only safe anchor.
+    tail_src = re.sub(r"^\s*https?://\S+\s*", "", text)
+    anchor = tail_src[:10]
+    moved = c.js("""(() => {
+      const all = [...document.querySelectorAll(
+        '[data-testid="tweetTextarea_0"]')]
+        .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
+                     && n.offsetParent !== null);
+      const e = all.find(x => x === document.activeElement) || all[0];
+      if (!e) return 'NO_EDITOR';
+      const b = [...e.querySelectorAll('div')].find(x =>
+        x.children.length === 0
+        && (x.innerText || '') === ' ' + ANCHOR);
+      if (!b) return 'NO_WARMUP_BLOCK';
+      const sel = window.getSelection();
+      const r = document.createRange();
+      r.selectNodeContents(b);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+      return 'OK';
+    })()""".replace("ANCHOR", repr(anchor)), wait=25, retries=4)
+    if moved == "OK":
+        time.sleep(0.5)
         c.send("Input.dispatchKeyEvent", type="keyDown", key="Delete",
                code="Delete", windowsVirtualKeyCode=46)
         c.send("Input.dispatchKeyEvent", type="keyUp", key="Delete",
                code="Delete", windowsVirtualKeyCode=46)
-        time.sleep(0.6)
-    time.sleep(2.0)
+        time.sleep(0.8)
+    else:
+        print(f"  warm-up removal: {moved} (no space to remove, "
+              f"or the body block was not found)", flush=True)
+    time.sleep(1.5)
 
 
 def main() -> int:
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9240
+    port = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() \
+        else xconfig.port()
     if "--show" in sys.argv:
         posts = json.load(open(COPY))
         print(f"{COPY}\n{len(posts)} posts\n")
@@ -301,7 +383,7 @@ def main() -> int:
     if "--tabs" in sys.argv:
         C.set_port(port)
         for t in C.tabs("page"):
-            if "x.com" in t.get("url", ""):
+            if xconfig.is_site_tab(t.get("url", "")):
                 print(f"  {t['id'][:8]} {t['url'][:70]}")
         return 0
 
@@ -332,9 +414,10 @@ def main() -> int:
         print("could not get a usable x.com tab", flush=True)
         return 1
 
-    pages = [t for t in C.tabs("page") if "x.com" in t.get("url", "")]
+    pages = [t for t in C.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not pages:
-        print("no x.com tab open after ensure_browser", flush=True)
+        print(f"no {xconfig.site()} tab open after ensure_browser", flush=True)
         return 1
     c = C.Cdp(pages[0]["webSocketDebuggerUrl"])
 
@@ -347,10 +430,112 @@ def main() -> int:
 
     have = st.get("text", "") or ""
     if have:
-        # The composer is never cleared. Read what is there and act on it.
+        # The composer is never cleared by default — clearing raises the
+        # unsaved-changes dialog, and this account's composer can hold text the
+        # user typed. But text THIS automation left behind is different: a run
+        # that failed part-way through leaves its debris, the next run then finds
+        # it, and it rides out with the next post. Measured debris: 'dev/euv ',
+        # the tail of a URL a run cut short, sitting in front of otherwise
+        # correct text.
+        #
+        # Only text that is recognisably this script's own gets cleared, and the
+        # test is that the composer's text differs from the target ONLY by a
+        # prefix. Anything else — different words, different order — is left for
+        # a human, because then it is not debris, it is someone's draft.
+        # The composer's text minus any leading run of characters is the
+        # target — that is exactly what this script's debris looks like. The
+        # debris sits at the FRONT (measured 'dev/euv ' in front of otherwise
+        # correct text), so the test is a suffix match, not a prefix one.
+        tail = have
+        while tail and canon(tail) != canon(text):
+            tail = tail[1:]
+        # Also accept whitespace-only differences, and only when the removed
+        # prefix is SHORT — measured debris is a cut-short URL tail like
+        # 'dev/euv ', eight characters. Without the length bound this accepts
+        # any text, because trimming from the front eventually lands on the
+        # target, and then a user's own draft would be cleared.
+        squash = lambda s: re.sub(r"\s+", "", s)
+        # A failed URL insert leaves the body WITHOUT its link, so the
+        # suffix match below can never fire. Recognise that shape separately:
+        # the composer's text is the source minus the URL, with warm-up spaces
+        # where the URL used to be. Measured, a run that lost its URL left
+        # '   euv 里事件注册表的重入问题…' against a source of
+        # 'https://github.com/euv-dev/euv euv 里事件注册表的重入问题…'.
+        # The composer's text may also be a PREFIX of the source: a run that
+        # typed the URL and then stopped leaves exactly the URL sitting there.
+        # Compare raw, not through canon — canon replaces every URL with a
+        # single marker, so a prefix that is exactly one URL compares equal to
+        # the source's marker and the strip never converges.
+        # The composer's text may also be a suffix of the source, with this
+        # script's own debris in front of it.
+        without_url = squash(re.sub(r"https?://\S+", "", text))
+        is_own_debris = (have.strip() and text.startswith(have.strip())
+                         or canon(tail) == canon(text)
+                         or squash(have) == without_url) and canon(have) != canon(text)
         if canon(have) == canon(text):
             print(f"  already holds this exact post ({st.get('len')} chars) — "
                   f"posting it as it stands", flush=True)
+        elif is_own_debris:
+            print(f"  found {st.get('len')} chars of this script's own debris — "
+                  f"clearing before typing", flush=True)
+            for _ in range(40):
+                left = c.js("""(() => {
+                  const all = [...document.querySelectorAll(
+                    '[data-testid="tweetTextarea_0"]')]
+                    .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
+                                 && n.offsetParent !== null);
+                  const e = all.find(x => x === document.activeElement) || all[0];
+                  if (!e) return 0;
+                  e.focus();
+                  const sel = window.getSelection();
+                  const r = document.createRange();
+                  r.selectNodeContents(e);
+                  sel.removeAllRanges();
+                  sel.addRange(r);
+                  document.execCommand('delete');
+                  sel.removeAllRanges();
+                  return (e.innerText || '').length;
+                })()""", wait=20, retries=3)
+                if not left or (isinstance(left, int) and left < 2):
+                    break
+                time.sleep(0.3)
+            time.sleep(1.2)
+            # Block-by-block delete leaves a lone newline where the first
+            # block was, which canon() counts as content. Trim it before
+            # giving up — measured, after clearing 'dev/euv https://…' the
+            # composer read back as '\nhttps://github.com/euv-dev/euv …'.
+            if canon(current_text(c)):
+                for _ in range(4):
+                    c.js("""(() => {
+                      const all = [...document.querySelectorAll(
+                        '[data-testid="tweetTextarea_0"]')]
+                        .filter(n => n.className && n.className.indexOf('public-DraftEditor') >= 0
+                                     && n.offsetParent !== null);
+                      const e = all.find(x => x === document.activeElement) || all[0];
+                      if (!e) return false;
+                      e.focus();
+                      const sel = window.getSelection();
+                      const r = document.createRange();
+                      r.selectNodeContents(e);
+                      r.collapse(true);
+                      sel.removeAllRanges();
+                      sel.addRange(r);
+                      return true;
+                    })()""", wait=20, retries=3)
+                    c.send("Input.dispatchKeyEvent", type="keyDown",
+                           key="Delete", code="Delete",
+                           windowsVirtualKeyCode=46)
+                    c.send("Input.dispatchKeyEvent", type="keyUp",
+                           key="Delete", code="Delete",
+                           windowsVirtualKeyCode=46)
+                    time.sleep(0.4)
+                time.sleep(1.0)
+            if canon(current_text(c)):
+                print("  REFUSING to type — could not clear its own debris:",
+                      repr(current_text(c)[:80]), flush=True)
+                c.close()
+                return 1
+            have = ""
         else:
             print(f"  holds {st.get('len')} characters that are NOT this post. "
                   f"Left untouched — clearing raises the unsaved-changes "
@@ -359,7 +544,7 @@ def main() -> int:
             print(f"    want: {text[:70]!r}", flush=True)
             c.close()
             return 1
-    else:
+    if not have:
         # The input method depends on the SCRIPT, measured — not on habit.
         #
         # Input.insertText sends the string straight to the DOM and does not
@@ -406,10 +591,19 @@ def main() -> int:
     sep_ok = all(m.start() == 0 or got[m.start() - 1] == " "
                  for u in urls for m in re.finditer(re.escape(u), got))
     urls_ok = all(u in got for u in urls) and sep_ok
+    # Presence is not enough. Measured: committing the URL composition with a
+    # second insertText inserted it a second time, the post went out with the
+    # link duplicated, and every gate above still passed because each asks a
+    # yes/no question. Count the occurrences instead.
+    urls_once = all(got.count(u) == text.count(u) for u in urls)
+    if not urls_once:
+        print("  a URL appears a different number of times than in the source:",
+              {u: (got.count(u), text.count(u)) for u in urls if got.count(u) != text.count(u)},
+              flush=True)
 
     print(f"  LEN {st.get('len')} want {len(text)} match={ok} "
           f"urls={len(urls)} urls_ok={urls_ok}", flush=True)
-    if not ok or not urls_ok:
+    if not ok or not urls_ok or not urls_once:
         if not ok:
             i = next((x for x in range(min(len(fg), len(ft)))
                       if fg[x] != ft[x]), None)

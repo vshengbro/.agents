@@ -9,15 +9,18 @@ paths differ. This measures the boundary instead of guessing at it.
 Read-only apart from text typed into the composer, which is cleared only
 through clear_own_composer.py afterwards. No navigation, no reload, no mouse.
 
-    python3 probe_cjk_insert.py 9240
+    python3 probe_cjk_insert.py [port]
 """
 from __future__ import annotations
 
 import json
 import sys
 import time
+from pathlib import Path
 
-import cdp
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cdp                                                # noqa: E402
+import xconfig                                            # noqa: E402
 
 # Bind to the EMPTY editor, never to the last one in DOM order. This page
 # mounts more than one composer and one of them holds text this script did not
@@ -70,10 +73,12 @@ CASES = [
 
 
 def main() -> int:
-    port = sys.argv[1] if len(sys.argv) > 1 else "9240"
-    tabs = [t for t in cdp.tabs("page") if "x.com" in t.get("url", "")]
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
+    cdp.set_port(port)
+    tabs = [t for t in cdp.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first")
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first")
         return 1
     c = cdp.Cdp(tabs[0]["webSocketDebuggerUrl"])
 

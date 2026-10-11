@@ -18,7 +18,7 @@ Every rule the publisher obeys is in the x-post-via-browser skill and enforced
 by verify_no_unsafe_posting.py: no navigation, no clearing, no mouse, no
 clipboard, one page load at most and only from ensure_browser.py.
 
-  X_POST_STATE=/path/state.json python3 run_project_day.py 9240 [--dry-run]
+  python3 run_project_day.py [--dry-run]
 """
 from __future__ import annotations
 
@@ -30,16 +30,66 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 PUBLISH = HERE / "publish.py"
 VERIFY = HERE / "verify_post.py"
 WHOSE = HERE / "whose_posts.py"
-QUEUE = Path(os.environ.get("X_QUEUE",
-                            "/Users/sqs/.hermes/cache/scratch/x_queue.json"))
-STATE = Path(os.environ.get(
-    "X_POST_STATE", "/Users/sqs/.hermes/cache/scratch/x_project_state.json"))
-# Minutes between the four language versions of one project. The cron's
-# interval separates projects; this separates the versions inside one.
-GAP = int(os.environ.get("X_GAP", "600"))
+
+# Where the project record lived before xconfig. Read once, then migrated.
+_LEGACY_STATE = Path("~/.hermes/cache/scratch/x_project_state.json")
+
+
+# Resolved inside main(), never at import: a cron wrapper that exports
+# X_QUEUE or X_POST_STATE after this module is already loaded would otherwise
+# be ignored, and the run would read — and then rewrite — the wrong queue.
+
+def queue_file() -> Path:
+    """X_QUEUE, else the queue beside the scripts."""
+    return Path((os.environ.get("X_QUEUE") or "").strip()
+                or str(HERE / "x_queue.json")).expanduser()
+
+
+def state_file() -> Path:
+    """X_POST_STATE, else the project state beside the scripts.
+
+    Beside the scripts, not under one developer's home directory: a path that
+    only exists where it was written makes every other machine start from an
+    empty record and republish projects that already went out.
+
+    A record already written under the pre-xconfig location is still READ from
+    there when the new one is absent, and the next successful save migrates
+    it. Dropping it silently would empty `posted`, which is not a cosmetic
+    loss: it re-publishes projects whose four languages already went out.
+    """
+    raw = (os.environ.get("X_POST_STATE") or "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    target = HERE / "x_project_state.json"
+    if target.exists():
+        return target
+    legacy = _LEGACY_STATE.expanduser()
+    return legacy if legacy.is_file() else target
+
+
+def migrate_state(legacy: Path, target: Path) -> None:
+    """Copy a pre-xconfig state record to the new location, once."""
+    if legacy == target or not legacy.is_file() or target.exists():
+        return
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(legacy.read_text())
+        print(f"migrated project state {legacy} -> {target}", flush=True)
+    except OSError as exc:
+        print(f"could not migrate project state {legacy}:", exc, flush=True)
+
+
+def gap_seconds() -> int:
+    """X_GAP, else the ten minutes between a project's language versions."""
+    raw = (os.environ.get("X_GAP") or "").strip()
+    try:
+        return int(raw) if raw else 600
+    except ValueError:
+        return 600
 
 
 def run(script: Path, args: list[str], timeout: int = 600):
@@ -48,18 +98,18 @@ def run(script: Path, args: list[str], timeout: int = 600):
     return p.returncode, (p.stdout + p.stderr)
 
 
-def load_state() -> dict:
-    if STATE.exists():
+def load_state(path: Path) -> dict:
+    if path.exists():
         try:
-            return json.loads(STATE.read_text())
+            return json.loads(path.read_text())
         except ValueError:
             pass
     return {"posted": [], "failed": {}}
 
 
-def save_state(s: dict) -> None:
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(s, ensure_ascii=False, indent=1))
+def save_state(path: Path, s: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(s, ensure_ascii=False, indent=1))
 
 
 def newest_status(port: str) -> str:
@@ -73,10 +123,14 @@ def newest_status(port: str) -> str:
 
 
 def main() -> int:
-    port = sys.argv[1] if len(sys.argv) > 1 else "9240"
+    import xconfig
+
+    port = str(int(sys.argv[1])) if len(sys.argv) > 1 \
+        and sys.argv[1].isdigit() else str(xconfig.port())
     dry = "--dry-run" in sys.argv
-    queue = json.loads(QUEUE.read_text())
-    state = load_state()
+    state_path = state_file()
+    queue = json.loads(queue_file().read_text())
+    state = load_state(state_path)
     done = set(state["posted"])
 
     if len(done) >= len(queue):
@@ -99,15 +153,16 @@ def main() -> int:
     # index, so each version is published as index 0 of its own file. That
     # keeps one project's four languages in one queue entry and lets the
     # publisher's own refusal rules apply to each version unchanged.
-    copy_path = STATE.parent / f".x_copy_{repo.replace('/', '_')}.json"
+    copy_path = state_path.parent / f".x_copy_{repo.replace('/', '_')}.json"
     copy_path.write_text(json.dumps([langs["zh"]] if "zh" in langs
                                     else [next(iter(langs.values()))]))
 
     published, results = [], []
+    gap = gap_seconds()
     for n, (code, body) in enumerate(langs.items()):
         if n:
-            print(f"  waiting {GAP // 60} min before {code}", flush=True)
-            time.sleep(GAP)
+            print(f"  waiting {gap // 60} min before {code}", flush=True)
+            time.sleep(gap)
         copy_path.write_text(json.dumps([body], ensure_ascii=False))
 
         _, out = run(PUBLISH, [port, "--post", "0", "--go"])
@@ -136,7 +191,8 @@ def main() -> int:
 
     state["posted"].append(idx)
     state.setdefault("failed", {})[repo] = None
-    save_state(state)
+    save_state(state_path, state)
+    migrate_state(_LEGACY_STATE.expanduser(), HERE / "x_project_state.json")
     print(f"\npublished {repo}: {', '.join(results)} "
           f"({len(state['posted'])}/{len(queue)} projects done)")
     copy_path.unlink(missing_ok=True)

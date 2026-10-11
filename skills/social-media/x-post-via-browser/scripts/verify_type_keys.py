@@ -6,15 +6,18 @@ path the publisher uses and then applies the publisher's own comparison. It
 never clicks send. The text it types is cleared afterwards, identified by a
 marker unique to this run.
 
-    python3 verify_type_keys.py 9240
+    python3 verify_type_keys.py [port]
 """
 from __future__ import annotations
 
 import sys
 import time
+from pathlib import Path
 
-import cdp
-import publish as P
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cdp                                                # noqa: E402
+import publish as P                                      # noqa: E402
+import xconfig                                            # noqa: E402
 
 # A CJK body with the same shape as the real copy: several paragraphs, mixed
 # ASCII identifiers, and a URL at the end preceded by one space.
@@ -51,10 +54,12 @@ CLEAR = r"""(() => {
 
 
 def main() -> int:
-    port = sys.argv[1] if len(sys.argv) > 1 else "9240"
-    tabs = [t for t in cdp.tabs("page") if "x.com" in t.get("url", "")]
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
+    cdp.set_port(port)
+    tabs = [t for t in cdp.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first")
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first")
         return 1
     c = cdp.Cdp(tabs[0]["webSocketDebuggerUrl"])
 

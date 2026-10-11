@@ -23,15 +23,18 @@ Two guards, because the cost of being wrong is the user's own unsent words:
 Never reloads, never navigates, never opens a tab, never takes the mouse or OS
 focus. Never returns 0 unless it verified afterwards that our text is gone.
 
-    python3 clear_own_composer.py 9240 --contains "euv 是一个声明式"
+    python3 clear_own_composer.py [port] --contains "euv 是一个声明式"
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from pathlib import Path
 
-import cdp
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cdp                                                # noqa: E402
+import xconfig                                            # noqa: E402
 
 # cdp.Cdp.js() evaluates a bare expression string with no parameter binding, so
 # the needle is spliced in as a JSON string literal. json.dumps is what makes
@@ -96,14 +99,17 @@ def _js(c, tmpl: str, needle: str):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("port")
+    ap.add_argument("port", nargs="?", type=int,
+                    help="CDP port; defaults to what xconfig resolves")
     ap.add_argument("--contains", required=True,
                     help="text this automated run typed and abandoned")
     args = ap.parse_args()
 
-    tabs = [t for t in cdp.tabs("page") if "x.com" in t.get("url", "")]
+    cdp.set_port(args.port or xconfig.port())
+    tabs = [t for t in cdp.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first")
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first")
         return 1
     c = cdp.Cdp(tabs[0]["webSocketDebuggerUrl"])
 
