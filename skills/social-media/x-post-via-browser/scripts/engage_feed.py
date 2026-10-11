@@ -20,7 +20,7 @@ promotion of this account's work. So the reply body must come from a directory
 of replies that were written for this purpose; a reply is generated here, not
 composed live, because the file is what the promotion rule is checked against.
 
-  python3 engage_feed.py 9240 [--likes 12] [--replies 36] [--dry-run]
+  python3 engage_feed.py [--likes 12] [--replies 36] [--dry-run]
 """
 from __future__ import annotations
 
@@ -38,31 +38,10 @@ LIKE = HERE / "like_posts.py"
 REPLY = HERE / "post_reply.py"
 WHOSE = HERE / "whose_posts.py"
 
-# The vocabulary that makes a post worth engaging with. Shared with
-# like_posts.py on purpose: a like and a reply should agree about what this
-# account cares about, or the feed learns two different things about it.
-TOPICS = ("rust", "cargo", "wasm", "webassembly", "compile", "compiler",
-          "macro", "agent", "llm", "model", "token", "context", "prompt",
-          "mcp", "tool", "inference", "type system", "static typing",
-          "refactor", "debugging", "code", "programming", "developer",
-          "编程", "模型", "编译", "工具", "宏", "上下文", "智能体", "推理", "代码")
-
-# A keyword match is never a reason by itself: adult and scam posts stuff the
-# same vocabulary (模型, token, code) into their text, and a promotional reply
-# under one of those does real damage to the account. Measured 2026-10-09:
-# the very first dry-run target was an uncensored-image-model post caught by
-# 模型. Skip the whole post on any of these, whatever else it says.
-BLOCK = ("少儿不宜", "成人内容", "未成年", "nsfw", "18+", "uncensored",
-         "约炮", "onlyfans", "porn", "adult content", "博彩", "彩票",
-         "刷单", "裸聊",
-         # crypto shill threads match "token" without ever being about token
-         # cost — TOKEN2049 booth posts, airdrops, pump talk
-         "token2049", "airdrop", "波场", "币圈", "土狗", "百倍",
-         "合约", "炒币", "跟单", "带单")
-
 sys.path.insert(0, str(HERE))
 import cdp as C                                          # noqa: E402
 import handle                                            # noqa: E402
+import xconfig                                           # noqa: E402
 
 # Status ids this account has already consumed a reply on, persisted across
 # runs: the 30-minute job and the nightly job share this file, so a post that
@@ -71,18 +50,56 @@ import handle                                            # noqa: E402
 # would otherwise send 01.txt to every post, and 48 copies of one text in a
 # day is the exact pattern spam detection exists for. Sids sort
 # chronologically as equal-length strings, so the cap keeps the recent ones.
-STATE = Path(os.environ.get(
-    "X_ENGAGE_STATE",
-    os.path.expanduser(
-        "~/.hermes/cron/output/x-engagement/answered_sids.json")))
+#
+# Resolved at CALL time, like every other environment-specific value here: a
+# module-level constant is frozen before the cron wrapper that sets X_ENGAGE_STATE
+# can take effect.
+_STATE_FILE: Path | None = None
+
+# Where this file lived before state_dir() was the base. Read once, migrated
+# once, then never again. Dropping it silently would reset the dedup set and
+# let the next run answer posts that were already answered — which is the
+# exact spam this file exists to prevent — so the migration is explicit
+# rather than a silent reset to an empty history.
+_LEGACY_STATE = Path("~/.hermes/cron/output/x-engagement/answered_sids.json")
+
+
+def state_file() -> Path:
+    """Where the answered-sids and rotation index live. X_ENGAGE_STATE wins."""
+    global _STATE_FILE
+    if _STATE_FILE is None:
+        raw = (os.environ.get("X_ENGAGE_STATE") or "").strip()
+        _STATE_FILE = Path(raw).expanduser() if raw \
+            else xconfig.state_dir() / "answered_sids.json"
+    return _STATE_FILE
+
+
+def _migrate_legacy(target: Path) -> None:
+    """Move an answered-sids file from the pre-xconfig location, once."""
+    old = _LEGACY_STATE.expanduser()
+    if old == target or not old.is_file():
+        return
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            return
+        target.write_text(old.read_text())
+        print(f"migrated engagement state {old} -> {target}", flush=True)
+    except OSError as exc:
+        print(f"could not migrate engagement state {old}:", exc, flush=True)
 
 
 def load_state() -> tuple:
     """(answered sids, next reply-text index); tolerates the legacy list form."""
+    path = state_file()
     try:
-        raw = json.loads(STATE.read_text())
+        raw = json.loads(path.read_text())
     except Exception:
-        return set(), 0
+        _migrate_legacy(path)
+        try:
+            raw = json.loads(path.read_text())
+        except Exception:
+            return set(), 0
     if isinstance(raw, list):
         return set(raw), 0
     if isinstance(raw, dict):
@@ -91,9 +108,10 @@ def load_state() -> tuple:
 
 
 def save_state(done: set, next_idx: int) -> None:
+    path = state_file()
     try:
-        STATE.parent.mkdir(parents=True, exist_ok=True)
-        STATE.write_text(json.dumps(
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(
             {"sids": sorted(done)[-5000:], "next": next_idx}))
     except OSError as exc:
         print("could not save the engagement state:", exc, flush=True)
@@ -151,8 +169,9 @@ def collect(c, me, done, want, rounds=10):
             break
         for r in rows:
             if (r.get("who") != me and r.get("text")
-                    and any(w in r["text"].lower() for w in TOPICS)
-                    and not any(w in r["text"].lower() for w in BLOCK)
+                    and any(w in r["text"].lower() for w in xconfig.topics())
+                    and not any(w in r["text"].lower()
+                                for w in xconfig.blocklist())
                     and r.get("sid") and r["sid"] not in seen):
                 seen.add(r["sid"])
                 out.append(r)
@@ -166,7 +185,8 @@ def collect(c, me, done, want, rounds=10):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("port", nargs="?", default="9240")
+    ap.add_argument("port", nargs="?", type=int,
+                    help="CDP port; defaults to what xconfig resolves")
     ap.add_argument("--likes", type=int, default=12)
     ap.add_argument("--suggest", type=int, default=0, metavar="N",
                     help="print up to N candidate posts as JSON and exit — "
@@ -181,16 +201,17 @@ def main() -> int:
                     help="forwarded to post_reply.py for opinion replies "
                          "that carry no repository link")
     args = ap.parse_args()
-    port = args.port
+    port = args.port or xconfig.port()
 
-    C.set_port(int(port))
+    C.set_port(port)
 
     # The 30-minute job and the long nightly job can be scheduled on top of
     # each other, and two runs driving one tab at once is how a reply lands
     # under the wrong post. A skipped run is a correct outcome — the next
     # tick is 30 minutes away — so the lock is non-blocking.
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    lock_fd = open(STATE.parent / "engage.lock", "w")
+    STATE_FILE = state_file()
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(STATE_FILE.parent / "engage.lock", "w")
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -222,7 +243,7 @@ def main() -> int:
             print(f"REFUSING - {sid} is already answered (state file)",
                   flush=True)
             return 1
-        cmd = [sys.executable, str(REPLY), port, sid, args.file]
+        cmd = [sys.executable, str(REPLY), str(port), sid, args.file]
         if args.allow_no_repo:
             cmd.append("--allow-no-repo")
         rc = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
@@ -242,9 +263,11 @@ def main() -> int:
               flush=True)
         return 0 if ok else 1
 
-    tabs = [t for t in C.tabs("page") if "x.com" in t.get("url", "")]
+    tabs = [t for t in C.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first", flush=True)
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first",
+              flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
     me = handle.live(c)
@@ -267,7 +290,8 @@ def main() -> int:
 
     # 2. likes, through the script that records the button state after each
     if args.likes:
-        rc = subprocess.run([sys.executable, str(LIKE), port, str(args.likes)],
+        rc = subprocess.run([sys.executable, str(LIKE), str(port),
+                             str(args.likes)],
                             capture_output=True, text=True, timeout=900)
         for line in (rc.stdout + rc.stderr).strip().splitlines()[-14:]:
             print("  " + line, flush=True)

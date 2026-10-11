@@ -18,7 +18,7 @@ the commit gate exempts only THIS FILE: every other script in the skill stays
 forbidden from loading a page, so "the publisher opened a tab" remains a
 defect rather than a shortcut.
 
-  python3 ensure_browser.py 9240
+  python3 ensure_browser.py [port]
 """
 from __future__ import annotations
 
@@ -29,12 +29,23 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 9240
-LAUNCH = os.path.expanduser(
-    "~/.agents/skills/software-development/chrome-real-profile-launch/"
-    "scripts/run.sh")
-COMPOSE = "https://x.com/compose/post"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import xconfig                                           # noqa: E402
+
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
+LAUNCH = xconfig.launcher()
+COMPOSE = f"https://{xconfig.site()}/compose/post"
+
+# The surface is a PARAMETER, not a constant, because the two jobs need
+# different ones and the measurements that decided that are not a single
+# answer: replying needs headless, and publishing measured better headed. See
+# launch() for the evidence. Hardcoding either one here forces the other job
+# onto the wrong surface.
+HEADED = "headed"
+HEADLESS = "headless"
+DEFAULT_MODE = HEADLESS
 
 
 def cdp_up() -> bool:
@@ -54,25 +65,47 @@ def x_tabs() -> list[dict]:
     except Exception:
         return []
     return [t for t in out
-            if t.get("type") == "page" and "x.com" in t.get("url", "")]
+            if t.get("type") == "page" and xconfig.is_site_tab(t.get("url", ""))]
 
 
-def launch() -> bool:
-    """Start the real-profile copy, headless, with no tab of its own.
+def launch(mode: str = DEFAULT_MODE) -> bool:
+    """Start the real-profile copy on the named surface, with no tab of its own.
 
-    Headless is not a preference, it is the working surface: measured
-    2026-10-09, the headed window's reply click routes to a context-less
-    /compose/post (the main composer — typing there publishes a standalone
-    post where a reply was meant, and every gate then refuses), while the
-    headless copy opens the real reply dialog with its parent context.
+    `mode` is "headed" or "headless" and is a parameter because the two jobs
+    measured DIFFERENTLY. Neither surface is right everywhere, and the
+    evidence is worth keeping in full:
+
+    REPLYING needs headless. A HEADED window's reply click routes to a
+    context-less /compose/post — the main composer, where typing publishes a
+    standalone post where a reply was meant, and every gate then refuses —
+    while the headless copy opens the real reply dialog with its parent
+    context. Re-measured, headed mounted nothing at all on a clean /home:
+    element.click() navigated to /compose/post with one editor and zero
+    dialog editors, a full mouse press at the control's coordinates did the
+    same, and focus+Enter focused nothing (`data-testid` came back None). The
+    identical probe on headless mounted a dialog editor on element.click()
+    with focus landing on tweetTextarea_0.
+
+    PUBLISHING measured better headed: headless is also where the composer's
+    input path misbehaves — a URL arriving as `https://github.c`, Chinese
+    bodies losing whole stretches.
+
+    So callers pass the mode their job needs and this file stops being the
+    place where that decision is made by accident. Defaulting to headless is
+    the safer of the two: headed can publish where a reply was meant, and that
+    mistake is not undoable from the timeline.
     """
     if not os.path.exists(LAUNCH):
         print(f"launcher not found at {LAUNCH}")
         return False
-    print(f"browser is down — launching via {LAUNCH}", flush=True)
-    p = subprocess.run(["bash", LAUNCH, "--port", str(PORT),
-                        "--fresh", "--no-tab"],
-                       capture_output=True, text=True, timeout=420)
+    headed = mode == HEADED
+    print(f"browser is down — launching via {LAUNCH} ({mode})", flush=True)
+    # --headed is passed ONLY when asked for: the launcher defaults to
+    # headless, so omitting it must not silently mean "headed".
+    cmd = ["bash", LAUNCH, "--port", str(PORT), "--fresh", "--no-tab"]
+    if headed:
+        cmd.append("--headed")
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=420)
     tail = (p.stdout + p.stderr).strip().splitlines()[-6:]
     for line in tail:
         print("  " + line)
@@ -107,10 +140,13 @@ def open_compose_tab() -> bool:
 
 
 def main() -> int:
+    # The surface this run brings the browser up on: --headed when asked for
+    # (publishing, which measured better headed), headless otherwise.
+    mode = HEADED if "--headed" in sys.argv[1:] else DEFAULT_MODE
     for _ in range(20):
         if cdp_up():
             break
-        if not launch():
+        if not launch(mode):
             print("could not start the browser")
             return 1
         time.sleep(3)
@@ -118,11 +154,11 @@ def main() -> int:
     for _ in range(20):
         tabs = x_tabs()
         if tabs:
-            print(f"ready — {len(tabs)} x.com tab(s) open, "
+            print(f"ready — {len(tabs)} {xconfig.site()} tab(s) open, "
                   f"using {tabs[0]['url'][:60]}")
             return 0
-        print("browser is up but has no x.com tab — opening one at the composer",
-              flush=True)
+        print(f"browser is up but has no {xconfig.site()} tab — opening one "
+              f"at the composer", flush=True)
         if not open_compose_tab():
             return 1
         # X needs a moment before the Draft editor is queryable; a tab that is
@@ -132,7 +168,7 @@ def main() -> int:
             time.sleep(3)
             if x_tabs():
                 break
-    print("x.com tab is not reachable")
+    print(f"{xconfig.site()} tab is not reachable")
     return 1
 
 

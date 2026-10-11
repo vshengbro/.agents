@@ -12,14 +12,17 @@ So: delete repeatedly until the editor is empty, verifying between passes, and
 refuse to report success on anything else. This only ever touches the focused
 Draft editor, never a reply box holding someone else's draft.
 
-    python3 empty_draft_editor.py 9240
+    python3 empty_draft_editor.py [port]
 """
 from __future__ import annotations
 
 import sys
 import time
+from pathlib import Path
 
-import cdp
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cdp                                                # noqa: E402
+import xconfig                                            # noqa: E402
 
 ONE_PASS = r"""(() => {
   const ed = [...document.querySelectorAll('div[contenteditable="true"]')]
@@ -47,10 +50,12 @@ STATE = r"""(() => {
 
 
 def main() -> int:
-    port = sys.argv[1] if len(sys.argv) > 1 else "9240"
-    tabs = [t for t in cdp.tabs("page") if "x.com" in t.get("url", "")]
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
+    cdp.set_port(port)
+    tabs = [t for t in cdp.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first")
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first")
         return 1
     c = cdp.Cdp(tabs[0]["webSocketDebuggerUrl"])
 

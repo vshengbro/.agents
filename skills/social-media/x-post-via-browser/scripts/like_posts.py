@@ -11,32 +11,29 @@ written by an earlier scroll — the timeline replaces posts continuously, so a
 saved id names something that is no longer there. Posts already liked are
 skipped, and the button state after the click is what gets recorded.
 
-  python3 like_posts.py 9240 [count]
+  python3 like_posts.py [count]
 """
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cdp as C                                          # noqa: E402
 import handle                                            # noqa: E402
+import xconfig                                           # noqa: E402
 
-ME = handle.FALLBACK  # resolved live from the page in main()
+ME = handle.fallback()  # resolved live from the page in main()
 
-# A like is worth making when the post is about the same work: languages an
-# agent writes, agent tooling, context and token cost, inference, compilers.
-# The list is intentionally narrow — a like is cheap but it is still a signal
-# about what this account reads.
-AI_WORDS = (
-    "rust", "cargo", "wasm", "webassembly", "compile", "compiler", "macro",
-    "agent", "llm", "token", "context window", "prompt", "mcp", "tool call",
-    "inference", "model serving", "code review", "refactor", "debugging",
-    "programming", "developer", "type system", "static typing",
-    "编程", "模型", "编译", "工具", "宏", "上下文", "智能体", "推理", "代码",
-)
+# A like is worth making when the post is about the same work as the topics
+# engage_feed.py selects replies for. Resolved through xconfig on purpose: the
+# list is shared so a like and a reply agree about what this account cares
+# about, or the feed teaches two different things about it. It stays narrow —
+# a like is cheap but it is still a signal about what this account reads — and
+# a keyword match is never a reason on its own, so the blocklist vetoes
+# outright rather than merely failing to select.
 
 READ = """(() => {
   const out = [];
@@ -106,12 +103,21 @@ def js(c, tpl, sid=""):
 
 
 def main() -> int:
-    port = int(sys.argv[1])
-    limit = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+    # [count], or <port> <count> for the callers that still pass a port.
+    # A lone number is the COUNT, not a port: the documented form is
+    # `like_posts.py 12`, and reading that as port 12 would silently drive a
+    # browser that does not exist. Two numbers is unambiguous — the port and
+    # the count — which is how engage_feed.py still calls this.
+    args = sys.argv[1:]
+    port = xconfig.port()
+    if len(args) > 1 and args[0].isdigit():
+        port = int(args.pop(0))       # older callers pass the port first
+    limit = int(args[0]) if args else 5
     C.set_port(port)
-    tabs = [t for t in C.tabs("page") if "x.com" in t.get("url", "")]
+    tabs = [t for t in C.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab", flush=True)
+        print(f"no {xconfig.site()} tab", flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
 
@@ -126,14 +132,16 @@ def main() -> int:
         print("could not read the page:", str(rows)[:120], flush=True)
         c.close()
         return 1
-    picks = [r for r in rows
-             if r.get("who") != ME and r.get("text")
-             and any(w in r["text"].lower() for w in AI_WORDS)]
-    print("%d posts on the page, %d worth liking" % (len(rows), len(picks)),
+    low = [r for r in rows
+           if r.get("who") != ME and r.get("text")
+           and any(w in r["text"].lower() for w in xconfig.topics())
+           and not any(w in r["text"].lower()
+                       for w in xconfig.blocklist())]
+    print("%d posts on the page, %d worth liking" % (len(rows), len(low)),
           flush=True)
 
     done = 0
-    for row in picks:
+    for row in low:
         if done >= limit:
             break
         sid = row["sid"]

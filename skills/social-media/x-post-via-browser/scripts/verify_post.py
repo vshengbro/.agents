@@ -11,21 +11,21 @@ the URL to a marker.
 It reuses the tab that is already open. Opening a second one is a page load,
 which the browser rules forbid.
 
-  python3 verify_one_post.py 9240 <status_id> <copy_file> [index]
+  python3 verify_post.py <status_id> <copy_file> [index]
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.expanduser(
-    "~/.agents/skills/social-media/x-post-via-browser/scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cdp as C                                          # noqa: E402
 import handle                                            # noqa: E402
+import xconfig                                           # noqa: E402
 
-EXPECTED = handle.FALLBACK  # resolved live from the page in main()
+EXPECTED = handle.fallback()  # resolved live from the page in main()
 
 
 def canon(s: str) -> str:
@@ -91,16 +91,27 @@ ARTICLE = r"""(() => {
 
 
 def main() -> int:
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9240
-    sid = sys.argv[2]
-    copy = json.load(open(sys.argv[3]))
-    idx = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+    # <status_id> <copy_file> [index], with an optional leading port for the
+    # callers that still pass one. The port is optional in that position
+    # rather than required, so a hand-typed run needs nothing but the status
+    # id and the copy file.
+    args = sys.argv[1:]
+    port = xconfig.port()
+    if args and args[0].isdigit():
+        port = int(args.pop(0))
+    if len(args) < 2:
+        print("usage: verify_post.py [port] <status_id> <copy_file> [index]")
+        return 2
+    sid, copy_file = args[0], args[1]
+    idx = int(args[2]) if len(args) > 2 else 0
+    copy = json.load(open(copy_file))
     want = copy[idx]["text"] if isinstance(copy[0], dict) else copy[idx]
     want_urls = re.findall(r"https?://\S+", want)
 
     C.set_port(port)
     tab = [t for t in C.tabs()
-           if t.get("type") == "page" and "x.com" in t.get("url", "")][0]
+           if t.get("type") == "page"
+           and xconfig.is_site_tab(t.get("url", ""))][0]
     c = C.Cdp(tab["webSocketDebuggerUrl"])
     global EXPECTED
     EXPECTED = handle.live(c)

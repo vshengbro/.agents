@@ -16,16 +16,19 @@ naming a winner.
 Only the focused Draft editor is typed into, and it is emptied afterwards.
 No navigation, no reload, no mouse.
 
-    python3 probe_cjk_paths.py 9240
+    python3 probe_cjk_paths.py [port]
 """
 from __future__ import annotations
 
 import subprocess
 import sys
 import time
+from pathlib import Path
 
-import cdp
-import publish as P
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cdp                                                # noqa: E402
+import publish as P                                      # noqa: E402
+import xconfig                                            # noqa: E402
 
 BODY = ("中文输入路径探测第一段。\n\n"
         "第二段含 ASCII 与 data-euv-id。 https://github.com/euv-dev/euv")
@@ -102,10 +105,12 @@ PATHS = [
 
 
 def main() -> int:
-    port = sys.argv[1] if len(sys.argv) > 1 else "9240"
-    tabs = [t for t in cdp.tabs("page") if "x.com" in t.get("url", "")]
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
+    cdp.set_port(port)
+    tabs = [t for t in cdp.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab — run ensure_browser.py first")
+        print(f"no {xconfig.site()} tab — run ensure_browser.py first")
         return 1
     c = cdp.Cdp(tabs[0]["webSocketDebuggerUrl"])
     fg, ft = P.canon(BODY), P.canon(BODY)

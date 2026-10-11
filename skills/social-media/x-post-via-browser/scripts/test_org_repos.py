@@ -7,10 +7,10 @@ would have kept whichever one was written last.
 
   python3 test_org_repos.py
 """
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import org_repos                                          # noqa: E402
 
 CASES = [

@@ -19,7 +19,7 @@ Two things went wrong before, and both are refused now rather than retried:
 
 Nothing counts as sent until the reply is found under its own target.
 
-  python3 post_reply.py 9240 <status_id> <reply_text_or_file>
+  python3 post_reply.py <status_id> <reply_text_or_file>
 """
 from __future__ import annotations
 
@@ -28,17 +28,19 @@ import os
 import re
 import sys
 import time
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cdp as C                                          # noqa: E402
 import org_repos                                          # noqa: E402
 import handle                                            # noqa: E402
+import xconfig                                           # noqa: E402
 
 DRAFT_CLS = "public-DraftEditor-content"
 # The member reply cap. The 280 that free accounts get does not apply here,
 # and checking against it once meant trimming drafts to a fifth of an answer.
 REPLY_LIMIT = 25000
-ME = handle.FALLBACK  # resolved live from the page in main()
+ME = handle.fallback()  # resolved live from the page in main()
 
 SNAPSHOT = """(() => {
   window.__seenEditors = new Set(
@@ -351,12 +353,12 @@ PICK = """(() => {
   return JSON.stringify(out);
 })()"""
 
-# Pick a target on the page that is actually about AI, tooling or code, and is
-# written by someone else. The account's own posts are never a reply target.
-AI_WORDS = ("rust", "agent", "llm", "token", "context", "cargo", "wasm",
-            "compile", "macro", "mcp", "tool call", "code", "model", "prompt",
-            "inference", "编程", "模型", "编译", "工具", "宏", "上下文", "智能体")
-
+# Pick a target on the page that is actually about the account's own work, and
+# is written by someone else. The account's own posts are never a reply target,
+# and neither is anything the blocklist vetoes: a keyword match is never a
+# reason by itself, and the first dry-run target this pipeline ever picked was
+# an uncensored-image-model post caught by 模型. The vocabulary itself lives in
+# xconfig so a like, a reply and the feed scan all agree about it.
 
 def pick_target(c, want=""):
     """Find the post on the page that a reply was written for.
@@ -378,14 +380,27 @@ def pick_target(c, want=""):
             if row["sid"] == want:
                 return row["sid"], row
             continue
-        if any(w in row["text"].lower() for w in AI_WORDS):
+        if any(w in row["text"].lower() for w in xconfig.topics()) \
+                and not any(w in row["text"].lower()
+                            for w in xconfig.blocklist()):
             return row["sid"], row
     return "", None
 
 
 def main() -> int:
-    port, sid, arg = int(sys.argv[1]), sys.argv[2], sys.argv[3]
-    allow_no_repo = "--allow-no-repo" in sys.argv[4:]
+    # <status_id> <reply_text_or_file> [--allow-no-repo], with an optional
+    # leading port for the callers that still pass one. A status id is always
+    # digits, so a numeric first argument can only be the port.
+    args = sys.argv[1:]
+    port = xconfig.port()
+    if args and args[0].isdigit():
+        port = int(args.pop(0))
+    if len(args) < 2:
+        print("usage: post_reply.py [port] <status_id> "
+              "<reply_text_or_file> [--allow-no-repo]")
+        return 2
+    sid, arg = args[0], args[1]
+    allow_no_repo = "--allow-no-repo" in args[2:]
     text = open(arg, encoding="utf-8").read() if os.path.exists(arg) else arg
     for_sid = ""
     m = re.search(r"^#\s*target-status:\s*(\d{15,25})\s*$", text, re.M)
@@ -393,9 +408,10 @@ def main() -> int:
         for_sid = m.group(1)
         text = re.sub(r"^#.*$\n?", "", text, flags=re.M)
     C.set_port(port)
-    tabs = [t for t in C.tabs("page") if "x.com" in t.get("url", "")]
+    tabs = [t for t in C.tabs("page")
+            if xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab", flush=True)
+        print(f"no {xconfig.site()} tab", flush=True)
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
 

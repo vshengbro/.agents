@@ -7,20 +7,20 @@ Reporting the first status id it finds is then meaningless — that id can be
 someone else's post entirely. This separates by author so a claim about "the
 new post" can only be made about a post by the expected account.
 
-  python3 who_am_i_posting_as.py 9240
+  python3 whose_posts.py [port]
 """
 from __future__ import annotations
 
 import json
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.expanduser(
-    "~/.agents/skills/social-media/x-post-via-browser/scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cdp as C                                          # noqa: E402
 import handle                                            # noqa: E402
+import xconfig                                           # noqa: E402
 
-EXPECTED = handle.FALLBACK  # resolved live from the page in main()
+EXPECTED = handle.fallback()  # resolved live from the page in main()
 
 ARTICLES = r"""(() => {
   const out = [];
@@ -39,12 +39,13 @@ ARTICLES = r"""(() => {
 
 
 def main() -> int:
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9240
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
     C.set_port(port)
     tabs = [t for t in C.tabs()
-            if t.get("type") == "page" and "x.com" in t.get("url", "")]
+            if t.get("type") == "page"
+            and xconfig.is_site_tab(t.get("url", ""))]
     if not tabs:
-        print("no x.com tab")
+        print(f"no {xconfig.site()} tab")
         return 1
     c = C.Cdp(tabs[0]["webSocketDebuggerUrl"])
     global EXPECTED

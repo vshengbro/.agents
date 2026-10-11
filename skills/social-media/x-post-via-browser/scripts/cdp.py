@@ -10,14 +10,17 @@ that is ours to get wrong.
 Install:  pip3 install websocket-client
 """
 import json
-import os
+import sys
 import time
 import urllib.parse
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import xconfig                                           # noqa: E402
 
 import websocket  # from websocket-client
 
-STATE = os.path.expanduser("~/.hermes/state/chrome-real-profile.port")
 _PORT = None
 
 
@@ -28,12 +31,15 @@ def set_port(p):
 
 
 def port():
+    """The debug port: whatever set_port() pinned, else what xconfig resolves.
+
+    Deliberately no module constant: the launcher may be running on a
+    different port on this machine than on the one this was written on, and a
+    frozen value cannot notice that.
+    """
     if _PORT is not None:
         return _PORT
-    try:
-        return int(open(STATE).read().strip())
-    except (OSError, ValueError):
-        return 9222
+    return xconfig.port()
 
 
 def http(path, method="GET"):
@@ -147,15 +153,29 @@ class Cdp:
         self.ws = self._connect()
         return self
 
-    def close_composition(self, final=""):
-        """End any open IME composition.
+    def close_composition(self, final="", force=False):
+        """End any open IME composition WITHOUT disturbing what is on screen.
 
         imeSetComposition STARTS a composition. Leaving it open makes Chrome
         treat the page as holding unsaved input, which is what produces the
         "系统可能不会保存您所做的更改" dialog on any later unload — and Escape
         discards the whole composition, not one character. An insertText
         carrying the final text commits it once and closes it.
+
+        BUT an EMPTY imeSetComposition is destructive and must never be sent as
+        a blanket cleanup. Measured: after a URL was inserted with
+        imeSetComposition and 408 characters of Chinese typed after it, the
+        composer read 440 characters with the URL present exactly once; one
+        imeSetComposition(text="") then dropped it to 410 with the URL gone —
+        X takes the empty composition as the editor's new state and discards
+        the link entity with it. Every later attempt to fix this at the URL
+        input path failed while this single call was silently doing the damage.
+
+        So the empty form is opt-in via force, and callers that already ended
+        the composition by sending a real character pass force=False.
         """
+        if not final and not force:
+            return True
         self.send("Input.imeSetComposition", text=final, selectionStart=len(final),
                   selectionEnd=len(final), wait=15, retries=2)
         if final:
