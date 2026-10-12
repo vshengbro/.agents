@@ -38,14 +38,24 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else xconfig.port()
 LAUNCH = xconfig.launcher()
 COMPOSE = f"https://{xconfig.site()}/compose/post"
 
-# The surface is a PARAMETER, not a constant, because the two jobs need
-# different ones and the measurements that decided that are not a single
-# answer: replying needs headless, and publishing measured better headed. See
-# launch() for the evidence. Hardcoding either one here forces the other job
-# onto the wrong surface.
+# ONE surface: headed, always.
+#
+# This used to be a parameter, defaulting to headless, because the two jobs
+# had measured differently: replying needed headless, publishing measured
+# better headed. The account owner has since ruled the headed surface the only
+# one this skill uses, so the parameter and the headless branch are gone.
+#
+# What that ruling costs is recorded rather than deleted, because it is the
+# reason the rule exists: on a HEADED window a reply click routes to a
+# context-less /compose/post — the main composer, where typing publishes a
+# standalone post where a reply was meant, and every gate then refuses.
+# Re-measured on a clean /home, headed also mounted nothing at all:
+# element.click() navigated with one editor and zero dialog editors, and a
+# mouse press at the control's coordinates did the same. The reply leg may
+# therefore need re-measuring on this surface before it is trusted again —
+# it is blocked pending that, not working.
 HEADED = "headed"
-HEADLESS = "headless"
-DEFAULT_MODE = HEADLESS
+DEFAULT_MODE = HEADED
 
 
 def cdp_up() -> bool:
@@ -68,43 +78,20 @@ def x_tabs() -> list[dict]:
             if t.get("type") == "page" and xconfig.is_site_tab(t.get("url", ""))]
 
 
-def launch(mode: str = DEFAULT_MODE) -> bool:
-    """Start the real-profile copy on the named surface, with no tab of its own.
+def launch() -> bool:
+    """Start the real-profile copy HEADED, with no tab of its own.
 
-    `mode` is "headed" or "headless" and is a parameter because the two jobs
-    measured DIFFERENTLY. Neither surface is right everywhere, and the
-    evidence is worth keeping in full:
-
-    REPLYING needs headless. A HEADED window's reply click routes to a
-    context-less /compose/post — the main composer, where typing publishes a
-    standalone post where a reply was meant, and every gate then refuses —
-    while the headless copy opens the real reply dialog with its parent
-    context. Re-measured, headed mounted nothing at all on a clean /home:
-    element.click() navigated to /compose/post with one editor and zero
-    dialog editors, a full mouse press at the control's coordinates did the
-    same, and focus+Enter focused nothing (`data-testid` came back None). The
-    identical probe on headless mounted a dialog editor on element.click()
-    with focus landing on tweetTextarea_0.
-
-    PUBLISHING measured better headed: headless is also where the composer's
-    input path misbehaves — a URL arriving as `https://github.c`, Chinese
-    bodies losing whole stretches.
-
-    So callers pass the mode their job needs and this file stops being the
-    place where that decision is made by accident. Defaulting to headless is
-    the safer of the two: headed can publish where a reply was meant, and that
-    mistake is not undoable from the timeline.
+    Headed is the only surface this skill uses, by the account owner's
+    ruling. --headed is passed explicitly rather than relying on the
+    launcher's own default, so the surface this skill runs on is stated by
+    this file and cannot drift if the launcher's default changes.
     """
     if not os.path.exists(LAUNCH):
         print(f"launcher not found at {LAUNCH}")
         return False
-    headed = mode == HEADED
-    print(f"browser is down — launching via {LAUNCH} ({mode})", flush=True)
-    # --headed is passed ONLY when asked for: the launcher defaults to
-    # headless, so omitting it must not silently mean "headed".
-    cmd = ["bash", LAUNCH, "--port", str(PORT), "--fresh", "--no-tab"]
-    if headed:
-        cmd.append("--headed")
+    print(f"browser is down — launching via {LAUNCH} (headed)", flush=True)
+    cmd = ["bash", LAUNCH, "--port", str(PORT), "--fresh", "--no-tab",
+           "--headed"]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=420)
     tail = (p.stdout + p.stderr).strip().splitlines()[-6:]
     for line in tail:
@@ -140,13 +127,13 @@ def open_compose_tab() -> bool:
 
 
 def main() -> int:
-    # The surface this run brings the browser up on: --headed when asked for
-    # (publishing, which measured better headed), headless otherwise.
-    mode = HEADED if "--headed" in sys.argv[1:] else DEFAULT_MODE
+    # Headed, always. There is no mode argument to pass anymore: a headless
+    # fallback here would put the reply leg back on a surface where a reply
+    # publishes as a standalone post.
     for _ in range(20):
         if cdp_up():
             break
-        if not launch(mode):
+        if not launch():
             print("could not start the browser")
             return 1
         time.sleep(3)

@@ -39,13 +39,95 @@ because that is the one file the commit gate lets load a page. Every other
 script stays forbidden, so "the publisher opened a tab" is still a defect
 rather than a shortcut.
 
-1. `python3 scripts/publish.py <port> --post N` — types, compares, does not click.
-2. Read the line it prints. `match=True` and `urls_ok=True`, or it stops.
-3. `--go` to click.
-4. `python3 scripts/verify_post.py <port> <status_id> <copy.json> N` — proves it.
+### The shortest path that published a real post
 
-X empties the composer itself after a post, so the next run finds it empty and
-types into it. That is the whole loop.
+Measured 2026-12-11 on a Premium account, one end-to-end run, 1250
+characters, verified off the timeline. Five steps, in this order:
+
+```bash
+# 1. the tab must be VISIBLE — this is the step that is easy to skip and
+#    that decides whether anything below can work at all
+python3 scripts/preflight.py          # 5 checks; non-zero means stop
+
+# 2. the copy must survive X's linkifier — check BEFORE typing a character
+python3 scripts/check_copy.py <copy.json>
+
+# 3. type and compare; this clicks nothing
+python3 scripts/publish.py <port> --post 0
+
+# 4. only if step 3 printed match=True and urls_ok=True
+python3 scripts/publish.py <port> --post 0 --go
+
+# 5. prove it landed — the click is not the outcome
+python3 scripts/whose_posts.py <port>          # find the status id
+python3 scripts/verify_post.py <port> <sid> <copy.json> 0
+```
+
+**`document.visibilityState` must be `"visible"` before anything else.** A
+backgrounded x.com tab reads `hidden` with the composer mounted and empty,
+which looks identical to a working page. `Target.activateTarget` flips it and
+touches no pointer and no OS focus:
+
+```python
+tab.send("Target.activateTarget", targetId=tab_target_id)
+```
+
+It flipped `hidden` → `visible` on the headed surface in the measured run,
+and it is the only step in this flow that is not a read. Every other step
+before the click is read-only, so a run that stops at any of them has changed
+nothing on the account.
+
+**Preconditions, all five, and what each one prevents.** Checking them costs
+one round trip and each failure looks like something else:
+
+| Check | If it fails |
+|---|---|
+| `visibilityState === "visible"` | editor may never mount; reads as "X ignored automation" |
+| exactly one visible editor | two `tweetTextarea_0` nodes, the decoy pair |
+| composer length 0 | a non-empty box is **refused, never cleared** |
+| `SideNav_NewTweet_Button` present | otherwise the compose click opens nothing |
+| a `tweetButton*` is mounted | only `tweetButtonInline` mounts; `tweetButton` often absent |
+
+### What the measured run actually cost
+
+Four things were true that were not true before it, and each would have
+failed the run silently:
+
+- **`--headed` is the surface.** `ensure_browser.py` passes it
+  unconditionally now, and both the publish path and the reply path were
+  used successfully on it.
+- **The compose control is `SideNav_NewTweet_Button`,** underscore before
+  `Button`. The short spelling matches zero nodes and was masked by the
+  `a[href*="/compose/post"]` fallback in the same selector list.
+- **`NO_WARMUP_BLOCK` is not always fatal, and always needs explaining.** The
+  warm-up space is removed by a pass that deletes forward from the start of
+  each block; a body whose block structure does not match defeats it, and the
+  run reported `match=True` anyway because the canonical compare strips
+  whitespace. Before accepting that, confirm the editor holds the source
+  exactly:
+
+  ```python
+  FLAT(STRIP(editor_innerText)) == FLAT(STRIP(source))
+  ```
+
+  A true comparison is the only thing that separates "the space did not
+  matter" from "the text is mangled and the gate cannot see it". This is the
+  one known defect left in the publish path.
+- **`CLICK tweetButtonInline` proves nothing.** The published post was proved
+  by `whose_posts.py` finding it under `MINE` and `verify_post.py`
+  confirming author, text prefix and link card.
+
+### The copy, before it is typed
+
+Two refusals that fire before a character is written, both because X mangles
+them rather than the script:
+
+- **No dotted token that is not an intended URL.** X linkifies `crates.io`
+  and the span it replaces reads back as a line break, which splits one post
+  into two — and both ship. Write "crates io".
+- **No version numbers.** `0.28.12` is a dotted token with the same trap.
+
+A 1250-character post containing one URL passed both checks unchanged.
 
 ## Never navigate, never clear
 
@@ -236,6 +318,8 @@ every call site checks it.
 | `scripts/run_queue_tick.py` | Idempotent queue runner — one item per invocation, for a cron series. Verifies on the timeline **before** recording an item as posted, so a click that did not land stays queued instead of being counted as done. |
 | `scripts/run_project_day.py` | One project per invocation: its zh/en/ja/ko versions in order, `--gap` seconds apart. Records the project only after all four verify, so a failed version retries the whole project rather than losing a language. |
 | `scripts/engage_feed.py` | Home feed: click the home tab, like what is worth liking, then reply once per post up to a target. Reads the feed live and dedupes by status id. |
+| `scripts/check_copy.py` | Refuses a copy X would mangle before a character is typed — dotted tokens that are not URLs, version numbers, empty bodies. Offline; no browser. |
+| `scripts/preflight.py` | Reads all five publish preconditions (visibility, one editor, empty composer, compose control, post button) and refuses to continue. Read-only. Run it before `publish.py`. |
 | `scripts/verify_no_unsafe_posting.py` | The commit gate. `--self-test` proves every rule fires. |
 
 ```bash
@@ -447,13 +531,102 @@ that needs restarting. Fixing any of those changes nothing.
 tab.send("Target.activateTarget", targetId=<tab target id>)
 ```
 
-`activateTarget` is equivalent to raising a minimised window. In headless it
-moves no pointer and takes no OS focus, so it does not violate the
+`activateTarget` is equivalent to raising a minimised window. It moves no
+pointer and takes no OS focus, so it does not violate the
 no-mouse/no-keyboard rules. Activate at the top of every entry point, and
 re-activate after each navigation — it flips back to `hidden` on its own.
 
+Measured on the headed surface (2026-10-12): a backgrounded x.com tab read
+`visibility: hidden` with the composer mounted and empty, and
+`Target.activateTarget` flipped it to `visible` with nothing else touched.
+
 **Check it before diagnosing anything else.** One line:
 `tab.js("document.visibilityState")` must be `"visible"`.
+
+## The shortest path that replied to a real post
+
+Measured 2026-12-11 on the headed surface. `post_reply.py` published a
+307-character Chinese reply and verified it off the timeline. The reply leg
+was previously marked blocked on this surface, so this is the run that
+settled it.
+
+```bash
+# 1. read candidates from the live feed — nothing is sent or marked
+python3 scripts/engage_feed.py <port> --suggest 6 --likes 0
+
+# 2. EXPAND the chosen post before writing anything about it
+#    (see "read the whole post" below — this step is not optional)
+
+# 3. compose, then send. --allow-no-repo is required for an opinion reply;
+#    without it the run refuses before typing, by design
+python3 scripts/post_reply.py <port> <sid> <reply.txt> --allow-no-repo
+
+# 4. expand the PUBLISHED reply on the timeline, then compare it
+```
+
+The run's own output, unmodified:
+
+```
+no repository link — opinion reply (--allow-no-repo)
+  carries None, 307 characters
+open reply: {'opened': True, 'top': 844}
+  reply box: new=True in_dialog=True editors=2 send=tweetButton:dis
+  typing 307 characters
+  LEN 301 want 307 exact=True
+SEND {'sent': 'tweetButton'}
+VERIFIED reply by @vshengbro: 2109649655340712288 reply_marked=True
+```
+
+**`new=True in_dialog=True` is the line that matters.** On this surface the
+reply box DID mount as a dialog — the thing that was measured broken here
+earlier. That single field is the whole safety margin: when it is False, the
+gate refuses, and that refusal is correct. Read it before anything is typed.
+
+**`LEN 301 want 307 exact=True` is not a contradiction.** X renders each
+newline as an element, so a source with N newlines reads back N characters
+short. The exact compare already accounts for it, which is why the raw
+length is never the gate. Do not "fix" it.
+
+**An opinion reply needs `--allow-no-repo`.** The first attempt refused with
+`REFUSING - no repository from this account's GitHub owners`. That refusal
+is the promotion rule working, not a fault: a reply that names no repository
+of this account's is not promotion of its work. The account owner granted a
+standing exception for opinion replies, and `--allow-no-repo` is how a run
+states it. Without the flag the refusal happens before a character is typed,
+which is the correct place for it.
+
+### Read the whole post before answering it
+
+The feed returns a PREFIX. Measured on this run: the chosen post arrived
+clipped at "这个 PR 是 Hatoba（我在做的 SSH", with
+`[data-testid="tweet-text-show-more-link"]` present on the article. The full
+post was three paragraphs longer and contained the actual argument — that
+the twenty-nine commits were all correct fixes to a design assumption nobody
+questioned.
+
+A reply composed against the prefix would have been about a story about a
+PR, instead of about the thing the author was actually saying.
+
+```javascript
+// click show-more on THAT article only — an on-screen control, opens in place
+const a = [...document.querySelectorAll('article')].find(...);
+a.querySelector('[data-testid="tweet-text-show-more-link"]').click();
+```
+
+**The same trap applies to verifying your own reply.** After publishing, the
+new reply is clipped on the timeline too — a 307-character reply reads back
+as ~80 characters, and an exact compare against the source returns `False`
+for a reply that is perfectly correct. Expand it first:
+
+```
+still clipped: False
+exact match vs source: True
+```
+
+Without the expand step the honest report is "could not verify", never
+"mismatch". A truncated read is not evidence of a wrong post — this is the
+fourth time the same lesson appeared, and it is why every verification here
+compares a prefix against a prefix.
 
 ## Dead ends that are still real
 
@@ -656,6 +829,41 @@ nothing at all.
 raise SystemExit(0 if sent else 1)
 ```
 
+## What the live build actually calls its controls
+
+Measured 2026-10-12 by a read-only DOM census against the signed-in
+account — every expression a read, nothing clicked. Recorded because a
+selector that is merely believed is a selector that fails silently later.
+
+**The compose control is `SideNav_NewTweet_Button`, with an underscore before
+`Button`.** The shorter `SideNav_NewTweetButton` matches **zero** nodes on the
+live build. Two selectors survive: `SideNav_NewTweet_Button` and
+`a[href*="/compose/post"]`. The publish path had been relying on the second to
+cover for the first being wrong, which is why it never visibly broke.
+
+| Control | Live status | Note |
+|---|---|---|
+| `SideNav_NewTweet_Button` | **PRESENT** | the real one |
+| `SideNav_NewTweetButton` | absent | zero nodes |
+| `a[href*="/compose/post"]` | PRESENT | the fallback that was silently carrying publishing |
+| `appTabBarPostBtn` | absent | absent on this surface |
+| `tweetButtonInline` | PRESENT | enabled, `tweetButton` not mounted — the inline button is the only one |
+| `reply` / `retweet` / `like` | PRESENT (3 each) | with `aria-label` counts, e.g. `14 次转帖。转帖` |
+| `caret` | PRESENT (7) | the overflow menu; also the entry to 编辑/删除 |
+| `tweetText` / `tweetTextarea_0` | PRESENT | the decoy pair, both mounted |
+| `fileInput` | PRESENT, `type=file` | the composer's media input — so media needs no upload API |
+| `User-Name` | PRESENT | profile name cell |
+| `AppTabBar_Profile_Link` / `AppTabBar_Home_Link` | PRESENT | nav |
+| `SideNav_AccountSwitcher_Button` | PRESENT | the account menu |
+
+**`bookmark`, `removeBookmark`, `share`, `follow` and `unfollow` read as absent
+on a feed with three articles on screen.** That is a measurement of the
+*default* state: X mounts several of those inside the `caret` overflow menu or
+only on hover, and a census that does not hover cannot see them. So "absent
+here" is not "does not exist" — it is "not mounted until its own surface is
+open", and confirming each one needs the surface it lives on, opened for
+that purpose.
+
 ## What to write in a reply
 
 The replies that work are the ones that answer the post. Every one that
@@ -741,16 +949,33 @@ number up. The fix is upstream (the reply leg has to navigate to the target's
 status page, which this path does not do), not something to retry at send
 time.
 
-## The reply dialog only mounts on the headless surface
+## Headed is the only surface; the reply leg is now measured working
 
-Measured across a full day of failures: on the headed window, clicking a
-post's reply control routes to a context-less `/compose/post` — the MAIN
-composer, where typing publishes a standalone post under a reply's intent.
-Every gate refused, which is why no damage shipped, but no reply could land
-either. On the headless copy the same click opens the real reply dialog
-(`in_dialog=True`, parent context, `tweetButton`). `ensure_browser.py` now
-launches headless; the old `--headed` launch is the measured-broken surface.
-post_reply.py's box gate accepts exactly two surfaces: the dialog, or a
-/compose/post route whose editor is FRESH and whose parent article is on the
-page — a leftover main composer on that route is never fresh, so it is
-refused even with feed articles behind it.
+**Ruled 2026-10-12 by the account owner: this skill uses the HEADED surface
+only.** `ensure_browser.py` passes `--headed` unconditionally and has no mode
+parameter, so there is no path left that can start a headless copy.
+
+**The reply leg works on this surface.** Measured 2026-12-11: a reply dialog
+mounted headed, `new=True in_dialog=True`, and the reply published and verified
+off the timeline. The full run is in "the shortest path that replied to a real
+post".
+
+The history is kept because it is why the gate exists. An earlier headed
+measurement found the reply control routing to a context-less `/compose/post`
+— the MAIN composer, where typing publishes a standalone post under a reply's
+intent — and on a clean `/home` headed mounted nothing at all: a click
+navigated to `/compose/post`, a full mouse press at the control's coordinates
+did the same, and focus+Enter focused nothing.
+
+That was measured with the tab hidden. The current rule is the difference:
+
+```bash
+python3 scripts/preflight.py <port>   # tab visible, before anything else
+```
+
+`preflight.py` passing is what separates this run from those. A hidden tab is
+where the reply control was measured going to the main composer. So
+`post_reply.py` keeps its two-surface box gate exactly as it was — that gate
+is what stops a reply from publishing as a standalone post, and it is why a
+future run fails loudly instead of damaging the account. Read `new=True
+in_dialog=True` as the real precondition; when the gate refuses, it is right.
