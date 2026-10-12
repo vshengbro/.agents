@@ -447,10 +447,14 @@ that needs restarting. Fixing any of those changes nothing.
 tab.send("Target.activateTarget", targetId=<tab target id>)
 ```
 
-`activateTarget` is equivalent to raising a minimised window. In headless it
-moves no pointer and takes no OS focus, so it does not violate the
+`activateTarget` is equivalent to raising a minimised window. It moves no
+pointer and takes no OS focus, so it does not violate the
 no-mouse/no-keyboard rules. Activate at the top of every entry point, and
 re-activate after each navigation — it flips back to `hidden` on its own.
+
+Measured on the headed surface (2026-10-12): a backgrounded x.com tab read
+`visibility: hidden` with the composer mounted and empty, and
+`Target.activateTarget` flipped it to `visible` with nothing else touched.
 
 **Check it before diagnosing anything else.** One line:
 `tab.js("document.visibilityState")` must be `"visible"`.
@@ -776,16 +780,31 @@ number up. The fix is upstream (the reply leg has to navigate to the target's
 status page, which this path does not do), not something to retry at send
 time.
 
-## The reply dialog only mounts on the headless surface
+## Headed is the only surface; the reply leg is blocked pending re-measure
 
-Measured across a full day of failures: on the headed window, clicking a
-post's reply control routes to a context-less `/compose/post` — the MAIN
-composer, where typing publishes a standalone post under a reply's intent.
-Every gate refused, which is why no damage shipped, but no reply could land
-either. On the headless copy the same click opens the real reply dialog
-(`in_dialog=True`, parent context, `tweetButton`). `ensure_browser.py` now
-launches headless; the old `--headed` launch is the measured-broken surface.
-post_reply.py's box gate accepts exactly two surfaces: the dialog, or a
-/compose/post route whose editor is FRESH and whose parent article is on the
-page — a leftover main composer on that route is never fresh, so it is
-refused even with feed articles behind it.
+**Ruled 2026-10-12 by the account owner: this skill uses the HEADED surface
+only.** `ensure_browser.py` passes `--headed` unconditionally and has no mode
+parameter, so there is no path left that can start a headless copy.
+
+**The reply leg is blocked, not working.** The measurement below was taken on
+the headless surface, which no longer exists, so it does not carry over:
+
+> Measured across a full day of failures: on the headed window, clicking a
+> post's reply control routes to a context-less `/compose/post` — the MAIN
+> composer, where typing publishes a standalone post under a reply's intent.
+> Every gate refused, which is why no damage shipped, but no reply could land
+> either. On the headless copy the same click opens the real reply dialog
+> (`in_dialog=True`, parent context, `tweetButton`).
+
+On a clean `/home`, headed was re-measured and mounted nothing at all:
+`element.click()` navigated to `/compose/post` with one editor and zero dialog
+editors, a full mouse press at the control's coordinates did the same, and
+focus+Enter focused nothing (`data-testid` came back None).
+
+So on the surface this skill now runs on, the reply path is **unproven in both
+directions** — it was measured broken headed, and the fix was headless, which
+is gone. `post_reply.py` keeps its two-surface box gate exactly as it was,
+because that gate is what stops a reply from publishing as a standalone post,
+and it is the reason a future run fails loudly instead of damaging the
+account. **Re-measure the reply path on headed before trusting it**; the
+publishing path is unaffected and was used successfully on headed.
