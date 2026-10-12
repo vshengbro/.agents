@@ -236,7 +236,6 @@ every call site checks it.
 | `scripts/run_queue_tick.py` | Idempotent queue runner — one item per invocation, for a cron series. Verifies on the timeline **before** recording an item as posted, so a click that did not land stays queued instead of being counted as done. |
 | `scripts/run_project_day.py` | One project per invocation: its zh/en/ja/ko versions in order, `--gap` seconds apart. Records the project only after all four verify, so a failed version retries the whole project rather than losing a language. |
 | `scripts/engage_feed.py` | Home feed: click the home tab, like what is worth liking, then reply once per post up to a target. Reads the feed live and dedupes by status id. |
-| `scripts/gh_trending.py` | GitHub's trending repositories for a window, read live over HTTPS. `--community` drops this account's own repos; `--self-test` proves the row parser. |
 | `scripts/verify_no_unsafe_posting.py` | The commit gate. `--self-test` proves every rule fires. |
 
 ```bash
@@ -711,36 +710,6 @@ to collect candidates, `--reply-to` to send the composed text (see the
 live-composition section below). The 30-minute engagement cron runs the pair
 on that cadence; the nightly engagement cron runs the same pair with 14 likes
 and up to 36 replies. Both honour the same lock and state file.
-
-## A trending repository is read live, never named in a prompt
-
-A promotion post has to be about a repository that is genuinely hot now, and
-"hot now" is a fact about github.com/trending. `gh_trending.py` is that read:
-
-```bash
-python3 scripts/gh_trending.py --self-test          # parser, offline
-python3 scripts/gh_trending.py --limit 8            # today's daily window
-python3 scripts/gh_trending.py --community --limit 5
-python3 scripts/gh_trending.py --lang rust          # GitHub's own filter
-```
-
-It needs no token and no cookie, so it runs before the browser is involved and
-cannot disturb the composer. A repository name written into a cron prompt goes
-stale within hours; this returns whatever is hot on the day it runs.
-
-Two details that matter when the result is used as a promotion target:
-
-- **`mine` is derived at call time** from `org_repos.owner_set()`, so the
-  account's own repositories are marked without a second hardcoded owner list
-  going stale after an org rename.
-- **An empty result is a stop, not an invitation to recall one.** The script
-  exits non-zero with no rows, and the honest move is to skip that day and say
-  so. A post about a repository that was trending last week, composed from
-  memory, is exactly the failure this replaces.
-
-Grounding for the copy is the trending repository's own README, read the same
-way an owned repository's is — a community repository is promoted by saying
-something true about what it does, and the README is where that is.
 
 ## Reply content is composed live, never pre-written
 
