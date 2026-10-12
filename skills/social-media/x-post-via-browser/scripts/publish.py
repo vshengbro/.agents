@@ -339,6 +339,30 @@ def type_keys(c, text: str, initial: str | None = None) -> None:
     # The source's first body characters are the only safe anchor.
     tail_src = re.sub(r"^\s*https?://\S+\s*", "", text)
     anchor = tail_src[:10]
+    # Locate the block by Draft's OWN marker, not by hunting for a leaf div.
+    #
+    # The previous selector was `[...div].find(x => x.children.length === 0
+    # && x.innerText === ' ' + anchor)`. Measured against a real editor with
+    # text in it, that matches NOTHING — and not because the anchor was
+    # wrong. The tree under a Draft block is
+    #   DIV > DIV > DIV > DIV > SPAN > SPAN > #text
+    # so there is no element with zero children anywhere: a block that has
+    # text in it never satisfies `children.length === 0`. The pass reported
+    # NO_WARMUP_BLOCK on every run, including ones whose warm-up space was
+    # genuinely there and genuinely removable — the removal never had a
+    # chance, and the compare passed only because the canonical compare
+    # strips whitespace. That is why this looked like a harmless warning for
+    # a full day: it was a dead code path wearing a warning's clothes.
+    #
+    # `[data-block]` is what Draft puts on a block, it was measured present,
+    # and the block's text begins with the warm-up space. Selecting the
+    # block's contents collapsed to its start and deleting forward removes
+    # exactly the one leading space.
+    #
+    # No loop, and no "first element starting with a space": X linkifies the
+    # URL into its own element whose innerText is link text, and a scan for
+    # any space-led leaf reaches it and deletes it. Only the body block, and
+    # only the source's own leading characters, identify it.
     moved = c.js("""(() => {
       const all = [...document.querySelectorAll(
         '[data-testid="tweetTextarea_0"]')]
@@ -346,9 +370,11 @@ def type_keys(c, text: str, initial: str | None = None) -> None:
                      && n.offsetParent !== null);
       const e = all.find(x => x === document.activeElement) || all[0];
       if (!e) return 'NO_EDITOR';
-      const b = [...e.querySelectorAll('div')].find(x =>
-        x.children.length === 0
-        && (x.innerText || '') === ' ' + ANCHOR);
+      const blocks = [...e.querySelectorAll('[data-block]')];
+      if (!blocks.length) return 'NO_BLOCKS';
+      const b = blocks.find(x => (x.innerText || '').startsWith(' ' + ANCHOR))
+             || blocks.find(x => (x.innerText || '').trimStart()
+                                  .startsWith(ANCHOR));
       if (!b) return 'NO_WARMUP_BLOCK';
       const sel = window.getSelection();
       const r = document.createRange();
@@ -368,6 +394,7 @@ def type_keys(c, text: str, initial: str | None = None) -> None:
     else:
         print(f"  warm-up removal: {moved} (no space to remove, "
               f"or the body block was not found)", flush=True)
+    # Let the draft settle after the edit before anything reads it.
     time.sleep(1.5)
 
 
