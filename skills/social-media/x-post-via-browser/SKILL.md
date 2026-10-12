@@ -39,13 +39,95 @@ because that is the one file the commit gate lets load a page. Every other
 script stays forbidden, so "the publisher opened a tab" is still a defect
 rather than a shortcut.
 
-1. `python3 scripts/publish.py <port> --post N` — types, compares, does not click.
-2. Read the line it prints. `match=True` and `urls_ok=True`, or it stops.
-3. `--go` to click.
-4. `python3 scripts/verify_post.py <port> <status_id> <copy.json> N` — proves it.
+### The shortest path that published a real post
 
-X empties the composer itself after a post, so the next run finds it empty and
-types into it. That is the whole loop.
+Measured 2026-12-11 on a Premium account, one end-to-end run, 1250
+characters, verified off the timeline. Five steps, in this order:
+
+```bash
+# 1. the tab must be VISIBLE — this is the step that is easy to skip and
+#    that decides whether anything below can work at all
+python3 scripts/preflight.py          # 5 checks; non-zero means stop
+
+# 2. the copy must survive X's linkifier — check BEFORE typing a character
+python3 scripts/check_copy.py <copy.json>
+
+# 3. type and compare; this clicks nothing
+python3 scripts/publish.py <port> --post 0
+
+# 4. only if step 3 printed match=True and urls_ok=True
+python3 scripts/publish.py <port> --post 0 --go
+
+# 5. prove it landed — the click is not the outcome
+python3 scripts/whose_posts.py <port>          # find the status id
+python3 scripts/verify_post.py <port> <sid> <copy.json> 0
+```
+
+**`document.visibilityState` must be `"visible"` before anything else.** A
+backgrounded x.com tab reads `hidden` with the composer mounted and empty,
+which looks identical to a working page. `Target.activateTarget` flips it and
+touches no pointer and no OS focus:
+
+```python
+tab.send("Target.activateTarget", targetId=tab_target_id)
+```
+
+It flipped `hidden` → `visible` on the headed surface in the measured run,
+and it is the only step in this flow that is not a read. Every other step
+before the click is read-only, so a run that stops at any of them has changed
+nothing on the account.
+
+**Preconditions, all five, and what each one prevents.** Checking them costs
+one round trip and each failure looks like something else:
+
+| Check | If it fails |
+|---|---|
+| `visibilityState === "visible"` | editor may never mount; reads as "X ignored automation" |
+| exactly one visible editor | two `tweetTextarea_0` nodes, the decoy pair |
+| composer length 0 | a non-empty box is **refused, never cleared** |
+| `SideNav_NewTweet_Button` present | otherwise the compose click opens nothing |
+| a `tweetButton*` is mounted | only `tweetButtonInline` mounts; `tweetButton` often absent |
+
+### What the measured run actually cost
+
+Four things were true that were not true before it, and each would have
+failed the run silently:
+
+- **`--headed` is the surface.** `ensure_browser.py` passes it
+  unconditionally now. The reply leg is blocked on this surface and is not
+  covered by anything below.
+- **The compose control is `SideNav_NewTweet_Button`,** underscore before
+  `Button`. The short spelling matches zero nodes and was masked by the
+  `a[href*="/compose/post"]` fallback in the same selector list.
+- **`NO_WARMUP_BLOCK` is not always fatal, and always needs explaining.** The
+  warm-up space is removed by a pass that deletes forward from the start of
+  each block; a body whose block structure does not match defeats it, and the
+  run reported `match=True` anyway because the canonical compare strips
+  whitespace. Before accepting that, confirm the editor holds the source
+  exactly:
+
+  ```python
+  FLAT(STRIP(editor_innerText)) == FLAT(STRIP(source))
+  ```
+
+  A true comparison is the only thing that separates "the space did not
+  matter" from "the text is mangled and the gate cannot see it". This is the
+  one known defect left in the publish path.
+- **`CLICK tweetButtonInline` proves nothing.** The published post was proved
+  by `whose_posts.py` finding it under `MINE` and `verify_post.py`
+  confirming author, text prefix and link card.
+
+### The copy, before it is typed
+
+Two refusals that fire before a character is written, both because X mangles
+them rather than the script:
+
+- **No dotted token that is not an intended URL.** X linkifies `crates.io`
+  and the span it replaces reads back as a line break, which splits one post
+  into two — and both ship. Write "crates io".
+- **No version numbers.** `0.28.12` is a dotted token with the same trap.
+
+A 1250-character post containing one URL passed both checks unchanged.
 
 ## Never navigate, never clear
 
@@ -236,6 +318,8 @@ every call site checks it.
 | `scripts/run_queue_tick.py` | Idempotent queue runner — one item per invocation, for a cron series. Verifies on the timeline **before** recording an item as posted, so a click that did not land stays queued instead of being counted as done. |
 | `scripts/run_project_day.py` | One project per invocation: its zh/en/ja/ko versions in order, `--gap` seconds apart. Records the project only after all four verify, so a failed version retries the whole project rather than losing a language. |
 | `scripts/engage_feed.py` | Home feed: click the home tab, like what is worth liking, then reply once per post up to a target. Reads the feed live and dedupes by status id. |
+| `scripts/check_copy.py` | Refuses a copy X would mangle before a character is typed — dotted tokens that are not URLs, version numbers, empty bodies. Offline; no browser. |
+| `scripts/preflight.py` | Reads all five publish preconditions (visibility, one editor, empty composer, compose control, post button) and refuses to continue. Read-only. Run it before `publish.py`. |
 | `scripts/verify_no_unsafe_posting.py` | The commit gate. `--self-test` proves every rule fires. |
 
 ```bash
