@@ -99,20 +99,25 @@ failed the run silently:
 - **The compose control is `SideNav_NewTweet_Button`,** underscore before
   `Button`. The short spelling matches zero nodes and was masked by the
   `a[href*="/compose/post"]` fallback in the same selector list.
-- **`NO_WARMUP_BLOCK` is not always fatal, and always needs explaining.** The
-  warm-up space is removed by a pass that deletes forward from the start of
-  each block; a body whose block structure does not match defeats it, and the
-  run reported `match=True` anyway because the canonical compare strips
-  whitespace. Before accepting that, confirm the editor holds the source
-  exactly:
+- **`NO_WARMUP_BLOCK` is fixed, and it was not an anchor problem.** The pass
+  located the body block with
+  `[...div].find(x => x.children.length === 0 && x.innerText === ' ' + anchor)`.
+  Measured against a real editor holding text, that matches nothing — and
+  not because the anchor was wrong. The tree under a Draft block is
+  `DIV > DIV > DIV > DIV > SPAN > SPAN > #text`, so **no element with zero
+  children exists anywhere**: a block containing text never satisfies
+  `children.length === 0`. It now selects `[data-block]`, which Draft puts
+  on a block and which was measured present, then collapses to the block's
+  start and deletes forward.
 
-  ```python
-  FLAT(STRIP(editor_innerText)) == FLAT(STRIP(source))
-  ```
+  This is why it read as harmless for a day: it fired on every non-ASCII
+  run, and the run still passed, because the canonical compare strips
+  whitespace and the space is invisible in the output. **A gate that reports
+  a failure while the run continues is not a gate.** Verified after the fix
+  by comparing the editor against the source directly: 101 characters to
+  100, `starts_space: false`, body text intact — the space removed and
+  nothing else lost.
 
-  A true comparison is the only thing that separates "the space did not
-  matter" from "the text is mangled and the gate cannot see it". This is the
-  one known defect left in the publish path.
 - **`CLICK tweetButtonInline` proves nothing.** The published post was proved
   by `whose_posts.py` finding it under `MINE` and `verify_post.py`
   confirming author, text prefix and link card.
