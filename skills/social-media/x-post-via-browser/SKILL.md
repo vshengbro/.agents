@@ -94,8 +94,8 @@ Four things were true that were not true before it, and each would have
 failed the run silently:
 
 - **`--headed` is the surface.** `ensure_browser.py` passes it
-  unconditionally now. The reply leg is blocked on this surface and is not
-  covered by anything below.
+  unconditionally now, and both the publish path and the reply path were
+  used successfully on it.
 - **The compose control is `SideNav_NewTweet_Button`,** underscore before
   `Button`. The short spelling matches zero nodes and was masked by the
   `a[href*="/compose/post"]` fallback in the same selector list.
@@ -543,6 +543,91 @@ Measured on the headed surface (2026-10-12): a backgrounded x.com tab read
 **Check it before diagnosing anything else.** One line:
 `tab.js("document.visibilityState")` must be `"visible"`.
 
+## The shortest path that replied to a real post
+
+Measured 2026-12-11 on the headed surface. `post_reply.py` published a
+307-character Chinese reply and verified it off the timeline. The reply leg
+was previously marked blocked on this surface, so this is the run that
+settled it.
+
+```bash
+# 1. read candidates from the live feed — nothing is sent or marked
+python3 scripts/engage_feed.py <port> --suggest 6 --likes 0
+
+# 2. EXPAND the chosen post before writing anything about it
+#    (see "read the whole post" below — this step is not optional)
+
+# 3. compose, then send. --allow-no-repo is required for an opinion reply;
+#    without it the run refuses before typing, by design
+python3 scripts/post_reply.py <port> <sid> <reply.txt> --allow-no-repo
+
+# 4. expand the PUBLISHED reply on the timeline, then compare it
+```
+
+The run's own output, unmodified:
+
+```
+no repository link — opinion reply (--allow-no-repo)
+  carries None, 307 characters
+open reply: {'opened': True, 'top': 844}
+  reply box: new=True in_dialog=True editors=2 send=tweetButton:dis
+  typing 307 characters
+  LEN 301 want 307 exact=True
+SEND {'sent': 'tweetButton'}
+VERIFIED reply by @vshengbro: 2109649655340712288 reply_marked=True
+```
+
+**`new=True in_dialog=True` is the line that matters.** On this surface the
+reply box DID mount as a dialog — the thing that was measured broken here
+earlier. That single field is the whole safety margin: when it is False, the
+gate refuses, and that refusal is correct. Read it before anything is typed.
+
+**`LEN 301 want 307 exact=True` is not a contradiction.** X renders each
+newline as an element, so a source with N newlines reads back N characters
+short. The exact compare already accounts for it, which is why the raw
+length is never the gate. Do not "fix" it.
+
+**An opinion reply needs `--allow-no-repo`.** The first attempt refused with
+`REFUSING - no repository from this account's GitHub owners`. That refusal
+is the promotion rule working, not a fault: a reply that names no repository
+of this account's is not promotion of its work. The account owner granted a
+standing exception for opinion replies, and `--allow-no-repo` is how a run
+states it. Without the flag the refusal happens before a character is typed,
+which is the correct place for it.
+
+### Read the whole post before answering it
+
+The feed returns a PREFIX. Measured on this run: the chosen post arrived
+clipped at "这个 PR 是 Hatoba（我在做的 SSH", with
+`[data-testid="tweet-text-show-more-link"]` present on the article. The full
+post was three paragraphs longer and contained the actual argument — that
+the twenty-nine commits were all correct fixes to a design assumption nobody
+questioned.
+
+A reply composed against the prefix would have been about a story about a
+PR, instead of about the thing the author was actually saying.
+
+```javascript
+// click show-more on THAT article only — an on-screen control, opens in place
+const a = [...document.querySelectorAll('article')].find(...);
+a.querySelector('[data-testid="tweet-text-show-more-link"]').click();
+```
+
+**The same trap applies to verifying your own reply.** After publishing, the
+new reply is clipped on the timeline too — a 307-character reply reads back
+as ~80 characters, and an exact compare against the source returns `False`
+for a reply that is perfectly correct. Expand it first:
+
+```
+still clipped: False
+exact match vs source: True
+```
+
+Without the expand step the honest report is "could not verify", never
+"mismatch". A truncated read is not evidence of a wrong post — this is the
+fourth time the same lesson appeared, and it is why every verification here
+compares a prefix against a prefix.
+
 ## Dead ends that are still real
 
 These were measured while the tab was hidden, so they are contaminated — but
@@ -864,31 +949,33 @@ number up. The fix is upstream (the reply leg has to navigate to the target's
 status page, which this path does not do), not something to retry at send
 time.
 
-## Headed is the only surface; the reply leg is blocked pending re-measure
+## Headed is the only surface; the reply leg is now measured working
 
 **Ruled 2026-10-12 by the account owner: this skill uses the HEADED surface
 only.** `ensure_browser.py` passes `--headed` unconditionally and has no mode
 parameter, so there is no path left that can start a headless copy.
 
-**The reply leg is blocked, not working.** The measurement below was taken on
-the headless surface, which no longer exists, so it does not carry over:
+**The reply leg works on this surface.** Measured 2026-12-11: a reply dialog
+mounted headed, `new=True in_dialog=True`, and the reply published and verified
+off the timeline. The full run is in "the shortest path that replied to a real
+post".
 
-> Measured across a full day of failures: on the headed window, clicking a
-> post's reply control routes to a context-less `/compose/post` — the MAIN
-> composer, where typing publishes a standalone post under a reply's intent.
-> Every gate refused, which is why no damage shipped, but no reply could land
-> either. On the headless copy the same click opens the real reply dialog
-> (`in_dialog=True`, parent context, `tweetButton`).
+The history is kept because it is why the gate exists. An earlier headed
+measurement found the reply control routing to a context-less `/compose/post`
+— the MAIN composer, where typing publishes a standalone post under a reply's
+intent — and on a clean `/home` headed mounted nothing at all: a click
+navigated to `/compose/post`, a full mouse press at the control's coordinates
+did the same, and focus+Enter focused nothing.
 
-On a clean `/home`, headed was re-measured and mounted nothing at all:
-`element.click()` navigated to `/compose/post` with one editor and zero dialog
-editors, a full mouse press at the control's coordinates did the same, and
-focus+Enter focused nothing (`data-testid` came back None).
+That was measured with the tab hidden. The current rule is the difference:
 
-So on the surface this skill now runs on, the reply path is **unproven in both
-directions** — it was measured broken headed, and the fix was headless, which
-is gone. `post_reply.py` keeps its two-surface box gate exactly as it was,
-because that gate is what stops a reply from publishing as a standalone post,
-and it is the reason a future run fails loudly instead of damaging the
-account. **Re-measure the reply path on headed before trusting it**; the
-publishing path is unaffected and was used successfully on headed.
+```bash
+python3 scripts/preflight.py <port>   # tab visible, before anything else
+```
+
+`preflight.py` passing is what separates this run from those. A hidden tab is
+where the reply control was measured going to the main composer. So
+`post_reply.py` keeps its two-surface box gate exactly as it was — that gate
+is what stops a reply from publishing as a standalone post, and it is why a
+future run fails loudly instead of damaging the account. Read `new=True
+in_dialog=True` as the real precondition; when the gate refuses, it is right.
