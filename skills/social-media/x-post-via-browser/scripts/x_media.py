@@ -123,7 +123,8 @@ OPEN_COMPOSER = """(() => {
     return r.width > 0 && r.height > 0
            && r.bottom > 0 && r.top < window.innerHeight;
   };
-  const want = ['[data-testid="SideNav_NewTweetButton"]',
+  const want = ['[data-testid="SideNav_NewTweet_Button"]',
+                '[data-testid="SideNav_NewTweetButton"]',
                 'a[href*="/compose/post"]',
                 '[data-testid="appTabBarPostBtn"]'];
   for (const s of want) {

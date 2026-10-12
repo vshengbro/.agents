@@ -138,7 +138,9 @@ def focus_editor(c, tries=12):
 
     opened = c.js("""(() => {
       const btn = [...document.querySelectorAll(
-        '[data-testid="SideNav_NewTweetButton"], a[href*="/compose/post"], '
+        '[data-testid="SideNav_NewTweet_Button"], '
+        '[data-testid="SideNav_NewTweetButton"], '
+        'a[href*="/compose/post"], '
         + '[data-testid="appTabBarPostBtn"]')]
         .filter(e => e.offsetParent !== null)[0];
       if (!btn) return 'NO_COMPOSE_CONTROL';

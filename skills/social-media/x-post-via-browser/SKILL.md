@@ -656,6 +656,41 @@ nothing at all.
 raise SystemExit(0 if sent else 1)
 ```
 
+## What the live build actually calls its controls
+
+Measured 2026-10-12 by a read-only DOM census against the signed-in
+account — every expression a read, nothing clicked. Recorded because a
+selector that is merely believed is a selector that fails silently later.
+
+**The compose control is `SideNav_NewTweet_Button`, with an underscore before
+`Button`.** The shorter `SideNav_NewTweetButton` matches **zero** nodes on the
+live build. Two selectors survive: `SideNav_NewTweet_Button` and
+`a[href*="/compose/post"]`. The publish path had been relying on the second to
+cover for the first being wrong, which is why it never visibly broke.
+
+| Control | Live status | Note |
+|---|---|---|
+| `SideNav_NewTweet_Button` | **PRESENT** | the real one |
+| `SideNav_NewTweetButton` | absent | zero nodes |
+| `a[href*="/compose/post"]` | PRESENT | the fallback that was silently carrying publishing |
+| `appTabBarPostBtn` | absent | absent on this surface |
+| `tweetButtonInline` | PRESENT | enabled, `tweetButton` not mounted — the inline button is the only one |
+| `reply` / `retweet` / `like` | PRESENT (3 each) | with `aria-label` counts, e.g. `14 次转帖。转帖` |
+| `caret` | PRESENT (7) | the overflow menu; also the entry to 编辑/删除 |
+| `tweetText` / `tweetTextarea_0` | PRESENT | the decoy pair, both mounted |
+| `fileInput` | PRESENT, `type=file` | the composer's media input — so media needs no upload API |
+| `User-Name` | PRESENT | profile name cell |
+| `AppTabBar_Profile_Link` / `AppTabBar_Home_Link` | PRESENT | nav |
+| `SideNav_AccountSwitcher_Button` | PRESENT | the account menu |
+
+**`bookmark`, `removeBookmark`, `share`, `follow` and `unfollow` read as absent
+on a feed with three articles on screen.** That is a measurement of the
+*default* state: X mounts several of those inside the `caret` overflow menu or
+only on hover, and a census that does not hover cannot see them. So "absent
+here" is not "does not exist" — it is "not mounted until its own surface is
+open", and confirming each one needs the surface it lives on, opened for
+that purpose.
+
 ## What to write in a reply
 
 The replies that work are the ones that answer the post. Every one that

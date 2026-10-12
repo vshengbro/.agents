@@ -220,7 +220,9 @@ def print_plan(path: str, texts: list) -> None:
 # the only way to open one at all: no navigation, no reload, no new tab.
 COMPOSE_CONTROL = """(() => {
   const btn = [...document.querySelectorAll(
-    '[data-testid="SideNav_NewTweetButton"], a[href*="/compose/post"], '
+    '[data-testid="SideNav_NewTweet_Button"], '
+    + '[data-testid="SideNav_NewTweetButton"], '
+    + 'a[href*="/compose/post"], '
     + '[data-testid="appTabBarPostBtn"]')]
     .filter(e => e.offsetParent !== null)[0];
   if (!btn) return {clicked: null, why: 'no visible compose control'};
