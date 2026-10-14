@@ -3279,3 +3279,45 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 ## §100 pre-commit 的 .toml dep-order 子门改 new-violation 模型(2026-10-09 FrameworkBenchmarks 事故)
 
 **事故**:hook 的 toml 块(`grep '\.toml$'` 命中后对**全仓**跑 verify_dep_order,非零即把锅扣在 staged 文件上)在上游跟踪型 fork 上等于永久锁死 —— FrameworkBenchmarks 37 个 manifest 有 34 个上游继承的 §13.7 存量债,任何 toml 提交都被拦,而债务修复与本次提交毫无关系(且下次 upstream merge 又带回来)。修法与 .rs 子门 2026-09-27 那次同构:逐 staged manifest 用 scratch 单文件目录分别审计 staged blob(`git show :path`)与 HEAD blob(`git show HEAD:path`),`new_count > old_count` 才拦;不在 staged 集合里的债务文件根本不进检查。同一仓库两个副本(~/.git-hooks/pre-commit 与 references/hooks/pre-commit)必须同步。**转义教训(patch 工具会翻倍反斜杠)**:patch 替换 bash 单行正则时,old/new_string 里写 `\\.` 落盘成了两个反斜杠,`grep '\\.toml$'` 在 BRE 下永远匹配不到 Cargo.toml —— 门禁瞬间变成恒定 0(不拦也不报,死寂)。发现路径只有一条:scratch 仓造一个真违规 staged 提交看 hook 是否 FAIL(三向:好 manifest 过 / 新违规拦 / 存量债不拦)。改 hook 之后必须跑这三向,不能改完就走。
+
+## §101 三件套拼在一起 = `Data`(§17.16,check 53)—— 换 derive 时属性不改、行为不变(2026-10-14)
+
+**规则**:`#[derive(…, Getter, GetterMut, Setter)]` → `#[derive(…, Data)]`。等价性不是推论,是 lombok 的同一个函数:`Getter`→`inner_lombok_data(input, true, false, false)`、`GetterMut`→`(false, true, false)`、`Setter`→`(false, false, true)`、`Data`→`(true, true, true)`(10.2.4 `src/lib.rs`)。且 `Data` 的 `attributes(get, get_mut, set)` 是三宏的**并集**,所以字段上的 `#[get(pub(crate))]` / `#[get_mut(skip)]` / `#[set(type(Into))]` / `#[get(type(copy))]` 一个字都不用动。
+
+**只写两个不算冗余**:`Getter + Setter` 与 `GetterMut + Setter` 没有合并宏存在,verifier 的豁免不是宽松而是事实。反向形态(`#[derive(Data, Getter, GetterMut, Setter)]`)同样报,但消息指向「删掉独立的三个」—— 那种写法生成重复方法,**编译不过**。
+
+**作用域只到 struct**:`inner_lombok_data` 对非 struct 是 `_ => panic!(UNSUPPORTED_DATA_DERIVE)`,trio 挂不上 enum/union。verifier 因此看 derive 列表后的第一个 item 关键字决定是否判定,**enum 上的 trio 不报** —— 这不是漏网,是那段代码本来编译不了。
+
+**为什么不是三个裸属性那条规则(check 24)的重复**:check 24 管的是**字段属性**(`#[get]` 冗余因为 derive 已生成),check 53 管的是**derive 本身**(三个宏等价于一个)。两者层级不同,可各自触发。
+
+**首跑命中 hyperlane 3**(`core/src/route/struct.rs:22` `RouteMatcher`、`type/src/request/model/struct.rs:44`、`type/src/response/struct.rs:7`),euv / ctares / vice-city-web / hyperlane-drop 全 0。`ctares/lombok-macros/debug/src/main.rs:25` 是 `Getter + Setter` **两个**,按规则放行 —— 写规则时用 grep 粗扫会把这种形态算成命中,实测数才是真的。
+
+**门禁双注册**:`audit_rust_standards.py` check 53 + `staged_file_gate.py` 的 `VERIFIERS`。只加其中一处 = 新规则继承「只在一处强制」的老毛病(见 §100、audit-pitfalls 里 §1.3d / §14.5 / R11.4 / R11.5 四次同型事故)。自测里 gate 四向全跑过:暂存 trio 拦、`Data` 放行、HEAD 历史债不拦、新 trio 照拦。
+
+**自测必须能证明自己抓得住**:三个变异(把 `TRIO.issubset` 短路掉 / 放开 struct 作用域 / 关掉注释与字面量屏蔽)每个都让自测 FAIL,还原才 PASS。恒过的自测比没有自测更危险 —— 它让人以为规则在跑(pitfalls §A 的同一教训:0 行输出先确认脚本真扫到了文件)。
+
+## A 0-violation script run is not proof the change is safe (2026-10-13)
+
+Turning check 52 from FAIL to PASS required two follow-on fixes that the check itself
+did not report. Both were found by running the compiler and the full test suite, not
+by re-reading the audit output:
+
+1. **`type(copy)` changes the getter signature.** Adding `#[get(type(copy))]` to a
+   primitive makes lombok return by value, so every `*settings.get_x()` call site
+   stops compiling with `E0614: type i32 cannot be dereferenced`. The audit passes
+   while the build breaks — the rule is about the annotation, not the call sites.
+2. **Widening a field to `pub` exposes panicking `Option` getters.** After the
+   visibility sweep, check 46 (no panicking lombok getter on an Option field) began
+   failing on getters that had never been reachable before. Fix by using
+   `try_get_*` at the call site, not by re-narrowing the field.
+
+Also: `verify_no_self_field_access.py` reported `0 violation(s) in 0 file(s)` —
+zero files scanned. Treat an empty file count as "the gate never ran", never as
+"nothing to fix". Confirm the scan covered files before trusting the number.
+
+Test-fixture races surface as intermittent single-test failures that vanish when the
+test is run alone. A fixture writing to a fixed shared path (here
+`parent/outside/secret.txt`, where `parent` was the shared system temp dir) races
+between two parallel tests. Key the fixture directory by the per-test `TempDir` name
+so each test owns its canary. Verify with 15+ consecutive full-suite runs, because a
+1-in-3 flake will look green on a single run.

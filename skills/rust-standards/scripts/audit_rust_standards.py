@@ -49,6 +49,7 @@ for the master-pattern exceptions the script cannot statically detect):
 36. hardcoded strings live in `const.rs` (§1.3c strengthened)
 37. lib.rs `//!` doc block structure (§2.4)
 51. no comments in *.toml files or mod.rs files (§2.5, absolute, tree-wide)
+52. no Getter + GetterMut + Setter trio spelled out instead of Data (§17.16)
 
 Each check prints either "PASS: N. <category>" or "FAIL: N. <category>: <count>
 hits" followed by up to 5 sample lines.
@@ -1093,6 +1094,70 @@ python3 "{{audit_script_dir}}/verify_no_toml_mod_comments.py" "{{target}}" \\
 exit_code=${PIPESTATUS[0]}
 if [ "$exit_code" -ne 0 ]; then
     echo "FAIL: verify_no_toml_mod_comments.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+
+    # check 51 — §17.8.1 + §17.14 (2026-10-13 user 钦定): the two lombok
+    # accessor rules that no script enforced until now.
+    #   Rule A — a Copy primitive field must carry `#[get(type(copy))]`,
+    #            otherwise lombok emits `fn get_x(&self) -> &T` and every
+    #            call site needs `*`.
+    #   Rule B — a field that is not `pub` must carry an explicit
+    #            narrowing attr (`pub(crate)` / `pub(super)` / `private`),
+    #            otherwise the accessor silently widens it to `pub`
+    #            (lombok's Visibility::default() == Public).
+    # Fields with `#[get(skip)]` are exempt from both: no accessor is
+    # generated, so there is nothing to narrow or to make cheap.
+    ('lombok accessor contract: type(copy) on primitives + visibility narrowing (§17.8.1 / §17.14)', '''
+# Companion script: verify_lombok_accessor_contract.py
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_lombok_accessor_contract.py" "{{target}}" 2>/dev/null \\
+    | grep -v -E '^=== lombok-accessor-contract:'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_lombok_accessor_contract.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # check 53 — §17.16 (2026-10-14 user 钦定): when a struct wants all
+    # three accessor kinds, write `Data` — it IS the trio. lombok's own
+    # generator proves the equivalence (src/lib.rs, 10.2.4):
+    #   Getter    -> inner_lombok_data(input, true,  false, false)
+    #   GetterMut -> inner_lombok_data(input, false, true,  false)
+    #   Setter    -> inner_lombok_data(input, false, false, true )
+    #   Data      -> inner_lombok_data(input, true,  true,  true )
+    #   and `Data` declares attributes(get, get_mut, set), so every
+    #   `#[get(..)]` / `#[get_mut(..)]` / `#[set(..)]` on the fields keeps
+    #   working verbatim.
+    # Two of the three are NOT redundant (no combined derive exists for
+    # `Getter + Setter` or `GetterMut + Setter`), and enums are exempt: the
+    # generator rejects them outright.
+    #
+    # The summary line is filtered for ANY count, not just 0 violations:
+    # run_check counts stdout LINES as hits, so a trailing
+    # "N files checked, M violations" would inflate the audit's count to M+1.
+    ('no Getter + GetterMut + Setter trio spelled out instead of Data (§17.16)', '''
+# `Data` is exactly `Getter + GetterMut + Setter`, so the trio is one
+# derive too many:
+#
+#     #[derive(Clone, CustomDebug, Getter, GetterMut, Setter)]  -> violation
+#     #[derive(Clone, CustomDebug, Data)]                       -> correct
+#
+# What is KEPT (no combined derive exists, so the split is the only form):
+#
+#     #[derive(Getter, Setter)]      /  #[derive(GetterMut, Setter)]
+#
+# A derive list that already carries `Data` next to the trio is the same
+# redundancy from the other side, and does not even compile (duplicate
+# methods); the message then names the individual derives as the ones to
+# delete.
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_redundant_accessor_derive.py" "{{target}}" 2>/dev/null \\
+    | grep -v -E '^[0-9]+ files checked, [0-9]+ violations?$'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_redundant_accessor_derive.py exited $exit_code" >&2
 fi
 exit "$exit_code"
 '''),

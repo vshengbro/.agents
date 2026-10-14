@@ -103,6 +103,16 @@ VERIFIERS = {
     "verify_no_self_field_access": "self.field access §17.3/§17.12",
     "verify_lib_rs_doc_comment": "lib.rs //! block §2.4",
     "verify_no_redundant_accessor_attr": "bare accessor attr §L",
+    # §17.16 (2026-10-14 user 钦定). `Data` IS `Getter + GetterMut + Setter`
+    # — lombok's own `inner_lombok_data(input, true, true, true)` — so
+    # spelling out all three is one derive too many. Registered in the audit
+    # and here together; a rule enforced in only one caller is not a rule.
+    "verify_no_redundant_accessor_derive": "Getter + GetterMut + Setter trio spelled out instead of Data §17.16",
+    # §17.8.1 + §17.14 (2026-10-13). Both rules previously existed as
+    # prose only — the audit did not run them and this gate did not
+    # either, so nothing caught them. Registered in both callers so a
+    # staged .rs edit cannot introduce either.
+    "verify_lombok_accessor_contract": "lombok type(copy) on primitives + visibility narrowing §17.8.1/§17.14",
     "verify_no_sibling_dirs": "code file beside sub-dirs §1.3d (only lib/main/build/mod exempt)",
     "verify_no_panicking_borrow": "RefCell borrow guard held across re-entrant call §borrow",
     "verify_no_impl_trait_params": "impl Trait in fn parameters §9.2",
