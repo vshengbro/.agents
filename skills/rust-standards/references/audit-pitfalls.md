@@ -2627,7 +2627,7 @@ user 强化 §2.2 doc-comment 校验,要求 `# Arguments` / `# Returns` 行内�
 
 ## §67 verify_no_self_field_access.py check 38 接入 + 边界精度验证(2026-09-27)
 
-user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须使用 Lombok `Data` 宏生成的 `get_<field>` / `set_<field>` / `try_get_<field>` / `get_<field>_ref` / `get_<field>_mut` API(参见 `~/code/ctares/lombok-macros/src/lib.rs:502` `Data` derive 实现 + `generate/const.rs:17-30` 方法前缀常量)。允许结构体直接初始化(`Self { field: value, ... }` 与 `Self { ..self }` 更新语法)。
+user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须使用 Lombok `Data` 宏生成的 `get_<field>` / `set_<field>` / `try_get_<field>` / `get_<field>_ref` / `get_<field>_mut` API(参见 `/Users/sqs/code/ctares/lombok-macros/src/lib.rs:502` `Data` derive 实现 + `generate/const.rs:17-30` 方法前缀常量)。允许结构体直接初始化(`Self { field: value, ... }` 与 `Self { ..self }` 更新语法)。
 
 **检测精度**(实测 euv 仓 2026-09-27 跑一次):
 
@@ -3234,7 +3234,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **背景**:user directive「toml文件和mod.rs禁止注释」。旧执行面:check 5 只扫 diff 且正则 `^\s*//[^/!]` 只捕 `//`(SKILL.md 文字声称捕 `///`,实测 `[^/!]` 把 `///` 也排除了,文档与脚本不一致);TOML 零覆盖;check 26 的 mod.rs 注释分支豁免第 1 行 `///`。落地后四个坑:
 
-1. **名字过滤会静默清空 verifier**。第一版 `find ... -not -path "*/tmp/*"` + `SKIP_PARTS={"tmp"}` 想跳过 crate-cli 的 scratch crate,结果**任何** checkout 在含 `tmp` 组件路径下的仓库(/tmp 本身、~/code/tmp-*)全部 0 命中 —— fixture 进 /tmp 跑 audit e2e 时 violating 侧 check 51 PASS。修法:scratch 目录交给 `_drop_git_ignored`(crate-cli/tmp 本来就 git-ignored),机制不靠名字。**每接一个 tree-wide verifier,必须先在 /tmp 下的 git fixture 上跑一次 audit 端到端双向** —— 单测 audit_one 走 /var/folders 永远发现不了。
+1. **名字过滤会静默清空 verifier**。第一版 `find ... -not -path "*/tmp/*"` + `SKIP_PARTS={"tmp"}` 想跳过 crate-cli 的 scratch crate,结果**任何** checkout 在含 `tmp` 组件路径下的仓库(/tmp 本身、/Users/sqs/code/tmp-*)全部 0 命中 —— fixture 进 /tmp 跑 audit e2e 时 violating 侧 check 51 PASS。修法:scratch 目录交给 `_drop_git_ignored`(crate-cli/tmp 本来就 git-ignored),机制不靠名字。**每接一个 tree-wide verifier,必须先在 /tmp 下的 git fixture 上跑一次 audit 端到端双向** —— 单测 audit_one 走 /var/folders 永远发现不了。
 2. **TOML 进 gate 必须按原扩展名物化 baseline**。`staged_file_gate` 旧实现把所有 baseline 写成 `X.head-baseline.rs`:TOML baseline 会被 verify_no_panicking_option_getter 这类全仓 `rglob("*.rs")` 的 verifier 当 Rust 扫,且 scope 判断(`path.suffix != ".rs"` 系)在 baseline 上恒空 = 历史债全算新增。修法:`_suffix_for(target)`,TOML baseline 物化为 `.head-baseline.toml`;verifier 的 `scope_of` 先剥两种 baseline 后缀再判 scope。
 3. **单行 TOML 字符串未闭合时,跨行后的 `#` 要照报**。basic/literal 字符串按 TOML spec 不能跨行;扫描器在 `\n` 处把 unterminated 单行串状态复位为 normal(多行 `"""`/`'''` 不受影响)。「宁假阳性不漏报」:坏 TOML 里的注释藏起来比报出来糟。
 4. **rust_pre_commit.py 的 `--files` 替换是单个空格拼接 argv 元素(潜伏 bug,同轮修)**。`"{toml_files}"` 被替换成 `"a b"` 一个 argv 元素,所有 fixer 的 `nargs="*"` 把它解析成一个不存在的复合路径 —— **scope ≥ 2 个文件时 Phase 1 全部静默 no-op**(单文件碰巧正常)。修法:placeholder 处 splice 真实 argv 列表(`argv_template[i:i+1] = values`);新 fixer 自己的 `--files` 再按 whitespace split 兜底。
@@ -3321,3 +3321,42 @@ test is run alone. A fixture writing to a fixed shared path (here
 between two parallel tests. Key the fixture directory by the per-test `TempDir` name
 so each test owns its canary. Verify with 15+ consecutive full-suite runs, because a
 1-in-3 flake will look green on a single run.
+
+## §102 注册进 `staged_file_gate.py` 还不够 —— `core.hooksPath` 可能指向不存在的目录(2026-10-16)
+
+§17.17 加 verifier 时实测发现的:**euv 的 pre-commit hook 根本没在跑**。
+
+```
+$ git -C ~/code/euv config core.hooksPath
+/Users/sqs/.agents/hooks          # ← 该目录不存在
+$ ls /Users/sqs/.agents/hooks
+No such file or directory
+```
+
+`core.hooksPath` 指向一个**不存在的目录**时,git **静默跳过**该目录里的 hook —— 不报错、不提示、不 exit 非零。commit 照常成功,于是「规则已注册」和「规则会拦人」完全是两回事,而配置上看不出任何区别。
+
+**通用检查(每次新增 verifier 后跑一遍,不要跳过)**:
+
+```bash
+for r in ~/code/*; do
+  p=$(git -C "$r" config core.hooksPath 2>/dev/null)
+  printf '%-26s %s\n' "$r" "${p:-<unset: uses .git/hooks>}"
+  [ -n "$p" ] && [ -e "$p/pre-commit" ] && echo "   hook: OK" || echo "   hook: MISSING -> no hook runs"
+done
+```
+
+**本机四条路径,三种内容**(2026-10-16 实测):
+
+| 仓库 | `core.hooksPath` | 状态 |
+|---|---|---|
+| `.agents` / `ctares` | `~/.git-hooks` | 正常 |
+| `hyperlane` | `~/.git-hooks-linked` | **过期副本**,缺 `PYTHONDONTWRITEBYTECODE` 与 X-posting guard |
+| `euv` | `~/.agents/hooks` | **目录不存在 → hook 从未执行**(已修为 `~/.git-hooks`) |
+
+**过期副本的坑**:`.git-hooks-linked/pre-commit` 与 `~/.git-hooks/pre-commit` 内容不同但都调用 gate,所以「hook 能拦」看起来成立;差异只在守卫段。修法是直接覆盖而非打补丁:`cp ~/.git-hooks/pre-commit ~/.git-hooks-linked/pre-commit`,然后 `diff -q` 确认字节一致。多份 hook 副本一定要定期 `diff -q` 对齐,否则改了一份另一份静默继续跑旧的。
+
+**为什么值得单列一条**:这正是用户反复追问的那类漏洞 —— 「skill hook 不是加了校验脚本吗?为什么提交没拦截」。答案不是「脚本写错了」,是**调用链在配置层就断了**。规则文本写好、verifier 写好、`staged_file_gate.py` 注册好,只完成了一半;另一半是那个 `cd`/`ls` 能证明 hook 文件真的会被执行。
+
+**端到端验收(不是「注册了就信」)**:每个仓都要做四步,只看 audit 数字不够 —— ① 违规文件 staged 后 `git commit` 必须 **exit 1** 且输出里**点名该 verifier**;② 改成合规版本再 commit,输出里**必须不再出现该 verifier**(证明不是无脑阻塞);③ `git reset --hard` 之外的方式清理探测文件(`git reset HEAD -- <path>` + `rm`),**并确认 `git log -1` 没有 probe commit 漏进去**;④ 三个仓各做一遍 —— 共享 hook 时一个仓通过不代表另一个仓的**配置**指向它。
+
+**本次实测结果**:ctares / hyperlane / euv 三仓均 ① 拦截并点名 `verify_no_manual_new_fn` ② 合规版不再出现该 verifier。euv 在修 `core.hooksPath` 之前,连 hook 都不执行,② 也无从谈起 —— 这就是先查配置再谈验证的原因。
