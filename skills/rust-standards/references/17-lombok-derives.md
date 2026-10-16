@@ -671,4 +671,63 @@ pub struct RouteMatcher { /* … */ }
 
 **豁免**:① `enum` / `union` —— `inner_lombok_data` 的 `_ => panic!(UNSUPPORTED_DATA_DERIVE)` 直接拒绝,trio 挂不上 enum,所以规则只对 struct 生效;② 注释 / doc comment / 字符串字面量(含 raw string)里的 `#[derive(...)]` 是文档不是代码,永不计数;③ 顺序无关 —— `#[derive(Setter, GetterMut, Getter)]` 同样违规;④ path 限定写法按最后一段判名(`lombok_macros::Getter` / `lombok_macros::Data`)。
 
-**执行脚本**:`scripts/verify_no_redundant_accessor_derive.py`,audit **check 53** 调用,已注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则)。自测 `scripts/self_test_no_redundant_accessor_derive.py`(compliant 0 / violating 4 精确 / tricky 0 / audit_one 双向 / gate 四向:暂存 trio 拦、`Data` 放行、历史债不拦、新 trio 照拦),并做过**变异验证**:关掉规则 → FAIL、放开 struct 作用域 → FAIL、关掉注释/字面量屏蔽 → FAIL,还原 → PASS —— 证明自测抓得住「规则被改宽/被关掉」,不是恒过测试。Fixture `scripts/fixtures/accessor-derive/{compliant,violating,tricky}`。**真仓命中:hyperlane 3(`core/src/route/struct.rs:22` `RouteMatcher` / `type/src/request/model/struct.rs:44` / `type/src/response/struct.rs:7`)/ euv 0 / ctares 0(`lombok-macros/debug/src/main.rs:25` 是 `Getter + Setter` **两个**,没有合并宏,按规则放行)/ vice-city-web 0 / hyperlane-drop 0。**
+**执行脚本**:`scripts/verify_no_redundant_accessor_derive.py`,audit **check 53** 调用,已注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则)。自测 `scripts/self_test_no_redundant_accessor_derive.py`(compliant 0 / violating 4 精确 / tricky 0 / audit_one 双向 / gate 四向:暂存 trio 拦、`Data` 放行、历史债不拦、新 trio 照拦),并做过**变异验证**:关掉规则 → FAIL、放开 struct 作用域 → FAIL、关掉注释/字面量屏蔽 → FAIL,还原 → PASS —— 证明自测抓得住「规则被改宽/被关掉」,不是恒过测试。Fixture `scripts/fixtures/accessor-derive/{compliant,violating,tricky}`。**真仓命中:hyperlane 3(`core/src/route/struct.rs:22` `RouteMatcher` / `type/src/request/model/struct.rs:44` / `type/src/response/struct.rs:7`)/ euv 0 / ctares 0(`lombok-macros/debug/src/main.rs:25` 是 `Getter + Setter` **两个**,没有合并宏,按规则放行)/ vice-city-web 0 / hyperlane-drop 0。
+
+## §17.17 有 `new` 就用 `New` 宏,不要自己实现 —— `#[new(skip)]` 支持字段跳过(2026-10-16 user 钦定)
+
+user 原话:「如果 new fn 需要使用 New 宏,而不是自己去实现,New 支持字段跳过」。
+
+**规则**:一个类型既然有 `new` 函数,它就应当来自 `#[derive(New)]`,而不是手写的 `fn new(...)`。`New` 存在的全部理由正是手写形式做不到的那件事 —— **`#[new(skip)]` 把字段从签名里去掉**,不要的字段走 `Default::default()`,不强迫调用方传:
+
+```rust
+// ❌ 违规:手写 new,于是 email 被迫成为第二个参数 —— #[new(skip)] 正是为了免除这个
+impl User {
+    pub fn new(name: String) -> Self {
+        Self { name, email: String::new() }
+    }
+}
+
+// ✅ 规范:New 生成,不想暴露的字段标 #[new(skip)]
+#[derive(Clone, Debug, Data, New)]
+pub struct User {
+    name: String,
+    #[new(skip)]
+    email: String,
+}
+// User::new("alice".to_string()) —— 签名只有一个参数
+```
+
+`New` 支持的全部形式(§17.2 表格的 `New` 行):`#[new(skip)]` 字段跳过;`#[new(pub(crate))]` / `#[new(pub(super))]` / `#[new(private)]` 收窄可见性;`#[new(with = expr)]` / `#[new(into)]` 逐字段转换。**手写 `fn new` 一个都不支持。**
+
+### 作用域:只管「已经 derive 了 `New`」的 struct
+
+这是本节与 §17.16 的关键区别 —— §17.16 是「少写一个宏」,本节是「别用别的方式重新实现宏」。规则因此必须窄,否则第一天就会误报几百处:
+
+| 情况 | 结论 | 为什么 |
+|---|---|---|
+| struct 已有 `New` + 同名 `impl` 里有手写 `fn new` | ❌ 违规 | 宏已生成,手写是重复实现 |
+| struct **没有** `New`,手写 `fn new` | ✅ 放行 | `New` 把**每个**字段变成参数 |
+| 构造器要**校验 / 转换 / 推导**(如 `pub const fn new()`) | ✅ 放行 | `New` 表达不了校验语义 |
+| 泛型 `T: ?Sized` 等 lombok bound 不满足 | ✅ 放行 | derive 推不出 bound,euv `EngineCell<T: ?Sized>` 即此例 |
+| enum / union | ✅ 放行 | `New` 是 derive,只装饰 struct |
+
+**`New` 没有覆盖到的场景一律手写**,这不是例外而是规则的边界。特别注意 **泛型 bound**:`lombok` 的 derive 会引入 `T: Default` / `T: Sized` 之类约束,`T: ?Sized`、生命周期引用(`&'a mut TcpStream`)、已发布 API 兼容性都可能让 derive 编译不过 —— 这时手写构造器是唯一解,不要为了过闸门硬加 derive。
+
+### 执行脚本
+
+`scripts/verify_no_manual_new_fn.py`,audit **check 54** 调用,**同时**注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则 —— 见 §17.13 / §17.16 同款教训)。
+
+判定逻辑(比 §17.16 严格,因为它要匹配 impl 归属):
+
+1. 先用 `strip_comments` 屏蔽注释与字符串(偏移保持不变,行号可报)。
+2. 找出所有 **derive 列表里含 `New` 且紧跟 `struct`** 的类型名 → 记下 `<struct 名> → 行号`。
+3. 对每个 `impl <Type>` 块,**按花括号深度扫描该 impl 自己的 body**,body 内出现 `fn new(` 才算命中 —— 全文搜 `fn new` 会把别的类型的构造器算到头上。
+4. path 限定写法按最后一段判名(`lombok_macros::New`);顺序无关;注释/doc comment/字符串字面量(含 raw string)永不计数。
+
+Fixture `scripts/fixtures/manual-new-fn/{compliant,violating,tricky}`:compliant 3 个(宏生成无手写 / 同文件另一个类型的手写 new / enum 的 new / 无 `New` derive 的手写 new)、violating 2 个、tricky 2 个(注释+字符串+raw string 里的假 `new` / 无关 impl 的 `fn new` 不被算到 `New` 结构体头上)。
+
+**做过变异验证,证明自测抓得住「规则被改宽/被关掉」**:① 关掉规则主体 → violating fixture 报 0 → FAIL;② 去掉 impl 花括号作用域(改全文搜)→ tricky fixture 误报 1 → FAIL;③ 去掉注释/字符串屏蔽 → tricky fixture 误报 2 → FAIL;还原 → 全 PASS。
+
+**真仓基线(注册时实测)**:euv 0 / hyperlane 0 / ctares 0 / vice-city-web 0 —— 四仓零违规,所以这条是「向前拦截」而不是「补历史欠账」。(euv `engine/src/cell/impl.rs:148` 的 `EngineCell::new` 是手写的,但它的 struct 在 `struct.rs:56` **没有** derive `New` —— 文档里明写是因为 `?Sized` 与 lombok bound 冲突,正属于上表「放行」那一行。)
+
+**已知限制**:`impl<T> Foo<T> { fn new(..) }` 的 impl 头能匹配 `Foo`;但 `impl<T: Trait> Foo<T>` 之外的形态(如 trait 的 `default fn new`、`#[cfg(test)] mod tests` 里的构造 helper)不在本规则范围 —— test 块的 `Self { .. }` 构造不属于生产 API。**

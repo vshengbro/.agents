@@ -108,6 +108,14 @@ VERIFIERS = {
     # spelling out all three is one derive too many. Registered in the audit
     # and here together; a rule enforced in only one caller is not a rule.
     "verify_no_redundant_accessor_derive": "Getter + GetterMut + Setter trio spelled out instead of Data §17.16",
+    # §17.17 (2026-10-16 user 钦定). If a type has a `new`, it comes from
+    # `#[derive(New)]` — whose whole advantage is `#[new(skip)]` dropping a
+    # field out of the signature and defaulting it, which a hand-written
+    # `fn new` cannot express. Registered in the audit and here together;
+    # a rule enforced in only one caller is not a rule. Scoped to structs
+    # that ALREADY derive `New`, so constructors which validate or transform
+    # (and cannot use `New`) are untouched.
+    "verify_no_manual_new_fn": "hand-written fn new on a New-derived struct §17.17",
     # §17.8.1 + §17.14 (2026-10-13). Both rules previously existed as
     # prose only — the audit did not run them and this gate did not
     # either, so nothing caught them. Registered in both callers so a

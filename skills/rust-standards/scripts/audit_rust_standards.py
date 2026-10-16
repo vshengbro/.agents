@@ -1161,6 +1161,45 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
+    # check 54 — §17.17 (2026-10-16 user 钦定): if a type has a `new`, it must
+    # come from `#[derive(New)]`, not from a hand-written `fn new`. `New`'s
+    # reason for existing is what the manual form cannot do — `#[new(skip)]`
+    # drops a field out of the signature and defaults it — so re-implementing
+    # `new` by hand throws that away.
+    #
+    # Scoped deliberately: the struct must ALREADY derive `New`, and the
+    # `fn new` must sit in an impl block for that same struct. A struct without
+    # `New` is not reported, because `New` demands every field as a parameter,
+    # which is the wrong shape for constructors that validate or transform.
+    #
+    # The summary line is filtered for ANY count, not just 0 violations:
+    # run_check counts stdout LINES as hits, so a trailing
+    # "N files checked, M violations" would inflate the audit's count to M+1.
+    ('no hand-written `fn new` on a New-derived struct (§17.17)', '''
+# `#[derive(New)]` generates the constructor; a manual duplicate is one more
+# implementation of something the macro already owns:
+#
+#     #[derive(Clone, Debug, Data, New)]        -> generated `new`
+#     impl User { pub fn new(..) -> Self {} }   -> violation, delete it
+#
+# What is KEPT — a struct WITHOUT `New` in its derive list. `New` turns every
+# field into a parameter, so constructors that validate, transform, or expose
+# only a subset of the fields stay hand-written by design:
+#
+#     pub struct Plain { a: u32, b: String }
+#     impl Plain { pub fn new(a: u32) -> Self { Self { a, b: String::new() } } }
+#
+# Real-repo baseline at registration: euv 0 / hyperlane 0 / ctares 0 /
+# vice-city-web 0, so this gates forward without demanding a backlog sweep.
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_manual_new_fn.py" "{{target}}" 2>/dev/null \\
+    | grep -v -E '^[0-9]+ files checked, [0-9]+ violations?$'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_manual_new_fn.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
 ]
 
 
