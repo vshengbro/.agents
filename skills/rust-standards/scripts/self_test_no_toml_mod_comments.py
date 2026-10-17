@@ -268,6 +268,53 @@ def main() -> int:
         for failure in failures:
             print(f"  - {failure}")
         return 1
+    # --- coverage 6: §1.3d exemption marker -------------------------------
+    # `verify_mod_visibility.py` sanctions `# mod-visibility-allow: <reason>`
+    # on a mod.rs whose bare-`mod` form is structurally unsatisfiable. That
+    # marker IS a comment, so before the two gates learned about each other this
+    # verifier reported it — the same line was both required and forbidden.
+    # A reasoned marker must pass; a bare one and every other comment must not.
+    marker_cases = [
+        ("pub mod logger;\n", 0, "clean mod.rs"),
+        (
+            "/// # mod-visibility-allow: bootstrap reaches these as `x`\n"
+            "pub mod logger;\n",
+            0,
+            "reasoned marker is exempt",
+        ),
+        ("/// # mod-visibility-allow:because\npub mod logger;\n", 0, "no space after colon"),
+        ("/// # mod-visibility-allow:\npub mod logger;\n", 1, "bare marker is not exempt"),
+        ("// plain\npub mod logger;\n", 1, "line comment"),
+        ("/// doc\npub mod logger;\n", 1, "doc comment"),
+        ("//! inner\npub mod logger;\n", 1, "inner doc comment"),
+        ("/* b */\npub mod logger;\n", 1, "block comment"),
+        ("pub mod logger;\n// tail\n", 1, "trailing comment"),
+        ("/// # other-allow: x\npub mod logger;\n", 1, "unrelated marker"),
+        (
+            "// real\n/// # mod-visibility-allow: reason\npub mod logger;\n",
+            1,
+            "exempt marker does not excuse its neighbour",
+        ),
+    ]
+    marker_root = Path(tempfile.mkdtemp(prefix="nc-marker-"))
+    try:
+        for index, (body, _expected, _label) in enumerate(marker_cases):
+            case_dir = marker_root / f"case{index:02d}"
+            case_dir.mkdir(parents=True)
+            (case_dir / "mod.rs").write_text(body, encoding="utf-8")
+        findings: dict[str, int] = {}
+        for path in verifier.list_target_files(marker_root):
+            key = path.parent.name
+            findings[key] = len(verifier.audit_one(path))
+        for index, (_body, expected, label) in enumerate(marker_cases):
+            actual = findings.get(f"case{index:02d}", 0)
+            if actual != expected:
+                raise AssertionError(
+                    f"exemption marker: {label}: expected {expected} finding(s), got {actual}"
+                )
+    finally:
+        shutil.rmtree(marker_root, ignore_errors=True)
+
     print("SELF-TEST PASS: verify_no_toml_mod_comments + fix + gate wiring")
     return 0
 
