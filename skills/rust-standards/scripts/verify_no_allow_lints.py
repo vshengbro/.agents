@@ -21,6 +21,10 @@ Detection rules:
     except for the two documented exception cases).
   - Excluded: `#[allow(dead_code)]` etc. that are *inside*
     `#[cfg(test)] mod tests` blocks (test-only).
+  - Excluded: `#[allow(...)]` / `#[expect(...)]` inside
+    `quote!` / `quote_spanned!` macro blocks — those attributes
+    target the *generated* code (proc-macro output), not this
+    crate's own production sources.
   - Excluded: comments.
 
 Exits 0 if clean, 1 if any violation.
@@ -41,6 +45,40 @@ from pathlib import Path
 ALLOW_OR_EXPECT = re.compile(
     r"^\s*#\[\s*(?:allow|expect)\s*\("
 )
+
+# Match entry into a `quote!` / `quote_spanned!` macro block.
+QUOTE_ENTER = re.compile(
+    r"\bquote(?:_spanned)?!\s*[({\[]"
+)
+
+
+def _quote_block_lines(lines: list[str]) -> set[int]:
+    """Return the set of line indexes that lie inside a `quote!{...}` /
+    `quote_spanned!{...}` block (excluding the entry line itself).
+
+    Heuristic in the same spirit as `_is_inside_cfg_test`: tracks
+    bracket depth per line; full-comment lines never open a block so
+    `quote!` mentions in doc comments don't leak a block.
+    """
+    inside: set[int] = set()
+    depth = 0
+    quote_stack: list[int] = []  # bracket depth at which each open block closes
+    for i, ln in enumerate(lines):
+        if quote_stack:
+            inside.add(i)
+        stripped = ln.strip()
+        delta = (
+            ln.count("{") + ln.count("(") + ln.count("[")
+            - ln.count("}") - ln.count(")") - ln.count("]")
+        )
+        if not stripped.startswith("//"):
+            match = QUOTE_ENTER.search(ln)
+            if match and delta > 0:
+                quote_stack.append(depth + delta)
+        depth += delta
+        while quote_stack and depth < quote_stack[-1]:
+            quote_stack.pop()
+    return inside
 
 
 def _list_rs_files(root: Path) -> list[Path]:
@@ -88,12 +126,17 @@ def audit_one(path: Path) -> list[str]:
     except (OSError, UnicodeDecodeError):
         return []
     lines = text.splitlines()
+    quote_lines = _quote_block_lines(lines)
     violations: list[str] = []
     for i, line in enumerate(lines):
         if not ALLOW_OR_EXPECT.match(line):
             continue
         # Test-only `#[allow]` is exempt per documented exception.
         if _is_inside_cfg_test(lines, i):
+            continue
+        # `#[allow]` inside `quote!` blocks targets generated code,
+        # not this crate's own sources (§14 exempt).
+        if i in quote_lines:
             continue
         violations.append(
             f"{path}:{i + 1}: `#[allow(...)]` / `#[expect(...)]` in "
