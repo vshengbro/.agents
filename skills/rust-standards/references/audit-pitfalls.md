@@ -2092,27 +2092,38 @@ This iteration adds 4 new verification scripts (checks 29-32) covering
 fixture self-tests are mandatory before audit wiring (same protocol as
 §49-§53).
 
-### §54 — verify_mod_visibility.py (check 29, §6.2)
+### §54 — REMOVED: bare-`mod` rule (§6.2) and its `verify_mod_visibility.py`
 
-User explicitly added §6.2 in this round:
-`mod r#xxx;` in mod.rs MUST be bare — no `pub mod`, no `pub(crate) mod`,
-no `pub(super) mod`.  Older codebases have stray `pub(crate) mod r#xxx;`
-lines (euv `cli/src/build/mod.rs:4` had one).  Implementation:
+**Withdrawn 2026-10-17 by user directive: `pub mod` is allowed in `mod.rs`.**
 
-- Regex: `^(?:pub(?:\([^)]*\))?\s+)?mod\s+`.  Matches `pub mod`,
-  `pub(crate) mod`, `pub(super) mod`.  Bare `mod` skips through.
-- Filter by file basename: only `mod.rs` is audited.  All other
-  files are exempt because `pub mod foo;` in `lib.rs` is the
-  correct way to declare a public module.
-- Raw-string-aware: lines inside `r#"..."#` raw string literals
-  are skipped (mirrors `verify_doc_comment_format.py`).
+The rule asserted that `mod` in `mod.rs` is always crate-internal, so any
+visibility prefix is redundant. That premise is false whenever a child module is
+reached by MODULE PATH from outside its own subtree — and Rust has no way to
+widen a bare `mod` after the fact:
 
-Bidirectional fixture test:
-- Compliant: 0 violations / exit 0
-- Violating: 3 violations (pub, pub(crate), pub(super)) / exit 1
+    mod inner;  pub use inner;         -> E0255, `inner` defined twice
+    mod inner;  pub(crate) use inner;  -> E0255
+    mod inner;  use inner;             -> E0255
 
-Real-workspace finding (euv PR #40): 1 hit at
-`cli/src/build/mod.rs:4: pub(crate) mod r#inline;`.
+So `pub mod` is the only form that keeps `crate::parent::child::*` resolvable.
+Verified empirically on hyperlane-quick-start: stripping `pub` from the nine
+exempted mod.rs files produced
+
+    error[E0603]: module `path` is private        (x2)
+    error[E0425]: cannot find value `SERVER_ENV_FILE_PATH`
+    error[E0425]: cannot find value `SERVER_DOCKER_COMPOSE_FILE_PATH`
+
+The gate also needed an in-band exemption (`# mod-visibility-allow: <reason>`)
+added later, in #45 — a second sign the rule was pressing on real code rather
+than enforcing a real property.
+
+Removed: `scripts/verify_mod_visibility.py`, audit check 29, its
+`staged_file_gate.py` and `verify_on_save.py` registrations, and the
+`mod-visibility-allow` exemption in `verify_no_toml_mod_comments.py` (§2.5 bans
+every comment in mod.rs, so the marker had to go there too).
+
+**Keep**: `pub mod` in `lib.rs`, and item-level visibility (`pub` /
+`pub(crate)` fields) — those are unchanged.
 
 ### §55 — verify_no_allow_lints.py (check 30, §14)
 

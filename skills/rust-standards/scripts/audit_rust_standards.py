@@ -599,28 +599,6 @@ fi
 exit "$exit_code"
 '''),
 
-    # check 29 — §6.2 mod.rs `mod xxx;` MUST be bare (no visibility
-    # prefix).  User original (2026-09-26): "mod.rs 的 mod 前面不能
-    # 有可见性".  Companion: verify_mod_visibility.py.
-    ('mod.rs `mod` declaration must be bare (§6.2)', '''
-# Per rust-standards §6.2 (2026-09-26 user iteration): in any
-# mod.rs, mod r#xxx; declarations MUST be bare — no pub mod,
-# no pub(crate) mod, no pub(super) mod.  The visibility of
-# items inside the module is controlled at the declaration site
-# of the item itself, not on the mod line.  mod in mod.rs is
-# always crate-internal (private to the parent module's
-# namespace); the parent re-exports via the middle-stage
-# pub use {...}; block if external visibility is needed.
-cd {{target}}
-python3 "{{audit_script_dir}}/verify_mod_visibility.py" "{{target}}" \
-    | grep -v -E '^=== mod.rs mod visibility'
-exit_code=${PIPESTATUS[0]}
-if [ "$exit_code" -ne 0 ]; then
-    echo "FAIL: verify_mod_visibility.py exited $exit_code" >&2
-fi
-exit "$exit_code"
-'''),
-
     # check 30 — §14 no #[allow(...)] / #[expect(...)] in production
     # code.  Companion to git-diff-scoped check 2 (PR review).  This
     # script scans the whole tree to catch historical accumulation.

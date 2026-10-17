@@ -289,42 +289,6 @@ def scope_of(path: Path) -> str | None:
     return None
 
 
-# ---------------------------------------------------------------------------
-# §1.3d exemption marker (shared with verify_mod_visibility.py)
-# ---------------------------------------------------------------------------
-
-
-def _mod_visibility_allow_marker() -> str:
-    """Read the marker string from the gate that owns it.
-
-    `verify_mod_visibility.py` declares `# mod-visibility-allow: ` as the only
-    sanctioned exemption from §1.3d. Importing the value (rather than repeating
-    the literal) means a rename there cannot silently desynchronise this gate and
-    turn every exempted mod.rs back into a §2.5 violation.
-    """
-    owner = Path(__file__).with_name("verify_mod_visibility.py")
-    try:
-        source = owner.read_text()
-    except OSError:
-        return "# mod-visibility-allow: "
-    match = re.search(r'^ALLOW\s*=\s*"(.*)"\s*$', source, re.MULTILINE)
-    return match.group(1) if match else "# mod-visibility-allow: "
-
-
-def _is_mod_visibility_allow(text: str, span: tuple[int, int, int]) -> bool:
-    """True when the comment span is the documented §1.3d exemption marker."""
-    _start, end, _lineno = span
-    marker = _mod_visibility_allow_marker()
-    prefix = marker.split(":", 1)[0]          # "# mod-visibility-allow"
-    line_start = text.rfind("\n", 0, _start) + 1
-    stripped = text[line_start:end].strip().lstrip("/").lstrip("*").strip()
-    if not stripped.startswith(prefix):
-        return False
-    reason = stripped[len(prefix):].lstrip(":").strip()
-    # A bare marker carries no reason and is not a real exemption.
-    return bool(reason)
-
-
 def audit_one(path: Path) -> list[str]:
     scope = scope_of(path)
     if scope is None:
@@ -339,14 +303,6 @@ def audit_one(path: Path) -> list[str]:
     spans = (
         find_rust_comments(text) if scope == "rust" else find_toml_comments(text)
     )
-    # `verify_mod_visibility.py` (§1.3d) defines a single documented exemption
-    # marker that a mod.rs may carry when a bare `mod` is structurally
-    # unsatisfiable: `# mod-visibility-allow: <reason>`. That marker IS a
-    # comment, so this gate used to report it — two gates then demanded the
-    # same line both exist and not exist. Read the marker from its owner so
-    # the two stay in lockstep instead of hard-coding a second copy of it.
-    if scope == "rust":
-        spans = [span for span in spans if not _is_mod_visibility_allow(text, span)]
     label = "mod.rs" if scope == "rust" else "TOML file"
     violations: list[str] = []
     for start, _end, lineno in spans:

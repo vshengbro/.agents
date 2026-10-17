@@ -160,7 +160,6 @@ VERIFIERS = {
     # `audit_one(path)` and operates on `.rs`, so registration is real
     # coverage rather than a silent no-op -- both conditions were verified
     # before adding them here.
-    "verify_mod_visibility": "mod.rs mod declaration must be bare 6.2",
     "verify_no_allow_lints": "#[allow(...)] in production 14",
     "verify_explicit_type_annotations": "explicit type annotations for let bindings 5.1",
     "verify_let_type_annotations": "all let bindings have explicit type annotation 5.1",
