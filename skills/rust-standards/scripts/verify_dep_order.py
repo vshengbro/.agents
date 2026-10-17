@@ -134,6 +134,21 @@ def entry_sort_key(it: dict) -> tuple[int, str]:
     return (total, it["key"])
 
 
+# `[patch.*]` blocks are override tables, not dependency lists: every entry
+# names an upstream crate that `cargo` will redirect, so there is no
+# local/third-party split to express and no blank-line group boundary to keep.
+# They are ordered with the SAME §13.7 key as every other entry so the block
+# reads in the same rhythm as the dependency blocks beside it.
+PATCH_SECTIONS = ["patch.crates-io"]
+
+
+def expected_order_flat(entries):
+    """Alphabetical-by-length ordering for a `[patch.*]` block."""
+    return sorted(
+        entries, key=lambda kv: (sum(len(line.strip()) for line in kv[1]), kv[0])
+    )
+
+
 def expected_order_with_blank(entries, local_set):
     local = sorted(
         [(k, l) for k, l in entries if k in local_set],
@@ -188,10 +203,34 @@ def check_file(path: Path, local_set: set[str]) -> int:
     return count
 
 
+def check_patch_sections(path: Path, text: str) -> list[str]:
+    """§13.7 for `[patch.*]` blocks: flat ordering, no local/third split.
+
+    A `[patch.*]` table redirects upstream crates, so every entry is an
+    override of a third-party name and there is no group boundary to express.
+    It is still ordered, using the same (length, key) key as every other
+    dependency block so the file reads consistently.
+    """
+    out: list[str] = []
+    for sec in PATCH_SECTIONS:
+        entries = parse_block(text, sec)
+        if not entries:
+            continue
+        actual = [key for key, _lines in entries]
+        expected = [key for key, _lines in expected_order_flat(entries)]
+        if actual != expected:
+            out.append(
+                f"{path} [{sec}] (rule: §13.7 patch-override order, flat length-then-key)"
+            )
+            out.append(f"  actual:   {actual}")
+            out.append(f"  expected: {expected}")
+    return out
+
+
 def check_file_v2(path: Path, local_set: set[str]) -> list[str]:
     """Return list of violation descriptions for this file."""
     text = path.read_text()
-    violations = []
+    violations = check_patch_sections(path, text)
     for sec in ["dependencies", "dev-dependencies", "build-dependencies", "workspace.dependencies"]:
         m = re.search(rf"^\[\s*{re.escape(sec)}\s*\]\s*\n", text, re.M)
         if not m:

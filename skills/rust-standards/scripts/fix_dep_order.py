@@ -50,7 +50,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from verify_dep_order import (  # noqa: E402
     KEY_PATTERN,
+    PATCH_SECTIONS,
     entry_sort_key,
+    expected_order_flat,
     find_cargo_tomls,
     read_local_crate_names,
 )
@@ -106,6 +108,26 @@ def parse_entries(block_text: str) -> list[dict]:
     if cur is not None:
         items.append(cur)
     return items
+
+
+def sort_patch_items(items: list[dict]) -> list[dict]:
+    """Return `[patch.*]` entries in flat (length, key) order.
+
+    A patch table has no local/third-party split: every entry redirects an
+    upstream crate. `expected_order_flat` in the verifier is the single source
+    of truth for the key, so the two scripts cannot disagree.
+    """
+    ordered = sorted(
+        items, key=lambda it: (sum(len(line.strip()) for line in it["lines"]), it["key"])
+    )
+    out: list[dict] = []
+    for it in ordered:
+        out.append({"key": it["key"], "lines": list(it["lines"]), "followed_by_blank": False})
+    if out:
+        # Exactly one blank before the next section header, matching the
+        # dep-block boundary rule (§13.7.2a) applied to the block's last entry.
+        out[-1]["followed_by_blank"] = True
+    return out
 
 
 def sort_block_items(items: list[dict], local_set: set[str]) -> list[dict]:
@@ -250,13 +272,21 @@ def plan_changes(root: Path, write: bool, only: set[Path] | None = None) -> tupl
         text = f.read_text()
         local_set = read_local_crate_names(f) | local_set_global
         sections_to_fix: list[tuple[str, list[dict]]] = []
-        for sec in DEP_SECTIONS:
+        for sec in DEP_SECTIONS + PATCH_SECTIONS:
             sp = _block_span(text, sec)
             if sp is None:
                 continue
             block_text = text[sp[0]:sp[1]]
             items = parse_entries(block_text)
-            expected = sort_block_items(items, local_set)
+            is_patch = sec in PATCH_SECTIONS
+            expected = sort_patch_items(items) if is_patch else sort_block_items(items, local_set)
+            if is_patch:
+                # A patch block has no local/third group boundary, so the
+                # `expected[-1].followed_by_blank` fixup that the dep path
+                # applies is already baked into sort_patch_items; the generic
+                # branch below only needs to know where the block ends.
+                if expected:
+                    expected[-1]["followed_by_blank"] = sp[1] < len(text)
             if expected:
                 # §13.7.2a: exactly one blank line between the block's last
                 # entry and the NEXT section header. sort_block_items drops
