@@ -1,0 +1,252 @@
+[
+  {
+    "id": "sync-zh",
+    "prompt": "对照本地源码更新 skill 里过期的版本和接口说明。",
+    "expected": "agent-skills-source-sync"
+  },
+  {
+    "id": "sync-en",
+    "prompt": "Audit this skill bundle for stale source paths and broken references.",
+    "expected": "agent-skills-source-sync"
+  },
+  {
+    "id": "mail-zh",
+    "prompt": "搜索我邮箱里昨天收到的账单邮件。邮件命令行已经配置好了。",
+    "expected": "agently-mail"
+  },
+  {
+    "id": "mail-en",
+    "prompt": "Reply to the selected email using the already-authorized mail CLI.",
+    "expected": "agently-mail"
+  },
+  {
+    "id": "mail-setup-zh",
+    "prompt": "这台机器还没配置邮件命令行，先安装并授权 agently-cli。",
+    "expected": "agently-mail-setup"
+  },
+  {
+    "id": "mail-setup-en",
+    "prompt": "Set up the mail CLI and verify its account authorization before using it.",
+    "expected": "agently-mail-setup"
+  },
+  {
+    "id": "android-zh",
+    "prompt": "给原生安卓项目加一个 Jetpack Compose 页面并跑 Gradle 测试。",
+    "expected": "android-native-dev"
+  },
+  {
+    "id": "android-en",
+    "prompt": "Diagnose an Android native app build failure and verify the Kotlin fix.",
+    "expected": "android-native-dev"
+  },
+  {
+    "id": "notes-zh",
+    "prompt": "在 Apple 备忘录里建一条新的读书笔记。",
+    "expected": "apple-notes"
+  },
+  {
+    "id": "notes-en",
+    "prompt": "Find and edit an existing note in Apple Notes.",
+    "expected": "apple-notes"
+  },
+  {
+    "id": "reminder-zh",
+    "prompt": "在苹果提醒事项里加一个明天下午取快递的事项。",
+    "expected": "apple-reminders"
+  },
+  {
+    "id": "reminder-en",
+    "prompt": "List my Apple Reminders and complete the selected reminder.",
+    "expected": "apple-reminders"
+  },
+  {
+    "id": "findmy-zh",
+    "prompt": "通过 macOS 查找定位我的 AirTag。",
+    "expected": "findmy"
+  },
+  {
+    "id": "findmy-en",
+    "prompt": "Locate my Apple device using Find My on this Mac.",
+    "expected": "findmy"
+  },
+  {
+    "id": "imessage-zh",
+    "prompt": "通过苹果信息给联系人发送一条 iMessage。",
+    "expected": "imessage"
+  },
+  {
+    "id": "imessage-en",
+    "prompt": "Read the selected SMS conversation from Messages on macOS.",
+    "expected": "imessage"
+  },
+  {
+    "id": "desktop-zh",
+    "prompt": "在桌面原生应用里点击这个按钮，不要抢我的鼠标或窗口焦点。",
+    "expected": "computer-use"
+  },
+  {
+    "id": "desktop-en",
+    "prompt": "Automate a native desktop dialog with background accessibility actions.",
+    "expected": "computer-use"
+  },
+  {
+    "id": "euv-zh",
+    "prompt": "在 euv 的 App 上添加响应式信号和页面路由。",
+    "expected": "euv"
+  },
+  {
+    "id": "euv-en",
+    "prompt": "Use the euv Rust UI framework to wire a reactive view, not a renderer backend.",
+    "expected": "euv"
+  },
+  {
+    "id": "renderer-zh",
+    "prompt": "补全 euv-engine 的 WebGpuRenderer 描述符和异步缓冲区回读接口。",
+    "expected": "euv-engine-renderer-api"
+  },
+  {
+    "id": "renderer-en",
+    "prompt": "Add a WebGL/WebGPU renderer API to euv-engine and prove backend parity.",
+    "expected": "euv-engine-renderer-api"
+  },
+  {
+    "id": "euv-ui-zh",
+    "prompt": "改 euv-ui 的 class! 设计令牌并核验类注册和真实渲染。",
+    "expected": "euv-ui-standards"
+  },
+  {
+    "id": "euv-ui-en",
+    "prompt": "Fix euv tag wrapping and verify design-token styles in the rendered component.",
+    "expected": "euv-ui-standards"
+  },
+  {
+    "id": "pr-zh",
+    "prompt": "把当前分支推上去创建 PR，检查通过后按我的授权合并。",
+    "expected": "gh-pr-creation-workflow"
+  },
+  {
+    "id": "pr-en",
+    "prompt": "Open a pull request for this branch and verify its exact head and CI state.",
+    "expected": "gh-pr-creation-workflow"
+  },
+  {
+    "id": "git-zh",
+    "prompt": "检查提交信息是否纯英文、作者是否我的账号，并决定这个文档改动要不要 PR。",
+    "expected": "git-standards"
+  },
+  {
+    "id": "git-en",
+    "prompt": "Validate the Conventional Commit message and the direct-push versus PR routing policy.",
+    "expected": "git-standards"
+  },
+  {
+    "id": "auth-zh",
+    "prompt": "gh 提示未授权，排查 GitHub 身份和 SSH 登录配置。",
+    "expected": "github-auth"
+  },
+  {
+    "id": "auth-en",
+    "prompt": "GitHub CLI authentication fails; inspect the active identity and credential transport.",
+    "expected": "github-auth"
+  },
+  {
+    "id": "review-zh",
+    "prompt": "审查这个 GitHub PR 的 diff，并准备定位到行的 review comments。",
+    "expected": "github-code-review"
+  },
+  {
+    "id": "review-en",
+    "prompt": "Review a pull request for regressions and post an authorized inline review.",
+    "expected": "github-code-review"
+  },
+  {
+    "id": "issue-code-zh",
+    "prompt": "根据 GitHub issue 复现问题、修代码、验证，再交付关联 PR。",
+    "expected": "github-issue-to-pr"
+  },
+  {
+    "id": "issue-code-en",
+    "prompt": "Implement the fix requested in this GitHub issue and carry it to a verified PR.",
+    "expected": "github-issue-to-pr"
+  },
+  {
+    "id": "issue-zh",
+    "prompt": "给 GitHub issue 加标签、分配负责人，不修改代码。",
+    "expected": "github-issues"
+  },
+  {
+    "id": "issue-en",
+    "prompt": "Create and triage a GitHub bug report; no implementation or pull request yet.",
+    "expected": "github-issues"
+  },
+  {
+    "id": "repo-zh",
+    "prompt": "创建 GitHub 仓库并配置正确的 git remote。",
+    "expected": "github-repo-management"
+  },
+  {
+    "id": "repo-en",
+    "prompt": "Clone this GitHub repository and inspect its fork and remote relationships.",
+    "expected": "github-repo-management"
+  },
+  {
+    "id": "hyperlane-zh",
+    "prompt": "用 hyperlane 写路由处理器，修复 HTTP 响应构建。",
+    "expected": "hyperlane"
+  },
+  {
+    "id": "hyperlane-en",
+    "prompt": "Implement a multipart request handler with the Hyperlane HTTP server framework.",
+    "expected": "hyperlane"
+  },
+  {
+    "id": "upload-zh",
+    "prompt": "把静态网页发布到 ltpp.vip，给我可访问的分享链接。",
+    "expected": "hyperlane-upload"
+  },
+  {
+    "id": "upload-en",
+    "prompt": "Upload this file to the chosen ltpp.vip hosting service and verify the returned share URL.",
+    "expected": "hyperlane-upload"
+  },
+  {
+    "id": "blocked-zh",
+    "prompt": "获取公开网页时遇到 429 限流，使用合规的恢复路径重试读取。",
+    "expected": "blocked-page-recovery"
+  },
+  {
+    "id": "blocked-en",
+    "prompt": "A public page fetch hit a WAF or bot challenge; diagnose the allowed recovery path.",
+    "expected": "blocked-page-recovery"
+  },
+  {
+    "id": "cdp-zh",
+    "prompt": "通过原始 CDP 连接已有 Chromium，执行 DOM 采样并截图，完成后回收自己的 tab。",
+    "expected": "chrome-devtools-protocol"
+  },
+  {
+    "id": "cdp-en",
+    "prompt": "Drive a headless Chromium page over its DevTools WebSocket and verify teardown.",
+    "expected": "chrome-devtools-protocol"
+  },
+  {
+    "id": "negative-feishu-upload",
+    "prompt": "把这个文件作为飞书附件发到当前聊天，不要上传公共网站。",
+    "expected": null
+  },
+  {
+    "id": "negative-s3-upload",
+    "prompt": "把对象上传到我指定的 S3 bucket，不使用第三方文件分享站。",
+    "expected": null
+  },
+  {
+    "id": "negative-general-writing",
+    "prompt": "把这段中文产品文案改得简短一些。",
+    "expected": null
+  },
+  {
+    "id": "negative-reminder-cron",
+    "prompt": "在 Hermes 定时任务里每周执行一个本地备份脚本，不创建 Apple 提醒事项。",
+    "expected": null
+  }
+]

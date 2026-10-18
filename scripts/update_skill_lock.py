@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reconcile `.skill-lock.json` with the current state of `skills/`.
 
-This script walks `skills/*/SKILL.md` and rebuilds the `skills` map in
+This script recursively discovers `SKILL.md` and rebuilds the `skills` map in
 `.skill-lock.json`, preserving the top-level metadata (`version`, `dismissed`,
 `lastSelectedAgents`, etc.) that the lock file carries alongside the skill
 entries. It does NOT touch `dismissed` or `lastSelectedAgents` — those are
@@ -11,7 +11,7 @@ Idempotent: running it twice in a row produces no diff on the second run.
 
 Why this exists
 ---------------
-The `eastspire/.agents` repo is regularly imported into other projects as a
+The `.agents` repo is regularly imported into other projects as a
 skill bundle. When we add/remove/rename skills locally, the lock file drifts
 out of sync with the actual `skills/` directory. This script is the
 authoritative reconciler: it makes the lock file a faithful mirror of the
@@ -25,12 +25,13 @@ Usage
 
 Exit codes
 ----------
-    0  updated (or already in sync with --check)
-    1  no changes needed (file was already up to date)
+    0  updated, already in sync, or a successful --diff preview
+    1  --check detected drift
     2  error (e.g. skills/ dir not found)
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime, timezone
@@ -54,8 +55,8 @@ def _fingerprint(skill_dir: Path) -> str | None:
     """Return a stable fingerprint hash of a skill's primary content files.
 
     Hashes the concatenation of `SKILL.md` (and any other content in
-    `FINGERPRINT_FILES`) with a length-prefixed framing so two skills
-    whose contents happen to be byte-equal cannot collide. The result
+    `FINGERPRINT_FILES`) with length-prefixed framing to disambiguate file
+    boundaries. Identical content has an identical fingerprint. The result
     changes iff any fingerprinted file's bytes change, which is what we
     need to detect local skill edits.
 
@@ -87,7 +88,7 @@ def _read_lock() -> dict:
         return json.load(f)
 
 
-def _build_skills_map(lock: dict) -> dict[str, dict]:
+def _build_skills_map(lock: dict, preserve_prefixes: tuple[str, ...] = ()) -> dict[str, dict]:
     """Walk skills/ and produce the new `skills` dict.
 
     For each skill:
@@ -98,6 +99,7 @@ def _build_skills_map(lock: dict) -> dict[str, dict]:
     """
     existing: dict[str, dict] = lock.get("skills", {})
     new_map: dict[str, dict] = {}
+    seen_paths: dict[str, str] = {}
     now = now_iso()
 
     # Skills live at skills/<name>/ and skills/<category>/<name>/. A
@@ -106,26 +108,23 @@ def _build_skills_map(lock: dict) -> dict[str, dict]:
     # software-development/ skill is invisible to the lock.
     for skill_dir in sorted(_iter_skill_dirs()):
         rel = skill_dir.relative_to(SKILLS_DIR)
+        skill_path = f"skills/{rel}/SKILL.md"
         # the key is the bare skill name; two categories may not both ship a
         # skill of the same name, so a collision is a real error, not a merge
         name = skill_dir.name
-        if name in new_map:
-            # A skill shipped both at the top level and inside a category.
-            # The top-level copy is the one older locks reference, so it wins;
-            # the categorised one is reported so the duplication gets a human
-            # decision instead of being silently resolved either way.
-            if len(rel.parts) == 1:
-                continue  # the shallow copy already claimed the name
-            print(
-                f"warning: duplicate skill name {name!r} — keeping "
-                f"{new_map[name]['skillPath']}, ignoring skills/{rel}/SKILL.md",
-                file=sys.stderr,
-            )
+        if name in seen_paths:
+            raise ValueError(f"duplicate skill name {name!r}: "
+                             f"{seen_paths[name]} and {skill_path}")
+        seen_paths[name] = skill_path
+        if any(skill_path.startswith(prefix) for prefix in preserve_prefixes):
+            if name in existing:
+                new_map[name] = existing[name]
             continue
         fingerprint = _fingerprint(skill_dir)
         old = existing.get(name)
 
-        if old and old.get("skillFolderHash") == fingerprint:
+        if (old and old.get("skillFolderHash") == fingerprint
+                and old.get("skillPath") == skill_path):
             # No change — keep historical timestamps and source provenance.
             new_map[name] = old
             continue
@@ -152,40 +151,37 @@ def _build_skills_map(lock: dict) -> dict[str, dict]:
 
 
 def _iter_skill_dirs() -> list[Path]:
-    """Every directory under skills/ that holds a SKILL.md, at any depth.
-
-    `skills/creative/` has no SKILL.md of its own — it is a category. A
-    one-level walk therefore reported every categorised skill as absent from
-    the lock, which is how touchdesigner-mcp, comfyui and blender-mcp came to
-    have no lock entry at all.
-    """
-    found: list[Path] = []
-    for entry in sorted(SKILLS_DIR.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("."):
-            continue
-        if entry.name == "_pending":       # cronjob staging, not a skill
-            continue
-        if (entry / "SKILL.md").exists():
-            found.append(entry)
-            continue
-        for child in sorted(entry.iterdir()):
-            if child.is_dir() and not child.name.startswith(".") \
-                    and (child / "SKILL.md").exists():
-                found.append(child)
-    return found
+    """Include nested entries, excluding dot directories and pending work."""
+    return sorted(
+        path.parent
+        for path in SKILLS_DIR.rglob("SKILL.md")
+        if not any(part.startswith(".") or part == "_pending"
+                   for part in path.relative_to(SKILLS_DIR).parts[:-1])
+    )
 
 
 def main() -> int:
-    args = set(sys.argv[1:])
-    diff_only = "--diff" in args
-    check_only = "--check" in args
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--diff", action="store_true", help="show drift without writing")
+    mode.add_argument("--check", action="store_true", help="exit 1 on inventory drift")
+    parser.add_argument("--preserve-prefix", action="append", default=[],
+                        help="keep existing lock records under this repo-relative prefix unchanged")
+    args = parser.parse_args()
+    diff_only = args.diff
+    check_only = args.check
 
     if not SKILLS_DIR.exists():
         print(f"ERROR: {SKILLS_DIR} not found", file=sys.stderr)
         return 2
 
-    lock = _read_lock()
-    new_skills = _build_skills_map(lock)
+    try:
+        lock = _read_lock()
+        prefixes = tuple(prefix.rstrip("/") + "/" for prefix in args.preserve_prefix)
+        new_skills = _build_skills_map(lock, prefixes)
+    except (OSError, ValueError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
 
     old_skills = lock.get("skills", {})
     added = sorted(set(new_skills) - set(old_skills))
@@ -197,7 +193,7 @@ def main() -> int:
 
     if not added and not removed and not changed:
         print(f"OK: .skill-lock.json already in sync ({len(new_skills)} skills)")
-        return 1 if check_only else 1
+        return 0
 
     if diff_only or check_only:
         if added:
@@ -206,7 +202,7 @@ def main() -> int:
             print(f"would REMOVE ({len(removed)}): {', '.join(removed)}")
         if changed:
             print(f"would UPDATE ({len(changed)}): {', '.join(changed)}")
-        return 0 if check_only else 0
+        return 1 if check_only else 0
 
     # Preserve all top-level fields, only replace `skills`.
     new_lock = dict(lock)
