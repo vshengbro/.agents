@@ -1,612 +1,160 @@
 ---
 name: github-repo-management
-description: "Clone/create/fork repos; manage remotes, releases. Includes codeload tarball fallback when SSH clone is throttled."
-version: 1.2.0
-author: Hermes Agent
+description: 'Use when cloning, creating, forking, configuring or releasing a GitHub repo: remotes, settings, secrets, Actions, releases, gists and Discussions via gh CLI or REST.'
 license: MIT
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    tags: [GitHub, Repositories, Git, Releases, Secrets, Configuration]
-    related_skills: [github-auth, github-pr-workflow, github-issues]
 ---
+# github-repo-management
 
-# GitHub Repository Management
-
-Create, clone, fork, configure, and manage GitHub repositories. Each section shows `gh` first, then the `git` + `curl` fallback.
-
-## Prerequisites
-
-- Authenticated with GitHub (see `github-auth` skill)
-
-### Setup
+Repository-level operations. `gh` first; every section names the REST fallback
+for when `gh` is missing or its token lacks a scope. Auth setup is
+`github-auth`; PR mechanics are `gh-pr-creation-workflow`.
 
 ```bash
-if command -v gh &>/dev/null && gh auth status &>/dev/null; then
-  AUTH="gh"
-else
-  AUTH="git"
-  if [ -z "$GITHUB_TOKEN" ]; then
-    if _hermes_env="${HERMES_HOME:-$HOME/.hermes}/.env"; [ -f "$_hermes_env" ] && grep -q "^GITHUB_TOKEN=" "$_hermes_env"; then
-      GITHUB_TOKEN=$(grep "^GITHUB_TOKEN=" "$_hermes_env" | head -1 | cut -d= -f2 | tr -d '\n\r')
-    elif grep -q "github.com" ~/.git-credentials 2>/dev/null; then
-      GITHUB_TOKEN=$(uv run python "${HERMES_HOME:-$HOME/.hermes}/skills/github/github-auth/scripts/git-credential-token.py")
-    fi
-  fi
-fi
-
-# Get your GitHub username (needed for several operations)
-if [ "$AUTH" = "gh" ]; then
-  GH_USER=$(gh api user --jq '.login')
-else
-  GH_USER=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user | python -c "import sys,json; print(json.load(sys.stdin)['login'])")
-fi
+source "${HERMES_HOME:-$HOME/.hermes}/skills/github/github-auth/scripts/gh-env.sh"
+# sets GH_AUTH_METHOD, GH_USER, GH_OWNER/GH_REPO/GH_OWNER_REPO inside a repo
 ```
 
-If you're inside a repo already:
+Never put a token in a URL — pass it as an `Authorization` header; it ends up in
+shell history and the remote URL.
+
+## Clone
 
 ```bash
-REMOTE_URL=$(git remote get-url origin)
-OWNER_REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/]||; s|\.git$||')
-OWNER=$(echo "$OWNER_REPO" | cut -d/ -f1)
-REPO=$(echo "$OWNER_REPO" | cut -d/ -f2)
+gh repo clone owner/repo -- --depth 1     # large repo
+git clone --filter=blob:none git@github.com:owner/repo.git
 ```
 
----
+On a throttled host, `gh api …/contents/… --jq .content | base64 -d` reads
+individual files without cloning; the tarball/Contents-API recipes are in
+`gh-pr-creation-workflow/references/network-and-api-fallbacks.md`.
 
-## 1. Cloning Repositories
+## Create
 
-Cloning is pure `git` — works identically either way:
-
+**New repos are private by default.** Never pass `--public` unless the user
+asked for public in that turn.
 ```bash
-# Clone via HTTPS (works with credential helper or token-embedded URL)
-git clone https://github.com/owner/repo-name.git
-
-# Clone into a specific directory
-git clone https://github.com/owner/repo-name.git ./my-local-dir
-
-# Shallow clone (faster for large repos)
-git clone --depth 1 https://github.com/owner/repo-name.git
-
-# Clone a specific branch
-git clone --branch develop https://github.com/owner/repo-name.git
-
-# Clone via SSH (if SSH is configured)
-git clone git@github.com:owner/repo-name.git
+gh repo create my-project --private --clone
+gh repo create my-org/my-project --private --description "…" --license MIT --clone
+gh repo create my-project --source . --private --push      # from an existing dir
 ```
 
-**With gh (shorthand):**
+REST: `POST /user/repos` (personal) or `POST /orgs/<org>/repos` with
+`{"private": true}`. A new repo also needs the mirror workflow
+(`.github/workflows/mirror.yml`) and the `GITEE_TOKEN` / `GITCODE_TOKEN` secrets
+— the workflow hard-fails without them by design, and a private source repo must
+get private mirrors (never `"private": false`).
+
+## Fork
 
 ```bash
-gh repo clone owner/repo-name
-gh repo clone owner/repo-name -- --depth 1
+gh repo fork owner/repo --clone          # adds the fork as a remote
+git remote add upstream git@github.com:owner/repo.git
+gh repo sync owner/repo                  # or: git fetch upstream && git merge upstream/<default>
 ```
 
-### When SSH clone is too slow (codeload fallback)
+Forking a repo you already own fails (`cannot be forked. A single user account
+cannot own both a parent and fork`), and orgs may disable forking entirely
+(`POST /repos/<o>/<r>/forks` → 403). With write access, skip the fork and push
+the branch to the upstream directly — check
+`gh repo view <o>/<r> --json viewerPermission`.
 
-On hosts where `git clone` via SSH crawls at <50 KiB/s but HTTPS to `codeload.github.com` works (heavily throttled but functional), the fastest path is the tarball — **but a tarball is NOT a git repo**, so you must unpack it then init:
-
-```bash
-# 1. Download the tarball with retry (curl will fail on HTTP/2 stream CANCEL; wget retries)
-wget --tries=infinite --waitretry=3 --read-timeout=60 \
-     -O /tmp/repo.tar.gz \
-     https://codeload.github.com/owner/repo-name/tar.gz/refs/heads/master
-
-# 2. Verify the tail of the gzip isn't truncated (very common on throttled connections)
-tar -tzf /tmp/repo.tar.gz > /tmp/listing.txt
-wc -l /tmp/listing.txt  # if the listing looks too short, re-download
-
-# 3. Extract — note: NO .git/ directory, no commit history, no branches
-tar -xzf /tmp/repo.tar.gz --strip-components=1 -C ./repo
-
-# 4. To PR from this, see github-pr-workflow § "Creating a PR From a Tarball"
-```
-
-Do NOT claim you "cloned" the repo after this — you downloaded and extracted it. State that distinction in user-facing messages.
-
-#### Faster: codeload wrapped in a GitHub mirror (when direct codeload is throttled)
-
-On GFW-restricted hosts where direct `codeload.github.com` caps at ~33 KB/s but mirror wrappers are reachable, try a GitHub-mirror-wrapped URL. Verified mirrors (pick the first that works):
+## Read repo state
 
 ```bash
-# Tier 1: ghfast.top — usually full-speed (~MB/s range)
-wget --tries=infinite --waitretry=3 --read-timeout=60 \
-     -O /tmp/repo.tar.gz \
-     "https://ghfast.top/https://github.com/owner/repo-name/tar.gz/refs/heads/master"
-
-# Tier 2: ghproxy.net — slower (~40 KB/s) but works
-wget --tries=infinite --waitretry=3 --read-timeout=60 \
-     -O /tmp/repo.tar.gz \
-     "https://ghproxy.net/https://github.com/owner/repo-name/tar.gz/refs/heads/master"
-
-# Known dead/blocked mirrors to skip:
-#   ghproxy.com, mirror.ghproxy.com, gh-proxy.com,
-#   hub.fastgit.xyz, github.akams.cn, ghps.cc
-#   gh.api.99988866.xyz (TLS handshake fail)
-```
-
-Same `tar -tzf /tmp/repo.tar.gz` truncation check applies — even fast mirrors can drop the gzip trailer; re-download if file count looks short.
-
-This also works for **release tarballs** (e.g. `gh` CLI binary) — same wrapper pattern: `https://ghfast.top/https://github.com/<owner>/<repo>/releases/download/<tag>/<asset>`.
-
-## 2. Creating Repositories
-
-**New repos are PRIVATE by default.** Never pass `--public` / `"private": false` unless the user
-explicitly asks for a public repo in that turn. `gh repo create` without a visibility flag also
-defaults to private, so the rule is "omit the flag or say `--private`, never `--public`".
-
-**With gh:**
-
-```bash
-# Create a private repo and clone it (default)
-gh repo create my-new-project --private --clone
-
-# With description and license
-gh repo create my-new-project --private --description "A useful tool" --license MIT --clone
-
-# Under an organization
-gh repo create my-org/my-new-project --private --clone
-
-# From existing local directory
-cd /path/to/existing/project
-gh repo create my-project --source . --private --push
-```
-
-**With git + curl:**
-
-```bash
-# Create the remote repo via API — "private": true is the default, not an option
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/user/repos \
-  -d '{
-    "name": "my-new-project",
-    "description": "A useful tool",
-    "private": true,
-    "auto_init": true,
-    "license_template": "mit"
-  }'
-
-# Clone it
-git clone https://github.com/$GH_USER/my-new-project.git
-cd my-new-project
-
-# -- OR -- push an existing local directory to the new repo
-cd /path/to/existing/project
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/$GH_USER/my-new-project.git
-git push -u origin main
-```
-
-To create under an organization:
-
-```bash
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/orgs/my-org/repos \
-  -d '{"name": "my-new-project", "private": true}'
-```
-
-### Every new repo gets the mirror workflow (mandatory)
-
-A newly created repo ships with `.github/workflows/mirror.yml` — the push-triggered
-GitHub → gitee + gitcode mirror, byte-identical to the canonical copy in
-`cross-platform-git-mirror/templates/mirror.yml`. Same file name, same path, every repo.
-
-Copy it in and commit it on the repo's first push:
-
-```bash
-gh api -X PUT "repos/$OWNER/$REPO/contents/.github/workflows/mirror.yml" \
-  --input <(python -c 'import base64,json,sys; print(json.dumps({
-      "message": "ci: add mirror sync workflow for gitee/gitcode",
-      "content": base64.b64encode(open(sys.argv[1],"rb").read()).decode(),
-      "branch": sys.argv[2]}))' \
-      ~/.hermes/skills/cross-platform-git-mirror/templates/mirror.yml master)
-
-git add .github/workflows/mirror.yml
-git commit -m "ci: add mirror sync workflow for gitee/gitcode"
-git push
-```
-
-Two secrets must exist on every repo or the workflow hard-fails on the first push:
-`GITEE_TOKEN` and `GITCODE_TOKEN`. `gh secret set GITEE_TOKEN --body "$GITEE"` /
-`gh secret set GITCODE_TOKEN --body "$GITCODE"`. Without them the run stops at
-`::error::GITEE_TOKEN secret is missing` — that is intentional, not a bug to swallow.
-
-**Visibility propagates to the mirrors.** A private GitHub repo must get private gitee/gitcode
-repos — never create a public mirror of a private source. When creating the mirrors, pass the
-source repo's `private` flag through instead of hardcoding `false`:
-
-```bash
-# gitee — token in the body
-curl -X POST -H "Content-Type: application/json" \
-  -d "{\"name\":\"$REPO\",\"access_token\":\"$GITEE\",\"private\":$IS_PRIVATE,\"auto_init\":false}" \
-  https://gitee.com/api/v5/user/repos
-
-# gitcode — token in the `private-token` header, NOT the body
-curl -X POST -H "Content-Type: application/json" -H "private-token: $GITCODE" \
-  -d "{\"name\":\"$REPO\",\"private\":$IS_PRIVATE,\"auto_init\":false}" \
-  https://gitcode.com/api/v5/user/repos
-```
-
-See `cross-platform-git-mirror` for the full batch procedure, secret encryption, and the
-three-way SHA parity audit.
-
-### From a Template
-
-**With gh:**
-
-```bash
-gh repo create my-new-app --template owner/template-repo --public --clone
-```
-
-**With curl:**
-
-```bash
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/owner/template-repo/generate \
-  -d '{"owner": "'"$GH_USER"'", "name": "my-new-app", "private": false}'
-```
-
-## 3. Forking Repositories
-
-**With gh:**
-
-```bash
-gh repo fork owner/repo-name --clone
-```
-
-**With git + curl:**
-
-```bash
-# Create the fork via API
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/owner/repo-name/forks
-
-# Wait a moment for GitHub to create it, then clone
-sleep 3
-git clone https://github.com/$GH_USER/repo-name.git
-cd repo-name
-
-# Add the original repo as "upstream" remote
-git remote add upstream https://github.com/owner/repo-name.git
-```
-
-### Keeping a Fork in Sync
-
-```bash
-# Pure git — works everywhere
-git fetch upstream
-git checkout main
-git merge upstream/main
-git push origin main
-```
-
-**With gh (shortcut):**
-
-```bash
-gh repo sync $GH_USER/repo-name
-```
-
-## 4. Repository Information
-
-**With gh:**
-
-```bash
-gh repo view owner/repo-name
+gh repo view <o>/<r> --json defaultBranchRef,deleteBranchOnMerge,viewerPermission,isFork,parent
+gh api repos/<o>/<r> --jq '{private,allow_auto_merge,delete_branch_on_merge,permissions}'
 gh repo list --limit 20
-gh search repos "machine learning" --language python --sort stars
+gh search repos "query" --sort stars
 ```
 
-**With curl:**
+Enumerate **all** branches with `gh api repos/<o>/<r>/git/refs/heads` — the
+`/branches` endpoint returns only protected and default branches, so it reports
+a false "only master exists" when auditing leftovers.
+## Settings
 
 ```bash
-# View repo details
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO \
-  | python -c "
-import sys, json
-r = json.load(sys.stdin)
-print(f\"Name: {r['full_name']}\")
-print(f\"Description: {r['description']}\")
-print(f\"Stars: {r['stargazers_count']}  Forks: {r['forks_count']}\")
-print(f\"Default branch: {r['default_branch']}\")
-print(f\"Language: {r['language']}\")"
-
-# List your repos
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  "https://api.github.com/user/repos?per_page=20&sort=updated" \
-  | python -c "
-import sys, json
-for r in json.load(sys.stdin):
-    vis = 'private' if r['private'] else 'public'
-    print(f\"  {r['full_name']:40}  {vis:8}  {r.get('language', ''):10}  ★{r['stargazers_count']}\")"
-
-# Search repos
-curl -s \
-  "https://api.github.com/search/repositories?q=machine+learning+language:python&sort=stars&per_page=10" \
-  | python -c "
-import sys, json
-for r in json.load(sys.stdin)['items']:
-    print(f\"  {r['full_name']:40}  ★{r['stargazers_count']:6}  {r['description'][:60] if r['description'] else ''}\")"
+gh repo edit <o>/<r> --delete-branch-on-merge          # makes gh pr merge --delete-branch work
+gh repo edit <o>/<r> --enable-auto-merge               # optional; verify before relying on --auto
+gh repo edit <o>/<r> --default-branch main --add-topic rust,wasm
+gh api -X PATCH repos/<o>/<r> -f delete_branch_on_merge=true   # REST equivalent
 ```
 
-## 5. Repository Settings
+REST equivalents: `references/github-api-cheatsheet.md`. Visibility changes need
+`--accept-visibility-change-consequences`.
 
-**With gh:**
+## Branch protection, secrets, variables
 
+Branch protection: `gh api -X PUT repos/<o>/<r>/branches/<default>/protection`
+with `required_status_checks` (use **full check names**), `enforce_admins` and
+`required_pull_request_reviews`; read current state with `GET` on the same
+endpoint (token needs `administration:write`).
+
+Secrets and variables:
 ```bash
-gh repo edit --description "Updated description" --visibility public
-gh repo edit --enable-wiki=false --enable-issues=true
-gh repo edit --default-branch main
-gh repo edit --add-topic "machine-learning,python"
-gh repo edit --enable-auto-merge
+gh secret set NAME --body "value"      # or: gh secret set NAME < file
+gh secret list                          # names only, values never returned
+gh variable set NAME --body "value"
 ```
 
-**With curl:**
+Without `gh`, REST needs the repo public key
+(`GET /repos/<o>/<r>/actions/secrets/public-key`), libsodium `SealedBox`
+encryption, then `PUT …/actions/secrets/<NAME>` with `encrypted_value` +
+`key_id`. Prefer `gh secret set`.
+## Releases
 
 ```bash
-curl -s -X PATCH \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO \
-  -d '{
-    "description": "Updated description",
-    "has_wiki": false,
-    "has_issues": true,
-    "allow_auto_merge": true
-  }'
-
-# Update topics
-curl -s -X PUT \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github.mercy-preview+json" \
-  https://api.github.com/repos/$OWNER/$REPO/topics \
-  -d '{"names": ["machine-learning", "python", "automation"]}'
+gh release create v1.2.0 --generate-notes
+gh release create v1.2.0 ./dist/binary --title "v1.2.0" --notes "…"
+gh release list && gh release download v1.2.0 --dir ./downloads
 ```
 
-## 6. Branch Protection
+REST: `POST /repos/<o>/<r>/releases`, then upload the asset with a
+`Content-Type: application/octet-stream` POST to
+`uploads.github.com/repos/<o>/<r>/releases/<id>/assets?name=…`.
 
+## Actions, gists, CI
 ```bash
-# View current protection
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/branches/main/protection
-
-# Set up branch protection
-curl -s -X PUT \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/branches/main/protection \
-  -d '{
-    "required_status_checks": {
-      "strict": true,
-      "contexts": ["ci/test", "ci/lint"]
-    },
-    "enforce_admins": false,
-    "required_pull_request_reviews": {
-      "required_approving_review_count": 1
-    },
-    "restrictions": null
-  }'
-```
-
-## 7. Secrets Management (GitHub Actions)
-
-**With gh:**
-
-```bash
-gh secret set API_KEY --body "your-secret-value"
-gh secret set SSH_KEY < ~/.ssh/id_rsa
-gh secret list
-gh secret delete API_KEY
-```
-
-**With curl:**
-
-Secrets require encryption with the repo's public key — more involved via API:
-
-```bash
-# Get the repo's public key for encrypting secrets
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/secrets/public-key
-
-# Encrypt and set (requires Python with PyNaCl)
-python -c "
-from base64 import b64encode
-from nacl import encoding, public
-import json, sys
-
-# Get the public key
-key_id = '<key_id_from_above>'
-public_key = '<base64_key_from_above>'
-
-# Encrypt
-sealed = public.SealedBox(
-    public.PublicKey(public_key.encode('utf-8'), encoding.Base64Encoder)
-).encrypt('your-secret-value'.encode('utf-8'))
-print(json.dumps({
-    'encrypted_value': b64encode(sealed).decode('utf-8'),
-    'key_id': key_id
-}))"
-
-# Then PUT the encrypted secret
-curl -s -X PUT \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/secrets/API_KEY \
-  -d '<output from python script above>'
-
-# List secrets (names only, values hidden)
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/secrets \
-  | python -c "
-import sys, json
-for s in json.load(sys.stdin)['secrets']:
-    print(f\"  {s['name']:30}  updated: {s['updated_at']}\")"
-```
-
-Note: For secrets, `gh secret set` is dramatically simpler. If setting secrets is needed and `gh` isn't available, recommend installing it for just that operation.
-
-## 8. Releases
-
-**With gh:**
-
-```bash
-gh release create v1.0.0 --title "v1.0.0" --generate-notes
-gh release create v2.0.0-rc1 --draft --prerelease --generate-notes
-gh release create v1.0.0 ./dist/binary --title "v1.0.0" --notes "Release notes"
-gh release list
-gh release download v1.0.0 --dir ./downloads
-```
-
-**With curl:**
-
-```bash
-# Create a release
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/releases \
-  -d '{
-    "tag_name": "v1.0.0",
-    "name": "v1.0.0",
-    "body": "## Changelog\n- Feature A\n- Bug fix B",
-    "draft": false,
-    "prerelease": false,
-    "generate_release_notes": true
-  }'
-
-# List releases
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/releases \
-  | python -c "
-import sys, json
-for r in json.load(sys.stdin):
-    tag = r.get('tag_name', 'no tag')
-    print(f\"  {tag:15}  {r['name']:30}  {'draft' if r['draft'] else 'published'}\")"
-
-# Upload a release asset (binary file)
-RELEASE_ID=<id_from_create_response>
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Content-Type: application/octet-stream" \
-  "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RELEASE_ID/assets?name=binary-amd64" \
-  --data-binary @./dist/binary-amd64
-```
-
-## 9. GitHub Actions Workflows
-
-**With gh:**
-
-```bash
-gh workflow list
-gh run list --limit 10
-gh run view <RUN_ID>
+gh workflow list && gh run list --limit 10
 gh run view <RUN_ID> --log-failed
-gh run rerun <RUN_ID>
 gh run rerun <RUN_ID> --failed
-gh workflow run ci.yml --ref main
 gh workflow run deploy.yml -f environment=staging
 ```
 
-**With curl:**
+A specific PR's checks: `gh pr checks <N> --watch` (exit 8 = pending). Without
+`gh`, `GET /repos/<o>/<r>/actions/runs/<id>/logs` returns a zip — unzip and read.
+Failure triage table: `gh-pr-creation-workflow/references/ci-and-stale-prs.md`.
+Gists: `gh gist create script.py --public --desc "…"` (REST `POST /gists`).
 
+## Discussions
+
+A Discussion is for conversation (announcements, Q&A, show-and-tell, roadmap,
+polls); an Issue is for work (bugs, features with acceptance criteria). Don't
+file benchmark results as issues or reproducible crashes as discussions.
 ```bash
-# List workflows
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/workflows \
-  | python -c "
-import sys, json
-for w in json.load(sys.stdin)['workflows']:
-    print(f\"  {w['id']:10}  {w['name']:30}  {w['state']}\")"
-
-# List recent runs
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  "https://api.github.com/repos/$OWNER/$REPO/actions/runs?per_page=10" \
-  | python -c "
-import sys, json
-for r in json.load(sys.stdin)['workflow_runs']:
-    print(f\"  Run {r['id']}  {r['name']:30}  {r['conclusion'] or r['status']}\")"
-
-# Download failed run logs
-RUN_ID=<run_id>
-curl -s -L \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/runs/$RUN_ID/logs \
-  -o /tmp/ci-logs.zip
-cd /tmp && unzip -o ci-logs.zip -d ci-logs
-
-# Re-run a failed workflow
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/runs/$RUN_ID/rerun
-
-# Re-run only failed jobs
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/runs/$RUN_ID/rerun-failed-jobs
-
-# Trigger a workflow manually (workflow_dispatch)
-WORKFLOW_ID=<workflow_id_or_filename>
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/$OWNER/$REPO/actions/workflows/$WORKFLOW_ID/dispatches \
-  -d '{"ref": "main", "inputs": {"environment": "staging"}}'
+gh discussion create --repo <o>/<r> --category "Show and tell" \
+  --title "…" --body-file /tmp/body.md
+gh discussion list --repo <o>/<r>
+gh discussion comment <number> --repo <o>/<r> --body "…"
+gh discussion edit <number> --repo <o>/<r> --title "…"
 ```
 
-## 10. Gists
+`gh discussion` is a preview surface: `create`, `list`, `comment`, `edit`,
+`view`. Creating requires the `write:discussion` scope (classic PAT) or the
+Discussions read/write permission (fine-grained); a token with plain `repo` gets
+a misleading `NOT_FOUND … DIC_…` error, which is a scope problem, not a wrong
+ID. When the token comes from `GH_TOKEN`, `gh auth refresh` refuses — the user
+has to regenerate it. GraphQL (`createDiscussion`, `addDiscussionComment`,
+`closeDiscussion`, `reopenDiscussion`) is the only programmatic path.
+## Pitfalls
 
-**With gh:**
-
-```bash
-gh gist create script.py --public --desc "Useful script"
-gh gist list
-```
-
-**With curl:**
-
-```bash
-# Create a gist
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/gists \
-  -d '{
-    "description": "Useful script",
-    "public": true,
-    "files": {
-      "script.py": {"content": "print(\"hello\")"}
-    }
-  }'
-
-# List your gists
-curl -s \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/gists \
-  | python -c "
-import sys, json
-for g in json.load(sys.stdin):
-    files = ', '.join(g['files'].keys())
-    print(f\"  {g['id']}  {g['description'] or '(no desc)':40}  {files}\")"
-```
-
-## Quick Reference Table
-
-| Action | gh | git + curl |
-|--------|-----|-----------|
-| Clone | `gh repo clone o/r` | `git clone https://github.com/o/r.git` |
-| Create repo | `gh repo create name --public` | `curl POST /user/repos` |
-| Fork | `gh repo fork o/r --clone` | `curl POST /repos/o/r/forks` + `git clone` |
-| Repo info | `gh repo view o/r` | `curl GET /repos/o/r` |
-| Edit settings | `gh repo edit --...` | `curl PATCH /repos/o/r` |
-| Create release | `gh release create v1.0` | `curl POST /repos/o/r/releases` |
-| List workflows | `gh workflow list` | `curl GET /repos/o/r/actions/workflows` |
-| Rerun CI | `gh run rerun ID` | `curl POST /repos/o/r/actions/runs/ID/rerun` |
-| Set secret | `gh secret set KEY` | `curl PUT /repos/o/r/actions/secrets/KEY` (+ encryption) |
+1. Creating a public repo when private was meant — omit the flag or pass
+   `--private`.
+2. Forking a repo you already own, or one with forking disabled.
+3. Branch audits through `/branches` instead of `/git/refs/heads`.
+4. Assuming `gh pr merge --delete-branch` works — it needs the repo's
+   `delete_branch_on_merge` setting.
+5. Tokens in remote URLs or `curl` query strings.
+6. Trusting `gh repo view --json allowAutoMerge` — that field does not exist; use
+   `gh api repos/<o>/<r> --jq .allow_auto_merge`.
+7. Editing a repo that holds only deployed build output — find the source repo
+   first (`gh-pr-creation-workflow/references/network-and-api-fallbacks.md`).
