@@ -1,133 +1,100 @@
 ---
 name: blocked-page-recovery
-description: "Use when a fetch fails: 403/429, paywall, WAF, bot wall."
-version: 1.0.0
+description: "Use when a fetch returns 403/429, a Cloudflare or bot wall, or a paywall. Work down an archive/API ladder with provenance instead of retrying."
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [Research, Archives, Wayback, Paywall, WAF, Fallback]
-    related_skills: [grounded-citations]
+    related_skills: [chrome-devtools-protocol]
 ---
 
 # Blocked-Page Recovery
 
-When a page won't fetch — 403/429, Cloudflare "Just a moment...", a paywall,
-or a bot-detection interstitial — don't give up and don't loop on the same
-URL. Third-party services often hold a **copy** of the page. Work down this
-ladder, cheapest first.
+When a page won't fetch — 403/429, "Just a moment…", a bot wall, a paywall —
+don't loop on the same URL and don't hammer the origin. A third party often
+holds a **copy**. Work this ladder, cheapest first.
 
-## The ladder
+## Stop conditions — read before climbing
 
-```
-1. Wayback Machine  — archive.org "available" API  (snapshot + timestamp)
-2. archive.today    — domain rotation: archive.ph → .md → .li → .is
-3. Jina Reader      — only if JINA_API_KEY is set  (live server-side render)
-4. API-first pivot  — look for /api/, /graphql, .json, or RSS on the same host
-5. Real browser     — browser tool as the last, most expensive resort
-```
+- **A paywall or "subscribers only" is an authorization decision by the
+  publisher.** An archive of that URL is the publisher's own past distribution of
+  the same gated content — reading what the paywall withholds through it is
+  circumvention, not recovery. If the page is gated: say so, offer the public
+  parts (headline, lede, metadata, the publisher's own RSS/API), and stop. Use a
+  subscription only if the user actually has one; never guess or fabricate
+  credentials.
+- **Never defeat bot protection, CAPTCHAs or login walls** — no rotating
+  User-Agents, no spoofed headers, no solved challenges, no session replay to
+  impersonate an entitled reader. When the ladder is exhausted the answer is
+  "this page is gated — here is what I can legitimately reach", not "try
+  harder".
+- **Public archives and public APIs are fair game**: Wayback, archive.today,
+  open RSS/sitemaps, and any endpoint the publisher serves without a session.
+- **2 failed attempts per route, then move down** — retries against a 403/429
+  make the block worse and can rate-limit your IP across routes.
+- **Respect robots/ToS signals on the origin**; archives exist for content you may not fetch directly.
 
-Run it in one shot with the bundled script:
+## The ladder — one script
 
 ```bash
 python3 scripts/recover_page.py "https://example.com/blocked-article" --json
 ```
 
-The script tries each route in order, validates every body (see "Fake
-successes" below), and prints the first genuine hit with its provenance.
+Stdlib only. Flags: `--json` (metadata), `--out FILE` (write the body),
+`--timeout N` (default 25). Exit 0 = recovered, 1 = nothing worked, 2 = bad
+invocation. It walks every route in order, validates each body, and prints the
+first genuine hit with its provenance.
+
+```
+1. Wayback Machine  - archive.org "available" API, then the closest snapshot; CDX
+                       (.../cdx/search/cdx?url={URL}&output=json) to enumerate; CDX
+                       503s under load -> back to `available`, don't retry
+2. archive.today    - domain rotation: archive.ph -> .md -> .li -> .is (rate-limits hard)
+3. Jina Reader      - only if JINA_API_KEY is set (live server-side render; anonymous 401)
+4. API-first pivot  - /api/, /graphql, .json, RSS/Atom, /sitemap.xml on the same host
+5. Real browser     - last, most expensive resort; same rules still apply
+```
+
+WAFs protect the HTML surface far more aggressively than the data endpoints
+behind it, so route 4 is the highest-value manual step — and public endpoints are
+not a bypass. Stdlib-only calls:
+
+```bash
+curl -sL "https://archive.org/wayback/available?url={URL}"
+curl -sL --max-time 20 "https://archive.ph/newest/{URL}"   # rotate domains
+curl -s -H "Authorization: Bearer $JINA_API_KEY" "https://r.jina.ai/{URL}"
+```
 
 ## Provenance discipline (non-negotiable)
 
-Every recovered copy carries a provenance you MUST preserve when citing:
-
 | Route | Provenance | How to cite |
 |-------|-----------|-------------|
-| Wayback / archive.today | `snapshot` | Cite WITH the snapshot date: "as archived 2026-08-06". Never present a snapshot as the live page — it may be stale. |
-| Jina Reader | `live` | Server-side re-render of the live page; cite normally. |
-| Live fetch / browser | `live` | Cite normally. |
+| Wayback / archive.today | `snapshot` | Cite **with the snapshot date**: "as archived 2026-08-06". Never present a snapshot as the live page — it may be stale. |
+| Jina Reader / live fetch / browser | `live` | Cite normally. |
 
 If the user needs *current* data (prices, availability, breaking news), a
 snapshot is context, not an answer — say so explicitly and note its age.
 
-## Manual routes
-
-### 1. Wayback Machine (best provenance, try first)
-
-```bash
-# Discovery: returns closest snapshot URL + timestamp as JSON
-curl -sL "https://archive.org/wayback/available?url={URL}"
-# Then fetch archived_snapshots.closest.url
-```
-
-For enumerating many snapshots (or recovering deleted pages), the CDX index:
-
-```bash
-curl -sL "https://web.archive.org/cdx/search/cdx?url={URL}&output=json&limit=10"
-```
-
-CDX intermittently returns 503 under load — if it does, fall back to the
-`available` API; don't retry-hammer it.
-
-Works for: any publicly crawled URL. Fails for: robots-blocked sites,
-never-crawled URLs, JS-only SPAs (snapshots don't render).
-
-### 2. archive.today (paywalls, deleted content)
-
-User-submitted archives — often has paywalled news articles Wayback lacks.
-Rate-limits aggressively (429) and rotates domains, so iterate:
-
-```bash
-for d in archive.ph archive.md archive.li archive.is; do
-  curl -sL --max-time 20 "https://$d/newest/{URL}" -o ~/.hermes/cache/scratch/page.html \
-    -w "%{http_code}" && break
-done
-```
-
-**Validate the body, not the status code** — a 429 still ships several KB of
-rate-limit HTML that looks like a success to a size check alone.
-
-### 3. Jina Reader (requires JINA_API_KEY)
-
-`r.jina.ai` re-renders the live page in a real browser server-side and
-returns markdown. Anonymous access is dead (401 → Turnstile); a key is
-required:
-
-```bash
-curl -s -H "Authorization: Bearer $JINA_API_KEY" "https://r.jina.ai/{URL}"
-```
-
-Handles JS SPAs that archives can't. Skip this route entirely when the env
-var is unset.
-
-### 4. API-first pivot
-
-WAFs protect the HTML surface far more aggressively than the data endpoints
-behind it. After 2-3 blocked attempts on a site, stop fighting the HTML and
-look for:
-
-- `/api/...`, `/graphql`, or `.json` variants of the page URL
-- An RSS/Atom feed (`/feed`, `/rss`, `<link rel="alternate">` in any copy
-  you did recover)
-- A sitemap (`/sitemap.xml`) revealing canonical URLs that may not be gated
-
 ## Fake successes — routes that LIE
 
-These return HTTP 200 with a plausible body that is NOT the page. The script
-rejects them automatically; reject them manually too:
+These return HTTP 200 with a plausible body that is NOT the page:
 
 - **Google Cache is dead** (since mid-2024). `webcache.googleusercontent.com`
-  returns 200 + tens of KB, but it's a Google Search interstitial with a JS
-  redirect, not a cache. Never use it.
+  returns 200 + tens of KB of Google Search interstitial with a JS redirect.
+  Never use it.
 - **AMP caches** (`*.cdn.ampproject.org`) mostly return a ~300-byte
-  `<title>Redirecting</title>` meta-refresh stub pointing back at the
-  original (blocked) URL. Treating that as success creates a fetch loop.
-- **Rate-limit bodies**: archive.today 429 pages are multi-KB HTML. Check for
-  the target's actual content (title words, expected strings), not just size.
+  `<title>Redirecting</title>` meta-refresh stub pointing back at the original
+  (blocked) URL — treating that as success creates a fetch loop.
+- **Rate-limit bodies**: archive.today 429 pages are multi-KB HTML. Validate
+  against the target's actual content, not just size or status code.
 
-Detection heuristics the script applies: body under a per-route byte floor;
-meta-refresh/JS-redirect stubs whose target is the original host; interstitial
-titles ("Just a moment", "Redirecting", "Google Search", "Attention Required").
+`recover_page.py` rejects these via per-route byte floors, interstitial titles
+("Just a moment", "Redirecting", "Google Search", "Attention Required") and
+redirect stubs whose target is the original host. Reject them by hand too when
+running routes manually.
 
 ## Proxy relays: don't
 
@@ -135,3 +102,19 @@ Generic "web proxy" relays are man-in-the-middle by construction. Never send
 cookies or Authorization headers through one, and don't use them for anything
 the user will rely on — provenance is unverifiable. Prefer archives, which at
 least timestamp their copies.
+
+## Resource lifecycle
+
+`recover_page.py` owns nothing beyond the file you pass `--out`. Route 5 does:
+a browser, tab, port or container you launch is yours to close on **every** exit
+path, read back by exact id before you call it done, and retained only if the user
+explicitly asked. Policy: [`agent-skills-source-sync`](../../agent-skills-source-sync/SKILL.md#临时验证资源生命周期硬规则-3-细则).
+
+## Not this skill
+
+- A page that loads fine but you want structured data → `web_extract` /
+  `browser_exec`.
+- Browser you must drive (login state, clicks, uploads) → `browser_exec`, or
+  `web/chrome-devtools-protocol` for raw CDP.
+- Blocking caused by your own tooling (proxy, firewall, offline machine) →
+  diagnose that first; it is not a site block.

@@ -1,194 +1,63 @@
 ---
 name: agent-skills-source-sync
-description: 对账并修复 `.agents/skills/*/SKILL.md` 中过时的版本号/数值声明，与本地源仓库真实状态保持一致。任何打开浏览器或新建 tab、启动临时容器、服务或其他进程做测试验证的任务，也必须加载本 skill 的临时资源生命周期硬规则：验证结束（包括失败、超时、中断、取消）后回收本任务创建的全部资源，并核验无遗留。
+description: "Use when auditing or updating skill documents against their source repositories: stale versions, API claims, paths, counts, links and entry-point duplication. Not the entry point for ordinary browsing or app work."
 ---
 
-# Agent Skills 与源仓库对账
+# Skill documents → source verification
 
-## 仓库硬规则（2026-10-10 user 钦定，每次会话注入）
+## 仓库硬规则
 
-1. **不得自动新增 skill**：平时任务中 agent 不允许自行创建新 skill，只有用户明确要求时才创建。
-2. **禁止临时文件进 `.agents`**：`.pyc` / `__pycache__/` / 缓存 / scratch 输出一律不得写入 `.agents/` 目录；临时产物写到 `~/.hermes/cache/scratch`（$TMPDIR）。`.gitignore` 已覆盖 `*.pyc` + `__pycache__/`，新增类别的临时产物先把模式补进 `.gitignore`。
-3. **临时验证资源必须回收**（2026-10-18 user 追加）：无论是打开浏览器/新建 tab，还是启动临时容器做测试验证，或为验证起任何其他进程，**验证完成后必须释放回收**。判定与清理细则见下一节——失败、超时、中断、取消同样要回收，不只是任务成功那一条路径。
+- 不自动新增 skill；只有用户明确要求时才创建。优先精简现有入口，删除重复路径。
+- 临时文件、缓存、`.pyc`、`__pycache__` 不进入 `.agents`；探针和报告写到
+  `~/.hermes/cache/scratch`，删除自己创建的临时资源，不清理别人的工作。
+- 先记录现有改动和用户排除的路径；受保护目录核对完整文件集合及内容指纹，不能只查 Git diff。
+- 所有临时验证资源必须回收；失败、超时、中断、取消同样适用。
 
 ### 临时验证资源生命周期（硬规则 3 细则）
 
-**覆盖范围**：凡是"本次任务为了验证而创建"的都算 —— 浏览器实例及其中新开的 tab/context、无头 renderer 与 CDP/WebSocket 会话、临时容器及其**本任务自建**的 volume/network、起在本任务里的 HTTP/测试服务、watcher、代理/隧道，以及其它子进程与后台进程。
+1. **范围**：本任务创建的浏览器实例、tab/context、renderer、CDP/WebSocket，临时
+   容器及自建临时 volume/network，HTTP/测试服务、watcher、代理/隧道和其他子/后台进程。
+2. **先登记再使用**：记录原有资源基线和自己创建的 PID/进程组、启动时间/命令、
+   会话/targetId、容器 ID、端口及路径；创建时就注册 `finally`、RAII、context manager
+   或 `EXIT/INT/TERM` trap，不等验证完成再补。无法捕获的退出由父/监督进程按登记表兜底。
+3. **只清自己的**：借用浏览器只关自己创建的 tab/窗口和 socket；借用服务、容器、
+   目录不等于拥有它们。禁止退出用户原有浏览器、删共享数据或按名字批量 `pkill/killall`。
+4. **有界终止**：先正常关闭/SIGTERM，明确等待上限；核对进程身份防 PID 复用，
+   超时只强制终止自己的存活进程。父 PID 退出不等于其 renderer/helper 子进程也退出。
+5. **停掉不等于回收**：临时容器停止后删除，并删除本任务自建的临时卷/网络；
+   不运行 `docker system prune`、全局 volume prune 或 `agent-browser close --all`。
+6. **逐项读回**：浏览器仍存活时确认精确 targetId 消失；核验 PID/进程组及子进程
+   已退出、任务监听端口相对基线已释放、容器已删除，再删除自己的临时 profile/路径。
+   数量对上、请求超时或清理命令退出 0 都不是充分证据。
+7. **主 agent 验收**：子 agent 上报创建/回收的精确标识及证据，主 agent 亲自核对。
+   遗留资源必须点名并说明原因，不能报验证已全部完成。
+8. **唯一保留条件**：用户明确要求留存；报告归属、原因、访问地址/路径和停止方式。
 
-**先登记，再使用**：创建的同时记录基线（任务开始前的容器列表、监听端口、tab 列表等）和自己的标识 —— 自己的 PID / 进程组 / 会话 id / tab targetId / 容器 id / 端口 / 路径；进程还要记录启动时间/命令，发信号前核对，避免 PID 复用后误杀。登记必须早于"等它起来"。同时立刻注册清理钩子（`finally` / RAII / `contextmanager` / `EXIT INT TERM` trap），不要等验证跑完再想起来补。SIGKILL 等无法捕获的退出不能依赖进程内钩子，由仍存活的父进程/监督进程按登记表回收并核验。
+## 最短对账流程
 
-**借用 ≠ 自建**：
-- 借用用户已存在的浏览器或服务时，只关自己开的 tab/窗口、只断自己的 socket，**不要**动浏览器本身；只有本任务创建的浏览器实例才允许退出。
-- 借用容器/服务时同理，只清理自己那一份。
+1. 枚举所有真实 `SKILL.md`（包括目录下的子 skill），解析 frontmatter、按入口和
+   支撑文件分别计量；先保存基线，再改内容。文件大或没有入链都不等于无用。
+2. 找到声明对应的真实源仓库和目标版本。区分工作树、已提交源码与已发布包，
+   不把本地尚未发布的 API 写成已可用于 crates.io 用户。
+3. 通过源文件、编译器生成的 API、命令 `--help` 或最小可运行探针核对存疑声明。
+   Rust workspace 用 `cargo metadata --no-deps --format-version 1` 查成员/路径；
+   派生宏 API 必须查展开/生成文档，不能因 `.rs` 文本没有方法就判它不存在。
+4. 按职责选择一个入口，保留触发条件、最短执行路径、错误处理和可验证结果。
+   API 细节按需链接；删除重复教程、历史执行记录、无关关键词和失效路径，不藏进大型档案。
+5. 删除入口前搜索所有引用，先保留独有能力并修复可改的调用方。受保护文件仍依赖
+   的名字、路径或锚点必须保留；没有工具/凭据不能单独作为删除独有能力的理由。
+6. 只更新已核对的声明，其他存疑项明确标注并继续验证。比较语义条目而非重排整篇，
+   不误改第三方依赖版本，不用原始文本正则重构 Rust 源码。
 
-**停止 ≠ 删除**：临时容器要 `stop` 之后 `rm`，连同本任务自建的临时 volume / network 一起；**禁止** `docker system prune` / `docker volume prune` 这类全局清理。
+## 命中与验收
 
-**只杀自己那几个**：先对精确目标发礼貌终止（SIGTERM / `close`），有界等待（给出明确秒数上限），超时才对**自己那个** PID 升级为强制终止。禁止按名字批量杀：`pkill` / `killall` / `agent-browser close --all` / `killall chrome` 一律不用 —— 它们会命中用户任务开始前就存在的浏览器、服务和数据。禁止停掉或删掉任务开始前就存在的任何东西。
-
-**必须有清理证据**：报告"验证完成"之前，所有资源逐条对上账：
-- 精确标识已消失（不是"数量对得上"）；并发任务同时在跑时，数量相同但可能不是你的，只按精确标识核对。
-- 自己的 PID / 进程组连同子进程都已退出。
-- 端口相对**基线**已释放（不是"我用的那个不响了"）。
-- 容器已 `rm`，只是 `stop` 不算。
-- 没清掉的，直接在报告里点名剩下哪些标识、为什么没清掉 —— 不要报成"已完成"。
-
-**子 agent 负责回收，主 agent 负责验收**：子 agent 结束时必须上报自己创建过什么、回收了什么、证据是什么；主 agent 在收尾前亲自核对，不采信"我清干净了"这句话。
-
-**唯一例外**：用户明确要求"留着别关"时才保留，并同时写清归属（谁的）、保留原因、访问地址（端口/URL/路径）、以及怎么关掉。
-
-## 适用场景
-- `.agents/skills/*/SKILL.md` 文档中声明了具体版本号（如 `euv = "0.13.3"`）、class 计数、组件计数、子 crate 列表等
-- 这些声明可能因为源仓库升级而漂移
-- 用户要求 "同步"、"对账"、"检查版本"、"更新 skill 文档"
-
-## 核心流程
-
-### 1. 定位源仓库
-- 文档中通常会显式声明源路径，例如 `/d/code/euv/Cargo.toml`
-- 确认 Cargo.toml / package.json 等版本清单文件存在
-
-### 2. 提取源真实状态
-```bash
-# 版本号
-grep -E '^(version|euv) *=' Cargo.toml
-
-# Workspace 子 crate 列表
-sed -n '/^\[workspace\]/,/^\[/p' Cargo.toml
-
-# 计数类（class 宏、组件、模块等）
-grep -c '^pub c_[a-z_]* *{$' ui/src/style/class/fn.rs  # class!
-ls -d ui/src/component/*/ | wc -l                      # 组件
-
-# proc_macro 计数（用 -c 而不是 wc -l，处理跨行 #[proc_macro]）
-grep -cE '^#\[proc_macro' macros/src/lib.rs
-```
-
-### 3. 扫描所有 skills 中的引用
-```bash
-# 找所有引用了该库版本的 SKILL.md
-grep -rn '"0\.[0-9]*\.[0-9]*"' .agents/skills/*/SKILL.md
-
-# 找所有版本相关的描述行
-grep -rn 'euv *=' .agents/skills/*/SKILL.md
-```
-
-### 4. 逐项对账，输出表格
-| Skill | 检查项 | 文档值 | 实际值 | 状态 |
-
-### 5. 精准 patch（用 `replace_all: false`，匹配前必须读文件确认）
-```bash
-# 必读后改
-sed -n '5,15p' .agents/skills/rust-standards/SKILL.md
-# 然后 patch 精确字符串
-```
-
-### 5.5 大框架 skill 用 progressive loading 拆分（不是单文件膨胀）
-框架类 skill（euv / hyperlane / rust 这类）源码 2000+ 个 pub item + 100+ 坑，单 SKILL.md 写到 1000 行也讲不完。**正确三层结构**：
-| 层 | 文件 | 内容 | 触发 |
-|---|---|---|---|
-| 1 入口 | `<framework>/SKILL.md`（薄，~150 行） | trigger + 决策树 + 跳转表 + 5 行最小调用 | 任何涉及该框架的任务必加载 |
-| 2 规范 | `<framework>-standards/SKILL.md`（~400 行） | workspace layout + 跨 crate 规则 + version bump + publish 顺序 | 涉及 monorepo 跨 crate 操作时加载 |
-| 3 API 速查 | `<framework>/references/api-<crate>.md`（每 crate 一文件，按需） | 完整 pub API（自动生成）+ pitfalls | 写具体代码时按需加载 |
-
-API 速查文档**自动生成**（Python os.walk + 多行 regex 跑一次出全部 pub item），源码 bump 后 regenerate 即可。生成脚本可放 `<framework>/scripts/gen_api_docs.py`（复用本 skill 的"提取源真实状态"流程）。
-
-### 6. Commit + Push
-```bash
-cd <project root>
-git add .agents/skills/<changed>/SKILL.md
-git diff --cached --stat  # 确认只暂存自己的修改
-git commit -m "fix(<skill>): bump version reference X.Y.Z -> A.B.C"
-git push origin <branch>
-```
-
-## 易踩的坑（Pitfalls）
-
-### ❌ grep 模式错误导致假阴性
-错误：`grep -c '^class! {$' file.rs`  → 1（只匹配宏入口）
-正确：`grep -c '^pub c_[a-z_]* *{$' file.rs` → 实际宏展开后的 304 个 class
-**经验：当文档声称"宏展开的 N 个"时，必须搜宏展开后的 token 模式，不是宏定义本身**
-
-### ❌ 误把 crate 依赖版本当作主库版本
-例如：某 skill 提到 `reqwest 0.12.28`，这是 **reqwest 自身版本**，不要替换为 euv 版本
-**经验：grep 出来的版本号必须先看上下文，确认是哪个 crate 的版本**
-
-### ❌ git add 看不到改动
-症状：`git status` 显示 `M` 但 `git add` 后说 "no changes added"
-原因：之前已经被 staged 过但没 commit；或被 `.gitignore` 局部忽略
-解决：直接 `git add -f <file>` 强制加入
-
-### ❌ sed -n 范围匹配错过内容
-如果文件用 `## Header` 而非 `[section]`，sed 区间匹配失效 → 用 `grep -n` 定位行号
-
-### ❌ 框架类 skill 写了具体数字就会过期
-class 数（euv 的 365）、模块数（engine 的 21）、page 数（example 的 34）、proc_macro 数（hyperlane-macros 的 77）这些**全都会随源码升级而变**。
-**正确做法**：文档里写 grep 命令 + "以源码为准"，不写死数字。例：
-```
-euv-macros proc_macro 数: grep -cE "^#\[proc_macro" macros/src/lib.rs 即得
-```
-**错误做法**：写 `euv-macros 8 个 proc_macro`——下次 bump 就过期。
-
-### ❌ os.walk 漏掉 sub-crate
-monorepo 里 `core/` `macros/` `ui/` 是 workspace root 的 **sibling**，不是 `root/src/` 的子目录。`os.walk(root/src)` 只 yield 1 个目录。**正确做法**：`os.walk(root)` 跨所有 sub-crate，且跳过 `tests/` `examples/` `benches/` `target/` `.git/`。验证：`grep -cE "^members" Cargo.toml` 拿 member 列表。
-
-### ❌ 多行 pub item regex 失效
-pub fn 常在 `impl.rs` 多行展不开，`^\s*pub fn` 单独行匹配不上。**正确 regex**（多行 + 跳过 impl 块）：
-```python
-r'^\s*pub(\s*\([^)]*\))?\s+((?:async\s+|const\s+|unsafe\s+)?(?:fn|struct|enum|trait|type|static|mod|macro_rules!))\s+([A-Za-z0-9_!]+)'
-```
-在 `os.walk` 遍历的每个 `.rs` 文件全文 multi-line 扫描（`re.finditer(..., re.MULTILINE | re.DOTALL)`）。impl 块内的 pub fn 是 method，不是"模块 pub API surface"——要剔除。
-
-### ❌ 签名截取的深度计数顺序
-写 pub item 签名提取器时，**终止符判断必须在括号深度更新之前**，否则函数体开头的 `{` 会被当成括号吃掉，签名永远不终止（会一路吞到下一个 `;`）：
-```python
-# 错：先执行 if c in "([{": depth += 1，'{' 已被当成括号
-# 对：
-if depth <= 0 and c in ";{":   # 先判终止
-    ...
-if c in "([{": depth += 1
-elif c in ")]}": depth -= 1
-```
-另有 `= const { .. };` 这类值块属于声明的一部分，要跟到配对 `}` 并带上 `;`，否则会截成 `= const {`。
-
-**经验：写完提取器必须拿它反向重建已有文档做自检**（`gen.rerender() == 旧文件`），90%+ 逐条一致才说明风格复刻正确，再拿去做 diff。否则分不清「真漂移」和「自己风格写错」——这比不写提取器更危险。
-
-### ❌ 用「重新生成」做对账 = 制造假 diff
-`os.walk` 的遍历顺序决定 section 顺序，按字母序重排会一次改动上百行但语义零变化（euv 的 api-ui.md 曾出现 53 删/210 增而真实漂移为 0）。**对账要按 (section, kind, name) 三元组比对条目集合，不要按行 diff 整个文件。**
-
-### ❌ markdown 表格单元格里的 shell 管道符
-`grep ... | wc -l` 这类「验证命令」写在表格里时，管道若未转义，读者复制执行会把管道喂给 grep。这类「数字 + 验证命令」表格恰恰是防漂移的关键，值得单独跑一遍确认每条命令输出 == 表里数字。
-
-### ❌ proc_macro 提取正则不够激进
-77 个 proc_macro 分散在 macros/src/lib.rs 里，被大量 doctest 注释和空白隔开。**工作 regex**：
-```python
-r'#\[proc_macro(?:_attribute)?[^\]]*\][\s\S]{0,200}?pub fn ([A-Za-z0-9_]+)\s*\(([^)]*)\)'
-```
-注意：`{0,200}?` 非贪婪窗口 + `[\s\S]` 跨行，捕获 `fn_name` + 签名 `(attr: TokenStream, item: TokenStream)`。
-
-### ❌ 删除大段 section 后子编号没顺移
-当你删 `## 4` 把后面 `## 13.x` 改成 `## 6.x` 时，所有 `### 13.1` `### 13.2` 等子章节必须一起改；Index 表里的 `[§13 Monorepo](#13-monorepo)` anchor 也得改。漏一处就 anchor 死链。**正确流程**：先 grep `### 1[3-9]\.` 拿到所有编号，再 sed 一次性替换；改完用 `grep -nE "^## "` 验证 §3/§4/§5/§6/§7 编号连续无跳号。
-
-### ❌ Index 表 anchor 死链
-文档顶部 Index 表的链接 `(#13-monorepo-layout--internal-deps)` 是 hand-written，不是从 section heading 自动生成。删/移 section 后，anchor 不会自动跟。**必跑验证**：用脚本 `grep -nE '^\(#?[0-9]+-'` 把所有 anchor 链接 dump 出来，跟实际 `^## N.` 对照。
-
-### ❌ write_file 对超大已有文件"沉默成功"
-旧 SKILL.md 800+ 行时，write_file 新内容后 read_file 可能仍返回旧版（缓存/原子写竞争）。**正确做法**：
-1. 先 `wc -l` 看旧大小；
-2. patch 用 `replace_all: false` 精准替换，每改一个 section 立刻 read 验证；
-3. 全文 rewrite 只用于 < 300 行的薄 skill；大文件用 patch 串行修改。
-
-### ❌ description 里漏掉 frontmatter 的 description
-patch `## X` 章节时经常忘改 frontmatter 的 `description:`——它也含具体数字。**必查**：每次改完用 `grep -nE '^\d+(\.\d+)?( 个| crates|模块| items| pub)` .agents/skills/*/SKILL.md` 做最后一道 pass。
-
-### ❌ 把"事件叙事"和"current state"混在一起
-PR #238 / #220 / #34 的引用是 past-incident（保留）。但 "monorepo 内部 6 个 crate" 这种是 current state——必须随源码改。**判别**：含 PR 号/日期/ticket ID → 事件叙述（保留）；含具体数字/版本号 → current state（必须对账）。
-
-## 验证清单（Commit 前自检）
-- [ ] 所有引用的版本号已与 Cargo.toml 对齐
-- [ ] 计数类（class/组件/sub-crate）已用 grep 二次确认
-- [ ] 依赖 crate 的版本号（如 reqwest）未误改
-- [ ] diff 干净，只包含目标文件
-- [ ] commit message 明确说明 bump 方向
-- [ ] **最后一道全 grep pass**：跑 `grep -nE '(\d+ 个 \w+|~?\d+ 项|crates|members)' .agents/skills/*/SKILL.md` 把所有数字/列表声明列出来，逐个跟源码实际值对照
-- [ ] **Index 表 anchor 验证**：跑 `grep -nE '\[.*\]\(#' .agents/skills/*/SKILL.md` 列所有 anchor 链接，确认每条都对应一个 `^## N.` heading
-- [ ] **section 子编号顺移**：如果动了 §X 的位置，所有 `### X.Y` 跟着改，验证 `grep -nE '^### ' .agents/skills/*/SKILL.md` 输出编号连续无跳号
+- 描述开头直接说明任务意图；把邻近但不适用的场景排除，避免任意工具可用就加载。
+- 为实际意图准备中英文正例和相邻反例。让独立评审只看描述和问题选择入口，
+  再与预先固定的期望比较；歧义改描述后重测，不改期望凑通过。
+- YAML、名称唯一性、相对链接、锚点、代码围栏、删除引用及受保护指纹都用脚本验。
+- [结构审计](../../scripts/audit_skills.py) 与 [锁文件同步](../../scripts/update_skill_lock.py)
+  分别验证文档和实际注册表；`--check` 必须在存在漂移时真失败，重复同步不得再改字节。
+- 体积报告区分入口和支撑文件，不能把全文搬进 references 后声称总库变小。
+- 命中回归只证明这些用例，不代表线上实际命中率。网络/凭据缺失路径要报未验证。
+- 暂存精确路径，跑 `git diff --cached --check` 和英文提交检查；`.agents` 按
+  [Git 规范](../git-standards/SKILL.md) 直推，再读回远端精确版本与内容。

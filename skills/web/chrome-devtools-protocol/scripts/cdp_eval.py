@@ -85,7 +85,7 @@ def main():
     args = ap.parse_args()
 
     ws_url = args.ws or discover_page_ws(args.port)
-    cmds = [["Page.enable"]]
+    cmds = [["Page.enable", None]]
     if args.url:
         cmds.append(["Page.navigate", {"url": args.url}])
         cmds.append(["Runtime.evaluate", {"expression": "(async()=>{for(let i=0;i<40;i++){if(document.readyState!=='loading')break;await new Promise(r=>setTimeout(r,100));}return document.readyState;})()", "awaitPromise": True, "returnByValue": True}])
