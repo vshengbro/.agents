@@ -23,6 +23,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.dont_write_bytecode = True
 SCRIPTS_DIR = Path(__file__).resolve().parent
 FIXTURE_ROOT = Path.home() / ".hermes" / "cache" / "scratch"
 FIXTURE_ROOT.mkdir(parents=True, exist_ok=True)
