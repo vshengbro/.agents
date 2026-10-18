@@ -1,7 +1,7 @@
 ---
 name: findmy
-description: "Track Apple devices/AirTags via FindMy.app on macOS."
-version: 1.0.0
+description: "Use when locating an Apple device, item, or AirTag through Find My on macOS. 查找 定位 设备 位置。"
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 platforms: [macos]
@@ -12,120 +12,87 @@ metadata:
 
 # Find My (Apple)
 
-Track Apple devices and AirTags via the FindMy.app on macOS. Since Apple doesn't
-provide a CLI for FindMy, this skill uses AppleScript to open the app and
-screen capture to read device locations.
+Apple ships no Find My CLI or API, and FindMy.app has **no AppleScript
+dictionary** (no `.sdef`, no `OSAScriptingDefinition` — verified on this
+machine). The only route is UI automation plus reading the screen. Do not write
+AppleScript that "tells FindMy to do something" — it exposes no commands.
+
+Sibling skills: Notes → `apple-notes`, Reminders → `apple-reminders`,
+messages → `imessage`.
 
 ## Prerequisites
 
-- **macOS** with Find My app and iCloud signed in
-- Devices/AirTags already registered in Find My
-- Screen Recording permission for terminal (System Settings → Privacy → Screen Recording)
-- **Optional but recommended**: Install `peekaboo` for better UI automation:
-  `brew install steipete/tap/peekaboo`
-
-## When to Use
-
-- User asks "where is my [device/cat/keys/bag]?"
-- Tracking AirTag locations
-- Checking device locations (iPhone, iPad, Mac, AirPods)
-- Monitoring pet or item movement over time (AirTag patrol routes)
-
-## Method 1: AppleScript + Screenshot (Basic)
-
-### Open FindMy and Navigate
+* macOS with Find My installed and iCloud signed in, with the devices/AirTags
+  already enrolled in Find My
+* Screen Recording permission for the terminal that captures the window
+  (System Settings → Privacy & Security → Screen Recording), granted and the
+  terminal reopened
+* Optional but better: `brew install openclaw/tap/peekaboo` for AX-driven
+  clicking and annotated captures
 
 ```bash
-# Open Find My app
-osascript -e 'tell application "FindMy" to activate'
-
-# Wait for it to load
-sleep 3
-
-# Take a screenshot of the Find My window
-screencapture -w -o /tmp/findmy.png
+pgrep -x FindMy                          # already running?
+ls -d /System/Applications/FindMy.app     # bundle id: com.apple.findmy
 ```
 
-Then use `vision_analyze` to read the screenshot:
-```
-vision_analyze(image_url="/tmp/findmy.png", question="What devices/items are shown and what are their locations?")
-```
-
-### Switch Between Tabs
+## Method A — screenshot + vision (no extra tools)
 
 ```bash
-# Switch to Devices tab
-osascript -e '
-tell application "System Events"
-    tell process "FindMy"
-        click button "Devices" of toolbar 1 of window 1
-    end tell
-end tell'
-
-# Switch to Items tab (AirTags)
-osascript -e '
-tell application "System Events"
-    tell process "FindMy"
-        click button "Items" of toolbar 1 of window 1
-    end tell
-end tell'
+open -a FindMy
+screencapture -o -l <windowid> "$TMPDIR/findmy.png"   # -o drops the window shadow
 ```
 
-## Method 2: Peekaboo UI Automation (Recommended)
+Take `<windowid>` from `peekaboo window list --app FindMy --json`, or use
+`screencapture -i` for manual selection. Then read the pixels:
 
-If `peekaboo` is installed, use it for more reliable UI interaction:
+```
+vision_analyze(image_url="<path>", question="Which device or item is selected, and what location, address, timestamp, and accuracy does Find My show?")
+```
+
+Quote the accuracy figure and the timestamp in your answer. "Found near the
+office" without them is a guess.
+
+## Method B — peekaboo (preferred when installed)
 
 ```bash
-# Open Find My
-osascript -e 'tell application "FindMy" to activate'
-sleep 3
-
-# Capture and annotate the UI
-peekaboo see --app "FindMy" --annotate --path /tmp/findmy-ui.png
-
-# Click on a specific device/item by element ID
-peekaboo click --on B3 --app "FindMy"
-
-# Capture the detail view
-peekaboo image --app "FindMy" --path /tmp/findmy-detail.png
+peekaboo see --app FindMy --annotate --path "$TMPDIR/findmy-ui.png" --json
+peekaboo click --on <element_id> --app FindMy      # ids come from the `see` JSON
+peekaboo see --app FindMy --path "$TMPDIR/findmy-detail.png" --json
 ```
 
-Then analyze with vision:
-```
-vision_analyze(image_url="/tmp/findmy-detail.png", question="What is the location shown for this device/item? Include address and coordinates if visible.")
-```
+Then `vision_analyze` the detail capture with the question above. Peekaboo needs
+Screen Recording for pixels and Accessibility for the element map; without both,
+element detection returns nothing.
 
-## Workflow: Track AirTag Location Over Time
+Generic macOS UI automation unrelated to Find My belongs to `computer-use`.
 
-For monitoring an AirTag (e.g., tracking a cat's patrol route):
+## Switching Devices ↔ Items
 
-```bash
-# 1. Open FindMy to Items tab
-osascript -e 'tell application "FindMy" to activate'
-sleep 3
-
-# 2. Click on the AirTag item (stay on page — AirTag only updates when page is open)
-
-# 3. Periodically capture location
-while true; do
-    screencapture -w -o /tmp/findmy-$(date +%H%M%S).png
-    sleep 300  # Every 5 minutes
-done
-```
-
-Analyze each screenshot with vision to extract coordinates, then compile a route.
-
-## Limitations
-
-- FindMy has **no CLI or API** — must use UI automation
-- AirTags only update location while the FindMy page is actively displayed
-- Location accuracy depends on nearby Apple devices in the FindMy network
-- Screen Recording permission required for screenshots
-- AppleScript UI automation may break across macOS versions
+AirTags live under **Items**; iPhones, iPads, and Macs under **Devices**. Click
+the tab through peekaboo's element tree. Do not hand-roll
+`click button "Devices" of toolbar 1` — FindMy.app's accessibility hierarchy is
+not stable across macOS versions and that selector silently stops matching.
 
 ## Rules
 
-1. Keep FindMy app in the foreground when tracking AirTags (updates stop when minimized)
-2. Use `vision_analyze` to read screenshot content — don't try to parse pixels
-3. For ongoing tracking, use a cronjob to periodically capture and log locations
-4. Respect privacy — only track devices/items the user owns
+1. Track only devices and items the user owns or is authorized to locate.
+   Location data is sensitive: capture no wider a view than the question needs,
+   and do not keep screenshots around.
+2. Never invent a location. If the capture shows no fix, an old timestamp, or
+   poor accuracy, report exactly that.
+3. AirTag positions refresh only while Find My is open and online. A stale or
+   offline marker is the expected failure, not something to work around.
+4. Every screenshot is a file you created: write under `$TMPDIR` or scratch,
+   never into the user's Documents, and delete it when the task ends.
+
+## Resource lifecycle
+
+* `peekaboo` — record the exact PID; on completion, failure, timeout, or cancel,
+  kill that PID (or `peekaboo daemon stop` for a daemon you started). Never
+  `pkill peekaboo` — a daemon or session the user owns is not yours.
+* `screencapture` finishes on its own; nothing to reap, but do delete its PNGs.
+* A long "watch this AirTag" loop is a background process you spawned: register
+  its PID and stop that exact PID when the user says stop. Prefer a `cronjob`
+  over a hand-rolled `while true` sleep loop.
+* Don't leave Find My frontmost for the user — quit it if you launched it and
+  they didn't ask for it to stay open.

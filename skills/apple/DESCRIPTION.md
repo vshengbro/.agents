@@ -1,2 +1,1 @@
-Apple / macOS skills — tools that interact with the Mac desktop (Finder,
-native apps) or system features (accessibility, screenshots).
+description: Apple/macOS app skills, each driving one native target: Notes (memo), Reminders (remindctl), Messages (imsg), Find My (UI automation).

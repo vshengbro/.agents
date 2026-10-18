@@ -1,7 +1,7 @@
 ---
 name: apple-reminders
-description: "Apple Reminders via remindctl: add, list, complete."
-version: 1.0.0
+description: "Use when creating or managing Apple Reminders items on macOS via remindctl: due dates, lists, alarms, complete. 苹果 提醒事项 待办清单。"
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 platforms: [macos]
@@ -14,117 +14,99 @@ prerequisites:
 
 # Apple Reminders
 
-Use `remindctl` to manage Apple Reminders directly from the terminal. Tasks sync across all Apple devices via iCloud.
+`remindctl` reads and updates the same reminders Reminders.app shows, through
+public EventKit APIs, so they stay in sync on every device. Sibling skills:
+Notes → `apple-notes`, messages → `imessage`, location → `findmy`.
 
 ## Prerequisites
 
-- **macOS** with Reminders.app
-- Install: `brew install steipete/tap/remindctl`
-- Grant Reminders permission when prompted
-- Check: `remindctl status` / Request: `remindctl authorize`
-
-## When to Use
-
-- User mentions "reminder" or "Reminders app"
-- Creating personal to-dos with due dates that sync to iOS
-- Managing Apple Reminders lists
-- User wants tasks to appear on their iPhone/iPad
-
-## When NOT to Use
-
-- Scheduling agent alerts → use the cronjob tool instead
-- Calendar events → use Apple Calendar or Google Calendar
-- Project task management → use GitHub Issues, Notion, etc.
-- If user says "remind me" but means an agent alert → clarify first
-
-## Quick Reference
-
-### View Reminders
+- macOS 14+ with Reminders.app
+- `brew install steipete/tap/remindctl`
+- Reminders permission for the terminal that runs it
 
 ```bash
-remindctl                    # Today's reminders
-remindctl today              # Today
-remindctl tomorrow           # Tomorrow
-remindctl week               # This week
-remindctl overdue            # Past due
-remindctl all                # Everything
-remindctl 2026-01-04         # Specific date
+remindctl status          # permission state
+remindctl authorize       # request it (macOS may not prompt on first run)
+remindctl doctor --for-agent   # diagnose permissions + store access
 ```
 
-### Manage Lists
+If no prompt appears, trigger it once from the same terminal:
+`osascript -e 'tell application "Reminders" to get name of reminders'`, then allow
+access in System Settings → Privacy & Security → Reminders and re-run
+`remindctl status`.
+
+## When NOT to use
+
+- "Remind me at 9am" as an **agent** alert → the cronjob tool, not Reminders.
+  Ask which one is meant when the phrasing is ambiguous.
+- Calendar events → Calendar tooling. Project tracking → the project's issue
+  tracker.
+- Native Reminders sections, tags/smart lists, file attachments, and the Urgent
+  toggle are not reachable — EventKit doesn't expose them.
+
+## Workflow
+
+### Read
 
 ```bash
-remindctl list               # List all lists
-remindctl list Work          # Show specific list
-remindctl list Projects --create    # Create list
-remindctl list Work --delete        # Delete list
+remindctl today            # also: tomorrow | week | overdue | upcoming | all
+remindctl 2026-01-04       # a specific date
+remindctl list             # lists; `remindctl list Work` shows one list's items
+remindctl search "invoice" --list Work
+remindctl info 4A83 --json # one reminder by index or ID prefix
+remindctl today --json     # parse this way, not by scraping the pretty output
 ```
 
-### Create Reminders
+Output flags are global: `--json`, `--plain` (TSV), `--quiet`, `--format table`,
+`--no-color`, `--no-input`. Reminders sort by due date, then title, then stable
+ID, so use IDs — not numeric indexes — whenever the list can change under you.
+
+### Create
+
+Confirm the title, list, and due date back to the user before creating; a request
+that already states them ("明天下午取快递") is itself that confirmation.
 
 ```bash
 remindctl add "Buy milk"
 remindctl add --title "Call mom" --list Personal --due tomorrow
 remindctl add --title "Meeting prep" --due "2026-02-15 09:00"
+remindctl add --title "Take vitamins" --due tomorrow --repeat daily
 ```
 
-### Due Time vs Alarm / Early Nudge
-
-`--due` and `--alarm` are different fields:
-
-- `--due` sets the reminder's due date/time.
-- `--alarm` sets the EventKit alarm/notification trigger. Timed due reminders may default to an alarm at the due time, but pass `--alarm` explicitly when the user asks for an earlier nudge.
-
-For a reminder due at 2:00 PM with a notification 30 minutes earlier:
+`--due` and `--alarm` are different fields, which is the classic mistake here:
 
 ```bash
 remindctl add --title "Hairdresser" --due "2026-05-15 14:00" --alarm "2026-05-15 13:30"
+remindctl edit 87354 --alarm "2026-05-15 13:30"
+remindctl edit 87354 --clear-alarm
 ```
 
-To edit an existing reminder:
+`--due` is the deadline; `--alarm` is the notification. Reminders.app may group
+or display the item by the alarm time, so **verify with `remindctl today --json`
+and read `dueDate` vs `alarmDate`** rather than assuming the due time moved.
+Changing only `--due` leaves existing alarms untouched.
+
+Accepted dates: `today`/`tomorrow`/`yesterday`, `YYYY-MM-DD`,
+`YYYY-MM-DD HH:mm`, ISO 8601 with offset. Date-only is all-day; date-time is
+timed. Impossible dates and trailing text are rejected, not normalized.
+
+### Update
 
 ```bash
-remindctl edit 87354 --due "2026-05-15 14:00" --alarm "2026-05-15 13:30"
+remindctl edit 87354 --title "New title"
+remindctl edit 87354 --list Office          # or --list-id 7A12
+remindctl complete 1 2 3
+remindctl delete 4A83 --force
 ```
 
-The Reminders UI may show or group the item by the alarm time because that is when the notification fires. Verify with JSON instead of assuming the due time moved:
+`edit`/`complete`/`delete` take indexes from the current listing or an ID prefix.
 
-```bash
-remindctl today --json
-```
+## Verification and rules
 
-Expected shape:
-
-- `dueDate`: actual due time
-- `alarmDate`: notification / early nudge time
-
-Apple's public `EKReminder` docs list only reminder-specific properties. Alarm support comes from inherited `EKCalendarItem` behavior exposed by remindctl's `--alarm` flag.
-
-### Complete / Delete
-
-```bash
-remindctl complete 1 2 3          # Complete by ID
-remindctl delete 4A83 --force     # Delete by ID
-```
-
-### Output Formats
-
-```bash
-remindctl today --json       # JSON for scripting
-remindctl today --plain      # TSV format
-remindctl today --quiet      # Counts only
-```
-
-## Date Formats
-
-Accepted by `--due` and date filters:
-- `today`, `tomorrow`, `yesterday`
-- `YYYY-MM-DD`
-- `YYYY-MM-DD HH:mm`
-- ISO 8601 (`2026-01-04T12:34:56Z`)
-
-## Rules
-
-1. When user says "remind me", clarify: Apple Reminders (syncs to phone) vs agent cronjob alert
-2. Always confirm reminder content and due date before creating
-3. Use `--json` for programmatic parsing
+1. Re-read with `--json` after every mutation; report the actual `id`, `dueDate`,
+   and `alarmDate`, not the values you intended to set.
+2. `Reminder is missing a calendar` means EventKit saved it but could not attach
+   a list — check Reminders.app before retrying, or you create a duplicate.
+3. Confirm content and due date before creating unless the request already
+   specified them.
+4. `delete` is irreversible: confirm the target by title first.
