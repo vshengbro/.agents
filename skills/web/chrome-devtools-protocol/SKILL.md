@@ -27,6 +27,29 @@ inspecting the Hermes desktop Electron window, use
 `inspecting-hermes-desktop-dom`. CDP is the same protocol all three speak,
 but the targets, the meaningful domains, and the failure modes are different.
 
+## Resource lifecycle (mandatory)
+
+A CDP run is never finished when the assertions pass — it is finished when
+every browser resource it created is gone. The full policy (scope,
+registration, evidence, exception) lives in
+[`agent-skills-source-sync`](../../agent-skills-source-sync/SKILL.md#临时验证资源生命周期硬规则-3-细则)
+— read it once and apply it to every browser in this skill. Concretely:
+
+- **You clean up your own tabs even when you borrowed the browser.** Every
+  target you open via `/json/new` or `Target.createTarget` is closed by
+  targetId, and every WebSocket you open is closed, whether you launched
+  Chrome or attached to the user's.
+- **Disconnect a borrowed browser; terminate only one you launched.** Sending
+  `Browser.close` on the browser target of someone else's Chrome closes
+  their window. The permission to exit an instance is exactly the permission
+  to create it.
+- **Never `pkill`/`killall`/`agent-browser close --all`.** Those hit a Chrome
+  the user had open before the task, not yours. Stop the PIDs you recorded.
+- **Read back by exact ID, not by count.** Confirm your targetIds are gone from
+  `/json/list` and your PIDs are gone from `ps`; a target *count* can match
+  while a different target holds the same slot, which is the same failure
+  `close_tab` self-tests here exist to catch.
+
 ## When to Use
 
 - Script Page/DOM/Runtime/Network/Emulation/Console/Performance operations
@@ -53,11 +76,15 @@ npx -y agent-browser install chromium    # installs Chrome for Testing
 npx -y agent-browser doctor             # verifies
 ```
 
-If a different Chrome is already running on a debugging port, skip this.
-Always close the previous session before reusing port 9222:
+Record the PID and tab list of whatever is already running *before* you
+start (that's your baseline for Step 5). If an appropriate existing instance
+is available, **attach to it** and skip Step 2 — do not tear it down. If this
+task needs its own instance, pick a free port before launching:
 
 ```bash
-npx -y agent-browser close --all
+# what already exists — this is your baseline, not your mess to clean
+pgrep -fl 'remote-debugging-port'                 # note the PIDs
+lsof -nP -iTCP -sTCP:LISTEN | grep -E '922[0-9]'  # note the bound ports
 ```
 
 ## Step 2 — Launch headless Chrome with a CDP port
@@ -70,7 +97,13 @@ CHROME="/Users/sqs/.agent-browser/browsers/chrome-<ver>/Google Chrome for Testin
   --user-data-dir=/tmp/cdp-demo/profile \
   --hide-scrollbars --window-size=1280,800 \
   about:blank > /tmp/cdp-demo/chrome.log 2>&1 &
+echo $! > /tmp/cdp-demo/chrome.pid   # <- the ONLY PID you may kill in Step 5
 ```
+
+`chrome.pid` is not bookkeeping you add at the end — it is the handle Step 5
+needs on the failure path too, where nothing else has run yet. Register the
+cleanup at launch (a `trap … EXIT INT TERM`, a `contextlib.ExitStack`, a
+`finally`) rather than planning to reach Step 5 by hand.
 
 Verify it bound (not crashed):
 
@@ -295,9 +328,13 @@ page state is wrong.
    you specifically want the full page.
 
 9. **Re-using `chrome --remote-debugging-port` after a `Ctrl-C`.** The
-   Chrome process keeps running and the port stays bound. Either kill
-   the parent explicitly (`pkill -f 'remote-debugging-port'`) or pass
-   `--user-data-dir` to a fresh profile.
+   Chrome process keeps running and the port stays bound. Either close the
+   instance you launched using the recorded ownership handles and the bounded
+   teardown in Step 5. Verify its children exited and its listener is gone
+   before retrying; a new profile/port is not a substitute for cleanup. Never `pkill -f
+   'remote-debugging-port'`: that pattern also matches the user's own Chrome
+   with the flag, and it matches the *other* parallel lane of the same suite,
+   whose evidence you would be destroying.
 
 10. **Stopping `chrome` with `terminal` and `&` errors out.** The CLI
     refuses `&` backgrounding with a hint to use `background=true`. Use
@@ -999,14 +1036,37 @@ confident-sounding false root causes.
 
 ## Step 5 — Tear down
 
-```bash
-pkill -f 'remote-debugging-port=9222'
-rm -rf /tmp/cdp-demo/profile
-```
+Teardown is not "always kill Chrome" — it is "remove exactly what this task
+created, and prove each one is gone". A borrowed Chrome outlives the run on
+purpose; a self-launched one must not outlive it.
 
-Always kill Chrome when done — a long-running headless Chrome accumulates
-memory and leaks file descriptors, especially if you opened many targets
-with `Target.createTarget`.
+1. **Close your exact targets, never create another one during teardown.**
+   For each recorded targetId, call `Target.closeTarget` on the browser-level
+   connection, or use `/json/close/<targetId>`. Close the corresponding page
+   WebSockets and read `/json/list` back while the browser is still alive;
+   assert that each owned targetId is absent. Preserve all pre-existing tabs.
+2. **If you borrowed the instance, disconnect and stop here.** Verify that its
+   browser PID and pre-existing tabs remain. Its debugging port is expected to
+   remain open; returning it to its baseline is not the same as closing it.
+3. **If you launched the instance, exit it and wait.** Request `Browser.close`,
+   close the browser WebSocket, and wait up to 10 seconds for the recorded
+   browser PID and owned child processes to exit. If necessary, check PID
+   identity against the recorded command/start time before signalling the
+   exact owned PID or dedicated process group: SIGTERM, another bounded
+   10-second wait, then SIGKILL only for the owned survivors. Reap children
+   with `wait` / the subprocess handle where available. A dead parent alone
+   is not proof that renderer/helper processes exited.
+4. **Verify before removing the profile.** Read process state and listeners
+   back: owned browser/child PIDs must be gone and task-created listeners must
+   have released their ports relative to the baseline. A failed HTTP request
+   is not proof of teardown. Only then remove this task's temporary profile
+   and other disposable paths; never remove a borrowed or shared profile.
+
+If your browser is still running, that is a real leak: a long-running
+headless Chrome accumulates memory and leaks file descriptors, especially after
+many `Target.createTarget` calls. Cleanup runs on **every** exit — a failed
+assertion, a timeout, a `Ctrl-C`, a cancelled task — not only on the success
+path, which is the one path where it is easy to remember.
 
 ## Sharing the user's logged-in Chrome session
 
@@ -1237,6 +1297,14 @@ only appears at the end leaves the five finished lanes looking unfinished. And
 the previous 6-lane result describes a tree that no longer exists and every
 lane must be re-run, not just the one covering the change.
 
+**Each lane is a resource you own, and it dies on every exit path.** Record
+each lane's PID, port and targetIds as they start; a lane aborted mid-suite
+still holds a Chrome, a port and a profile dir. Teardown is per-lane and by
+exact PID — a `pkill -f remote-debugging-port` aimed at "the leftover one"
+also kills the five lanes still running, and the browser you did not launch but
+borrowed. The verification is not complete until all six PIDs are gone and the
+ports are free.
+
 **Splitting a single script is a rewrite, so keep the shared half shared.**
 Emitting each group as a self-contained copy works exactly once and then
 becomes unmaintainable — six 27 kB files where one 600-line library plus six
@@ -1394,7 +1462,11 @@ await call("Network.setRequestInterception", {"patterns":[{"urlPattern":"*/api/u
 - [ ] `Page.navigate` + readyState poll reaches `complete`
 - [ ] Screenshot PNG file is non-zero, has `file`-confirmed dimensions
 - [ ] `Runtime.evaluate` returns a `result.value` you expected
-- [ ] Chrome process is killed at end of session
+- [ ] Before exiting the instance, `/json/list` confirms every targetId this run opened is absent (exact IDs, not a count)
+- [ ] Every WebSocket this run opened is closed
+- [ ] Any Chrome instance launched by this run has exited, children included; borrowed instances are not terminated
+- [ ] Task-created listening ports are free versus the Step 1 baseline; borrowed listeners are preserved
+- [ ] A Chrome the user had open before the run is **still running** with its tabs intact
 
 ## Related
 

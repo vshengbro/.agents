@@ -386,3 +386,20 @@ fn t() { ... }
 | `tests/mod.rs` (顶层) | ❌ | 列 `mod <sub>;` 每个 sub-test 的注册处,不要求只 super |
 | `tests/<file>.rs` (loose root) | ❌ | 是 integration test crate root,`super` 不存在,**严禁**写 `use super::*;` |
 | `src/` 任一文件 | ❌ | §6 集中导入由 §6.1/§6.4 + audit rule 7/17 覆盖,与 §14.7 不同维度 |
+
+## 14.8 临时验证资源必须回收(2026-10-18 user 钦定)
+
+**铁律**:为了验证而起的每一个临时资源,测试结束 —— 包括测试**失败**、超时、中断、取消 —— 都必须回收后才能报告完成。完整判定/登记/证据规则见 [`agent-skills-source-sync`](../../agent-skills-source-sync/SKILL.md#临时验证资源生命周期硬规则-3-细则)。
+
+Rust 验证里常见的几类临时资源,全部适用:
+
+| 类别 | 例子 | 回收方式 |
+| --- | --- | --- |
+| 子进程 / 后台进程 | `cargo run` 起的 demo、`cargo watch`、`rustc` 探针、`Command::spawn` 起的 helper | 终止自己 spawn 的精确 PID(含子进程),先 SIGTERM 有界等待再升级 SIGKILL;禁止 `pkill cargo` / `killall rustc` |
+| 临时服务 | 测试起的 `TcpListener`、mock HTTP server、集成测试里拉起的 service | 关 listener / 停止 server,端口相对基线已释放 |
+| 临时容器 | 跑 Docker 镜像做验证的 container | `stop` 之后 `rm`,连同本任务自建的临时 volume / network;禁止 `docker system prune` |
+| 浏览器 tab / 无头会话 | wasm / WebGL / e2e 验证开的 tab、CDP 会话 | 按 targetId 关掉自己开的 tab;只有自己启动的浏览器实例才允许退出,借用的只断开 socket |
+
+Rust 测试里这一点尤其容易被忽略,原因是**失败路径不会自动执行函数尾部的收尾代码**。`assert!` panic / `#[should_panic]` 的展开路径用 Drop / `scopeguard` / 测试 harness 的 teardown 管理资源,而不是把清理写在最后一个 `assert_eq!` 之后。进程默认处理 SIGTERM、`panic=abort`、SIGKILL 时不能依赖 Drop;外层 harness/监督进程必须登记资源,处理可捕获信号,并在测试进程异常退出后回收其遗留资源再核验。
+
+**证据**:报告"测试通过"之前,逐条给出精确标识(PID、端口、容器 id、targetId)已消失的核对结果;并发跑测试时,只按精确标识核对,不按"进程数量对得上"。剩下没清掉的,直接点名说明,不要报成已完成。

@@ -33,6 +33,25 @@ in this skill is a higher-level Hermes vocabulary; the raw cua-driver
 MCP tools (which a different agent harness would see) are NOT what you
 call — call the `computer_use` actions documented below.
 
+## Lifecycle — close what you opened (mandatory)
+
+Driving the user's desktop means working inside a browser or app **they
+own**. Everything you create in it — a tab, a window, a dialog, a prepared
+driver profile — is yours to close, and it outlives the task only if the user
+asked for it to. The full policy (registration, evidence, exception) is in
+[`agent-skills-source-sync`](../agent-skills-source-sync/SKILL.md#临时验证资源生命周期硬规则-3-细则).
+
+- **Close every tab/window this task created, after verification passes** —
+  including when you drove the user's own browser. A reused browser is still a
+  browser the user will look at; six leftover tabs is a visible mess.
+- **Preserve what was already there.** Tabs and windows open before the task,
+  and the browser process itself when you did not launch it, must be exactly
+  as you found them.
+- **Re-capture and read back.** Confirm your tabs are gone by re-capturing
+  (or re-listing windows) and checking the tab identities you created are
+  absent — a count that merely looks right can be a user's tab, not yours.
+- Clean up on **every** exit path: verified, failed, timed out, or cancelled.
+
 ## The canonical workflow
 
 **Step 1 — Capture first.** Almost every task starts with:
