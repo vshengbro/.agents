@@ -1,6 +1,6 @@
-# euv_tag border missing on wrapped lines — full recipe (PR #68)
+# euv_tag border missing on wrapped lines — full recipe
 
-> Reference for euv-ui-class-verification §5.1. The exact `inline-flex` → `inline-block` swap applied to the four `c_euv_tag_*` variants on 2026-08-30. Use this as a template when fixing any tag/badge/button border + multi-line bug in `ui/src/style/class/fn.rs`.
+> Reference for `euv-ui-standards` §7 (Accessibility / Touch). The exact `inline-flex` → `inline-block` swap applied to the four `c_euv_tag_*` variants. Use this as a template when fixing any tag/badge/button border + multi-line bug in `ui/src/style/class/<group>/fn.rs`.
 
 ## Symptom (user-reported)
 
@@ -97,7 +97,7 @@ No need to wrap with `display: contents` or extra `<div>` — `inline-block` on 
 
 1. `euv fmt` → 0 file changed (the macro blocks survive the formatter).
 2. `cargo check -p euv-ui --target wasm32-unknown-unknown && cargo check -p euv-example --target wasm32-unknown-unknown` → exit 0.
-3. `wasm-pack build --target web --out-dir www/pkg --release` → produces `euv_example_bg.wasm`. Verify:
+3. `euv build` (or `wasm-pack build --target web --out-dir www/pkg --release`) → produces `euv_example_bg.wasm`. Verify:
    ```bash
    strings www/pkg/euv_example_bg.wasm | grep -o "c_euv_tag_solid_black[^c]*" | head -1
    # → c_euv_tag_solid_blackdisplay: inline-block; vertical-align: middle; text-align: center; ...
@@ -113,7 +113,7 @@ No need to wrap with `display: contents` or extra `<div>` — `inline-block` on 
 
 ## Don't do this for other components (without re-checking)
 
-This fix is specifically for **atomic inline elements that wrap text and have a border**. Other `inline-flex` usages in `ui/src/style/class/fn.rs` are correct as-is:
+This fix is specifically for **atomic inline elements that wrap text and have a border**. Other `inline-flex` usages in `ui/src/style/class/<group>/fn.rs` are correct as-is:
 
 - `c_euv_button_primary_md` / `outline_md` — button text doesn't wrap (`white-space: nowrap` set), so `inline-flex` + `justify-content: center` is fine.
 - `c_loading_container` / `c_loading_text_col` — flex layout for spinner + text side-by-side, no wrap.
@@ -121,10 +121,7 @@ This fix is specifically for **atomic inline elements that wrap text and have a 
 
 Audit rule: **only swap `inline-flex` → `inline-block` when the box can wrap multiple text lines AND has a border around it**.
 
-> ⚠️ **Don't apply the `vertical-align: middle` half of this recipe to inline `<code>`**. For inline `<code>` in running prose (paragraphs, list items), use `vertical-align: baseline` + `line-height: 1` instead — see `euv-ui-class-verification` §5.9 for the full reason. `middle` lets multi-line wrapped code drift vertically; `baseline` is rock-steady for any wrap state. The `.md-body code` rule uses the baseline variant (euv PR #77, 0.18.23+).
+> ⚠️ **Don't apply the `vertical-align: middle` half of this recipe to inline `<code>`**. For inline `<code>` in running prose (paragraphs, list items), use `vertical-align: baseline` + `line-height: 1` instead — see `euv-ui-standards` §7 for the full reason. `middle` lets multi-line wrapped code drift vertically; `baseline` is rock-steady for any wrap state. The `.md-body code` rule uses the baseline variant — see `euv-ui-standards` §7.
 
-## PR
-
-Title: `fix(ui): keep euv_tag border complete when text wraps to multiple lines`
-PR: https://github.com/euv-dev/euv/pull/68
-Branch: `eastspire:fix/euv-tag-wrapped-border` (fork + PR workflow per euv-dev standard).
+The upstream fix landed as `fix(ui): keep euv_tag border complete when text
+wraps to multiple lines`.

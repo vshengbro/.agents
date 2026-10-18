@@ -1,42 +1,41 @@
-# euv 框架踩坑表(consolidated index)
+# euv 框架踩坑速查 (symptom → cause index)
 
-> **本文件是索引** — 每个坑的详细 repro / 修复 / 不该做的事放在各自 reference 文档中。
+Symptom-first lookup. Each row names the symptom you observed and the cause or
+the place to look. Every "where" below is a real path in the repo — this file
+carries no links to documents that don't exist.
 
-| # | 坑 | 详细 reference |
-|---|---|---|
-| 1 | `reactive if arm` 切换后,新 arm 的 button click handler 不响应(0.18.x 一直存在) | `references/euv-event-handler-rerender-pitfall.md` |
-| 2 | `match { signal }` arm 切换后,page-level Signal 状态残留(tab 切回时 overlay/状态错位) | `references/euv-ios-tab-click-pitfall.md` + `references/portal-pitfalls.md` |
-| 3 | iOS Safari 误判 `<div>` tap 为滚动 → delegated `onclick` 死(silent dead click) | `references/euv-ios-tab-click-pitfall.md` |
-| 4 | fixed-aspect canvas 放进全屏容器被拉伸成椭圆 | `references/portal-pitfalls.md`(verified PR #104) |
-| 5 | 移动端 header/drawer 顶部间距无条件信任 `env(safe-area-inset-top)` → letterbox 浏览器谎报 | `references/portal-pitfalls.md` + `references/mobile-web-debugging` skill |
-| 6 | `euv fmt` 与 `cargo fmt --check` 不一致(impl match arm 行宽 / class! 嵌套) | `references/version-bump-summary.md` + 下方"工具冲突"段 |
-| 7 | 下游工具仓(euv-docs / euv-cli) Cargo.toml 把 `euv = "*"` 浮动 → CSS API mismatch | `references/framework-engine-version-pin-rule.md` |
-| 8 | bump + CI sync_workspace_version 写错版本号(regression,0.21.x → 0.21.y) | `references/version-bump-rule-2026-09-02.md` + `references/minor-bump-ci-red-by-design.md` |
-| 9 | `use_async` 跨 hook arm 残留,component unmount 后仍 fire | `references/use-async-pitfalls.md` |
-| 10 | `profiler` hook 集成在 hot path 上,生产 build 也要慎用 | `references/profiler-pitfalls.md` |
-| 11 | Signal subscription 与 DOM 节点 lifetime mismatch → 内存泄漏 | `references/signal-subscription-bindings.md` |
-| 12 | `inline_js!` / 内部 CSS minify pipeline 在某些输入爆栈 | `references/inline-js-minify.md` |
-| 13 | portals / 多 root render 时 `use_node_ref` 跨 root 串号 | `references/portal-pitfalls.md` |
-| 14 | signal re-render 路径(`patch_attributes` fast-path) 在某些 case 不被调用 | `references/renderer-signal-lifecycle.md` |
-| 15 | css reset / keyframes 注入(`inject_app_global_css`) 与 page CSS 优先级冲突 | `references/inline-js-minify.md` |
-| 16 | `crate-cli` `bump` 后漏 `git add -A`,master push 失败 | `references/version-bump-rule-2026-09-02.md` |
-| 17 | euv-docs / euv-cli Cargo.toml `euv = "*"` 与框架版本不兼容 | `references/framework-engine-version-pin-rule.md` |
-| 18 | release pipeline:crates.io publish 顺序写错 → path-dep resolver fail | `references/crates-io-release-pipeline-template.md` |
-| 19 | `cross-repo-workflow-trigger` 限额(workflow 触发链 N 层上限) | `references/cross-repo-workflow-trigger-limits.md` |
-| 20 | monorepo bump 后 sub-crate `[package] version` stale | `references/version-bump-rule-2026-09-02.md` |
+## 症状索引
 
-## 工具冲突 quick map
+| 症状 | 原因 / 去哪看 |
+|---|---|
+| reactive `if` 换 arm 后，新 arm 的 click handler 不响应 | handler 没随 arm 重绑；查 `core/src/renderer/` 的事件注册路径，或改用 class 切换代替该形态 |
+| 跨 arm / 跨 route 的 `Signal` 状态残留，overlay 错位 | 组件状态没随 unmount 清理；检查 hook 的 cleanup 是否注册 |
+| iOS Safari 把 `<div>` tap 当滚动，delegated `onclick` 静默失效 | 触控与滚动的判定交给浏览器；可点击元素用真实 `<button>` |
+| canvas 固定宽高比放进全屏容器被拉成椭圆 | 容器没锁 aspect ratio；给容器加 `aspect-ratio` |
+| header/drawer 顶部出现大片死空白 | 误用了 `env(safe-area-inset-top)`；见 `euv-ui-standards` §2.3 的 `--euv-mobile-safe-top` 变量契约 |
+| `euv fmt` 与 `cargo fmt --check` 结果不一致 | `cargo fmt` 不重排宏体；`class!`/`html!` 一律用 macro-aware 的 `euv fmt` |
+| 下游 crate 写 `euv = "*"` 导致 CSS / API 不匹配 | 依赖漂移；版本只由根 `[workspace.package]` 决定，pin 到同一版本 |
+| bump 之后 sub-crate 版本 stale，或 master push 失败 | 核对根版本提交、同步流水线及其结果；成员/依赖版本由 CI 同步，不另跑本地改版本路径 |
+| `use_async` 在组件卸载后仍 fire | 异步 hook 缺 cleanup（`use_async` 在 `ui/src/hook/`） |
+| profiler hook 挂在 hot path 上拖慢生产构建 | 测量代码进了 release 路径（`use_profiler`） |
+| Signal 订阅与 DOM 节点 lifetime 不匹配 → 内存涨 | 订阅未随节点销毁解绑 |
+| 多个 render root 时 `use_node_ref` 串号 | NodeRef 跨 root 复用；每个 root 独立取（`core/src/app/impl.rs`） |
+| signal 重渲染路径某些 case 不生效 | `patch_attributes` fast-path 未被走到；查 `core/src/renderer/render/impl.rs` |
+| css reset / keyframes 与 page CSS 优先级冲突 | 注入顺序：`inject_app_global_css`（`ui/src/style/css/fn.rs`）；用 `html body` 前缀提 specificity |
+| 内部 CSS minify / inline pipeline 在某些输入爆栈 | 宏产物体积或嵌套深度；见 `euv-ui-standards` §3.G 的展平 selector 规则 |
+| release 时 crates.io publish 顺序写错 → path-dep 解析失败 | 按实际依赖图及发布流水线核对；workspace 成员列出的顺序本身不是拓扑序证明 |
+
+## 工具分工
 
 | 工具 | 提供 | 不提供 |
 |---|---|---|
-| `euv-cli` | `watch / new / template / help / version`(实测,见 `api-cli.md`)| `bump / sync / fmt / publish`(全在 `crate-cli`)|
-| `crate-cli`(`~/.cargo/bin/crate`) | `bump / sync / fmt / publish` | server / template 生成 |
-| `cargo fmt` | impl 代码 | `class!` / `html!` 宏内重排 |
-| `euv fmt` | `class!` / `html!` 宏内(macro-aware 重排) | impl 代码 |
+| `euv` (euv-cli) | `run` / `build` / `fmt` / `help` | `bump` / `sync` / `publish` |
+| `crate-cli` (`~/.cargo/bin/crate`) | `bump` / `sync` / `fmt` / `publish` | dev server / 模板生成 |
+| `cargo fmt` | impl 代码 | `class!` / `html!` 宏体重排 |
 
 ## 关键词速查
 
-- **click handler 不响应** → 坑 #1(arm 切换)、坑 #3(iOS delegated)
-- **状态错位** → 坑 #2(arm 残留 Signal)、坑 #13(cross-root ref)
-- **样式回退** → 坑 #7(version mismatch)、坑 #15(inject 优先级)
-- **build / publish fail** → 坑 #6(fmt 不一致)、坑 #8(sync regression)、坑 #18(发布顺序)
+- **click 不响应** → reactive `if` 换 arm 行 / iOS delegated 行
+- **状态错位** → 卸载未清理行 / `use_node_ref` 跨 root 行
+- **样式回退** → 依赖漂移行 / `inject_app_global_css` 优先级行
+- **build / publish 失败** → `euv fmt` 行 / bump sync 行 / publish 顺序行
