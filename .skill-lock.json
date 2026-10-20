@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -68,6 +68,14 @@
       "updatedAt": "2026-10-18T14:49:19.132Z",
       "skillFolderHash": "737a03ff2fb6d0a55a989ef54ce571190c328995"
     },
+    "blender": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/blender/SKILL.md",
+      "installedAt": "2026-10-20T14:58:41.039Z",
+      "updatedAt": "2026-10-20T14:58:41.039Z",
+      "skillFolderHash": "c62c07dcc524b009849cbab00f4593d6d10b0f3a"
+    },
     "computer-use": {
       "source": "local",
       "sourceType": "local",
@@ -113,8 +121,8 @@
       "sourceType": "local",
       "skillPath": "skills/git-standards/SKILL.md",
       "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-10-18T14:49:19.132Z",
-      "skillFolderHash": "a8e031c42a6fbe752518631d14a6a01e3afec57f"
+      "updatedAt": "2026-10-20T14:58:41.039Z",
+      "skillFolderHash": "0481dcec4a030efe052ed055222a71beff8047a0"
     },
     "github-auth": {
       "source": "local",
@@ -177,8 +185,16 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-01T13:01:29.704Z",
-      "skillFolderHash": "d49a1dda35007b3909e81d4e7196d9c2dfafe848"
+      "updatedAt": "2026-10-20T14:58:41.039Z",
+      "skillFolderHash": "c5f0d1de825834047ceedfc5945815e4f6cb7833"
+    },
+    "rust-standards-directory-move-contradiction": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/rust-standards/rust-standards-directory-move-contradiction/SKILL.md",
+      "installedAt": "2026-10-20T14:58:41.039Z",
+      "updatedAt": "2026-10-20T14:58:41.039Z",
+      "skillFolderHash": "b60b472ed0cb5e2c831ad6125ba4fd6b35b423dc"
     },
     "blocked-page-recovery": {
       "source": "local",
