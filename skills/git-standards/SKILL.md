@@ -84,7 +84,29 @@ The live GitHub login (`gh api user --jq .login`) is a separate identity.
 - Before changing a gate, prove both a compliant and violating fixture. Register
   it in every actual caller required by the governing rule, and test that caller.
 
-## 5. Verify policy helpers
+## 5. Minimize CI runs: complete the work locally first
+
+Every push to a repository with GitHub Actions consumes paid runner minutes, so
+the number of commits and pushes is a cost decision, not a style preference.
+
+- Detect CI before committing: if the repo has `.github/workflows/**`, treat the
+  push as billable. Confirm with `ls .github/workflows`.
+- Finish the entire change locally first — implementation, refactor, tests,
+  formatting, lints — and run the same checks CI runs (build, test, fmt,
+  clippy, audit) until they are all green locally.
+- Only then commit and push. Do not push intermediate, WIP, "fix CI" or
+  one-file-at-a-time commits that each trigger a workflow run.
+- If CI fails on the pushed commit, fix locally, verify locally, then push
+  again — do not push blind fixes to test the runner.
+- Prefer one coherent commit per completed unit of work (or one squashed
+  commit for a branch) over a chain of small commits.
+- Local verification must actually cover what CI runs. If a CI job cannot be
+  reproduced locally (e.g. a release/publish job, a matrix on another
+  platform), say so explicitly and let the user decide whether to push.
+- A commit is not "done" until its CI run is green; but the push that starts
+  CI must be preceded by local green.
+
+## 6. Verify policy helpers
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 ~/.agents/skills/git-standards/scripts/classify_change.py --self-test
