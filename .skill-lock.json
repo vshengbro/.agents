@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -105,8 +105,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-18T14:49:19.132Z",
-      "skillFolderHash": "aebe5d0f4e00c0a6fa65e0076fe4826c809fcca7"
+      "updatedAt": "2026-10-21T16:45:44.931Z",
+      "skillFolderHash": "8a35383a3cc1ce318b398cc924b24afef81f21a7"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
@@ -121,8 +121,8 @@
       "sourceType": "local",
       "skillPath": "skills/git-standards/SKILL.md",
       "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-10-20T14:58:41.039Z",
-      "skillFolderHash": "0481dcec4a030efe052ed055222a71beff8047a0"
+      "updatedAt": "2026-10-21T16:45:44.931Z",
+      "skillFolderHash": "b962f91df126cfd8e29e5e874627f188785bed28"
     },
     "github-auth": {
       "source": "local",
@@ -195,6 +195,14 @@
       "installedAt": "2026-10-20T14:58:41.039Z",
       "updatedAt": "2026-10-20T14:58:41.039Z",
       "skillFolderHash": "b60b472ed0cb5e2c831ad6125ba4fd6b35b423dc"
+    },
+    "x-post-via-browser": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/social-media/x-post-via-browser/SKILL.md",
+      "installedAt": "2026-10-21T16:45:44.931Z",
+      "updatedAt": "2026-10-21T16:45:44.931Z",
+      "skillFolderHash": "348a4af0ad4bc2f36db887d1dadcbac24b7af1d6"
     },
     "blocked-page-recovery": {
       "source": "local",
