@@ -105,8 +105,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-21T16:45:44.931Z",
-      "skillFolderHash": "8a35383a3cc1ce318b398cc924b24afef81f21a7"
+      "updatedAt": "2026-10-21T17:07:07.616Z",
+      "skillFolderHash": "c948fd1e0d0e65a01e5a0c73ea57e2815dcea367"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
@@ -201,8 +201,8 @@
       "sourceType": "local",
       "skillPath": "skills/social-media/x-post-via-browser/SKILL.md",
       "installedAt": "2026-10-21T16:45:44.931Z",
-      "updatedAt": "2026-10-21T16:45:44.931Z",
-      "skillFolderHash": "348a4af0ad4bc2f36db887d1dadcbac24b7af1d6"
+      "updatedAt": "2026-10-21T17:19:20.632Z",
+      "skillFolderHash": "c1c0b611fd9a2dab50a8175b69aa3915f867e40c"
     },
     "blocked-page-recovery": {
       "source": "local",

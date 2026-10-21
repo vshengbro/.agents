@@ -30,8 +30,7 @@ the real value; a terminal transcript does not.
 
 **The collect and the answer are one process.** The feed virtualises articles
 out of the DOM within about a minute, so a candidate read at one moment can
-be gone at the next. `xreply.py` works against the parent's own permalink,
-never against the feed.
+be gone at the next. `xreply.py` works against the parent's own permalink.
 
 **A trailing address lands as a card.** When the last token is a URL, X
 promotes it to a link card and the raw URL string is then absent from the
@@ -55,6 +54,7 @@ concatenation.
 | `xreply.py --candidates FILE --index N --copy FILE [--repo URL\|--allow-no-repo]` | like, answer and verify one post |
 | `xpost.py --copy FILE --repo URL [--dry-run]` | publish one standalone post and verify its address |
 | `xtrending.py --limit N` | today's trending list, read live, with ownership from live git remotes |
+| `xrepo.py --pick\|--list\|--network` | which own repository may be promoted, and whether the network is broken |
 | `xstate.py` | the atomic state store and the advisory lock |
 
 Run them with `python3` from this directory. `xconfig.py` holds every
@@ -142,3 +142,19 @@ take the lock waits and says so.
 - Never like a post you did not reply to, and never reply to a post you did
   not like.
 - A failed send is reported, never retried into a second post.
+
+## When the site times out
+
+`xrepo.py --network` says which case it is. Every proxied host timing out
+while a direct host answers means **the proxy is dead** — not Cloudflare,
+not the network, and not a user agent to bisect.
+
+## Which own repository may be promoted
+
+`xrepo.py --pick` decides it, and the decision is **reachability**, not
+on-topic-ness. A repository that answers 404 anonymously is not a
+candidate: the link would be dead for every reader who is not signed in.
+The on-topic repository and the reachable one are often different ones, so
+every own repository is checked and only the ones answering 200 are
+offered. One whose last push is over a fortnight old is not worth
+promoting either.
