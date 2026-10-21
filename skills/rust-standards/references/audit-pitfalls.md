@@ -3371,3 +3371,32 @@ done
 **端到端验收(不是「注册了就信」)**:每个仓都要做四步,只看 audit 数字不够 —— ① 违规文件 staged 后 `git commit` 必须 **exit 1** 且输出里**点名该 verifier**;② 改成合规版本再 commit,输出里**必须不再出现该 verifier**(证明不是无脑阻塞);③ `git reset --hard` 之外的方式清理探测文件(`git reset HEAD -- <path>` + `rm`),**并确认 `git log -1` 没有 probe commit 漏进去**;④ 三个仓各做一遍 —— 共享 hook 时一个仓通过不代表另一个仓的**配置**指向它。
 
 **本次实测结果**:ctares / hyperlane / euv 三仓均 ① 拦截并点名 `verify_no_manual_new_fn` ② 合规版不再出现该 verifier。euv 在修 `core.hooksPath` 之前,连 hook 都不执行,② 也无从谈起 —— 这就是先查配置再谈验证的原因。
+
+## A doc block above TWO attributes reads as undocumented (2026-10-21)
+
+`doc_comment_audit.py` used to stop at the INNERMOST attribute when it
+walked up from a fn and look at the line above it. With one attribute that
+line is the doc block, so it worked. With two, that line is the other
+attribute, so a fully documented fn was reported as undocumented and the
+fixer inserted a one-line doc BETWEEN the two attributes. The next scan
+read that stray one-liner as the fn's whole doc block, which hid the real
+one and made the fn then fail §2.2 for missing `# Arguments` /
+`# Returns`.
+
+The symptom is a fully documented fn failing the audit with "missing
+`# Arguments` section" while its doc block is right there, and the
+fixer's own inserted line visible in the diff. The rule is not a code
+violation: the doc block belongs above the attributes, and
+`verify_doc_comment_format.py` already skips attribute lines when it
+looks for it.
+
+The insert point decides what the next scan sees, so detection and
+insertion must read the same span. `_attr_span_above` now walks the whole
+attribute run and returns the OUTERMOST attribute — where a doc block
+belongs — and both `_fn_needs_doc` and `fix_one` go through it.
+`_extract_doc_block` skips attribute lines for the same reason.
+
+Two attributes in a row is not exotic: `#[prologue_macros(...)]` plus
+`#[instrument_trace]` is the once-drop route-handler shape, and a fn
+carrying both was what the audit flagged. The regression case lives in
+`self_test_doc_comment_audit.py` (`multi_attribute_doc_block_survives`).
