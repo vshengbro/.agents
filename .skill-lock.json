@@ -185,8 +185,8 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-20T14:58:41.039Z",
-      "skillFolderHash": "c5f0d1de825834047ceedfc5945815e4f6cb7833"
+      "updatedAt": "2026-10-21T02:19:34.738Z",
+      "skillFolderHash": "a403b0abd4c391672b5103cd9dc218f24578152c"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",

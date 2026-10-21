@@ -1184,7 +1184,7 @@ git diff origin/master     -- <file> | grep '<pattern>'   # 你实际改的(工�
 验证的树** —— 先跑完 fmt / clippy / test 四个 gate,再 commit,让 audit 的 diff
 反映真实状态。另按 hunk 定位的 check(空行类)在 `git mv` 后坐标会漂移到别的文件,
 每次改动后重新读明细行。完整判定流程与并发写入的处理见
-`rust-audit-fix-workflow`「The audit is blind to uncommitted work」。
+`references/audit-pitfalls.md`「Diff-scoped verifiers read COMMITTED state only」。
 
 **区分「我没修好」和「这是既有问题」**:用 `git diff HEAD --name-only` 确认出错的文件
 在不在你的 diff 里;再用文件 mtime 对比你的第一次编辑时间。都不在 → 既有问题,
