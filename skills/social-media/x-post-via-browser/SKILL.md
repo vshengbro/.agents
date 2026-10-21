@@ -37,6 +37,14 @@ promotes it to a link card and the raw URL string is then absent from the
 post's text. A substring check for the URL reads false on a perfectly landed
 link. The proof is the card text plus the t.co redirect.
 
+**A one-character difference is a marker, not a mangled post.** The card
+is not part of the post's own text, so the landed text carries NO url
+span while the source copy carries one. A comparison that leaves a marker
+where the span was makes the two differ by exactly that one character, and
+a reply that landed perfectly reads as a mismatch. The url span is removed
+from BOTH sides, so the two compare as prose. `xcompare_test.py` pins
+this in both `xreply.py` and `xpost.py`; run it after touching either.
+
 **One substitution mode.** Every placeholder in a JS template is a JS
 expression slot and every value is `json.dumps`'d. A placeholder inside a
 quoted string is a quote-injection bug; a bare 19-digit id is a number
