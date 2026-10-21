@@ -56,6 +56,7 @@ concatenation.
 | `xtrending.py --limit N` | today's trending list, read live, with ownership from live git remotes |
 | `xrepo.py --pick\|--list\|--network` | which own repository may be promoted, and whether the network is broken |
 | `xstate.py` | the atomic state store and the advisory lock |
+| `xcompare_test.py` | the landed-text comparison, in both posting scripts; run it after touching either |
 
 Run them with `python3` from this directory. `xconfig.py` holds every
 environment-specific value and reads it at call time: the state directory

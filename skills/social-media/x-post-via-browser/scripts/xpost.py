@@ -201,15 +201,29 @@ OWN_READ = """(() => {
 def canon(text: str) -> str:
     """Text reduced to the part that must match exactly.
 
-    Two normalisations, both learned from a false result. X rewrites the
-    URL as a t.co shortener, so the URL span is REMOVED from both sides
-    rather than looked for -- the address is proved by the card, not by a
-    substring. And the renderer reflows the body, putting a line break
-    between tokens that were space-separated in the source, so all
-    whitespace goes. What is left is the non-space characters, which is the
-    part that must match exactly.
+    Three normalisations, all learned from a false result.
+
+    1. URL SPANS ARE REMOVED, NOT REPLACED BY A PLACEHOLDER. A placeholder
+       only balances when BOTH sides still contain a URL span, and a
+       trailing address does not stay in the tweet text: X promotes it to a
+       card, and the permalink then shows the prose with NO URL in it at
+       all. The source copy keeps one span, the landed text has none, so a
+       placeholder made the two differ by exactly one character and a
+       perfectly landed post read as a mismatch. The address is proved by
+       the card and the t.co redirect, never by a substring, so removing
+       the span on both sides is what matches.
+
+    2. The span is matched WITHOUT a greedy prefix. The old pattern
+       started with ``\\S*``, which swallowed the token in front of the URL
+       ("。https://t.co/x" lost the "。" too). The URL alone is removed; the
+       whitespace around it goes with the whitespace rule.
+
+    3. The renderer reflows the body, putting a line break between tokens
+       that were space-separated in the source, so all whitespace goes.
+       What is left is the non-space characters, which is the part that
+       must match exactly.
     """
-    text = re.sub(r"\S*(?:https?://\S+|t\.co/\S+)", "\x00", text or "")
+    text = re.sub(r"(?:https?://\S+|t\.co/\S+)", "", text or "")
     return "".join(text.split())
 
 
