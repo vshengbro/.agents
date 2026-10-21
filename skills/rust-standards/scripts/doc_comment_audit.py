@@ -39,6 +39,13 @@ before `_find_fn_locs` sees them; ANY scan added to this file must apply the
 same skip set. The audit side (`verify_doc_comment_format.py`,
 `_blank_string_bodies`) already did this correctly — that asymmetry is why
 no finding ever pointed at the corrupted lines.
+
+INTEGRATION-TEST SCOPE. Section 14.5 forbids comments anywhere in a `tests/`
+tree, including helper functions and impl blocks without test attributes.
+Both audit_one() and fix_one() therefore exclude those paths, matching
+verify_doc_comment_format.py. The CLI and direct callers share that contract.
+Only a complete path component named `tests` qualifies; production filenames
+such as `src/test_utils.rs` and `src/contests.rs` remain subject to section 2.
 """
 
 from __future__ import annotations
@@ -48,9 +55,23 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from pathlib import PurePosixPath
 from typing import Iterable
 
 # ---------- pure helpers (no side effects) ---------------------------------
+
+
+def _is_test_path(path: str) -> bool:
+    """True when §14.5 owns this file, i.e. it sits under a `tests/` directory.
+
+    Mirrors `verify_no_test_comments.py::is_test_path` and the
+    `if 'tests' in path.parts` guard in `verify_doc_comment_format.py::audit_one`.
+    Matching is on whole path components and works for any depth and for
+    member crates (`crates/<m>/tests/...`), which the audit's own rule already
+    covers. A component must equal `tests` exactly, so `src/test_utils.rs`,
+    `src/contests.rs` and a file literally named `tests.rs` stay in scope.
+    """
+    return "tests" in PurePosixPath(str(path).replace("\\", "/")).parts
 
 
 def _split_top_commas(params_str: str) -> list[str]:
@@ -498,25 +519,89 @@ def _scan_test_regions(lines: list[str], fn_locs: list[int]) -> set[int]:
     return inside_cfg_test | after_test
 
 
-def _fn_needs_doc(lines: list[str], fn_idx: int, exempted: set[int]) -> bool:
-    """Layer-1 check: does `fn` at fn_idx lack any `///` directly above?"""
-    if fn_idx in exempted:
-        return False
+def _multiline_attr_lines(lines: list[str]) -> set[int]:
+    """0-based indices of the lines that belong to a multi-line attribute.
+
+    One forward pass. An attribute opens on a line whose code starts with
+    `#[` or `#![` and stays open while brackets remain unbalanced; every
+    line of that span is recorded.
+
+    Deciding this during the backward walk is impossible: walking up from a
+    function, the attribute's closing `)]` is encountered before the `#[`
+    that opened it. Guessing instead from "the line ends with `)` or `}`"
+    fires on every function body's closing brace, so an undocumented fn
+    sitting below a documented one had the neighbour's doc block attributed
+    to it and was never reported at all.
+    """
+    out: set[int] = set()
+    depth = 0
+    in_attr = False
+    for i, line in enumerate(lines):
+        s = line.lstrip()
+        opens_attr = s.startswith("#[") or s.startswith("#![")
+        if not in_attr and not opens_attr:
+            continue
+        # An attribute can close on its own opening line (`#[component]`),
+        # so record the line and then let the bracket delta decide whether
+        # anything after it is still part of the attribute.
+        out.add(i)
+        depth += line.count("[") + line.count("(") + line.count("{")
+        depth -= line.count("]") + line.count(")") + line.count("}")
+        depth = max(0, depth)
+        in_attr = depth > 0
+    return out
+
+
+def _attr_span_above(lines: list[str], fn_idx: int) -> tuple[int, int]:
+    """Return `(outer_attr_idx, insert_idx)` for the attributes above a fn.
+
+    `outer_attr_idx` is the index of the OUTERMOST attribute (the one closest
+    to the fn's doc block) and `insert_idx` is where a new doc block must go:
+    immediately above that outermost attribute.
+
+    Walking up from the fn, the attributes are met innermost-first. The
+    outermost one is the last attribute met before the walk leaves the
+    attribute run, and the doc block — when there is one — sits directly
+    above it. The insert point is therefore that same index, not the
+    innermost attribute's index.
+
+    Getting this wrong is not cosmetic. The insert point decides what the
+    NEXT scan sees: a doc block placed above the innermost attribute ends up
+    BETWEEN two attributes, and the attribute-skipping scan then reads that
+    stray one-liner as the fn's whole doc block — hiding the real one and
+    making a fully documented fn read as undocumented (§2.1) and as missing
+    its `# Arguments` / `# Returns` sections (§2.2).
+    """
+    outer_attr_idx: int | None = None
     j = fn_idx - 1
-    first_attr_above = None
     while j >= 0:
         s = lines[j].strip()
         if s == "":
             j -= 1
             continue
         if s.startswith("#["):
-            if first_attr_above is None:
-                first_attr_above = j
+            outer_attr_idx = j
             j -= 1
             continue
         break
-    insert_at = first_attr_above if first_attr_above is not None else fn_idx
-    prev_idx = insert_at - 1
+    if outer_attr_idx is None:
+        return fn_idx, fn_idx
+    return outer_attr_idx, outer_attr_idx
+
+
+def _fn_needs_doc(lines: list[str], fn_idx: int, exempted: set[int]) -> bool:
+    """Layer-1 check: does `fn` at fn_idx lack any `///` above it?
+
+    The doc block of a fn sits above its attributes, so the scan has to walk
+    past EVERY attribute before it can conclude that no doc block exists.
+    Stopping at the innermost attribute makes the check look at the
+    neighbouring attribute instead of the doc block, which reports a
+    documented fn as undocumented.
+    """
+    if fn_idx in exempted:
+        return False
+    _, insert_idx = _attr_span_above(lines, fn_idx)
+    prev_idx = insert_idx - 1
     while prev_idx >= 0 and lines[prev_idx].strip() == "":
         prev_idx -= 1
     if prev_idx >= 0 and lines[prev_idx].lstrip().startswith("///"):
@@ -525,10 +610,22 @@ def _fn_needs_doc(lines: list[str], fn_idx: int, exempted: set[int]) -> bool:
 
 
 def _extract_doc_block(lines: list[str], below_idx: int) -> tuple[int, int] | None:
-    """Return `(doc_start, doc_end)` (inclusive) for the `///` block ending just before `below_idx`."""
+    """Return `(doc_start, doc_end)` (inclusive) for the `///` block ending just before `below_idx`.
+
+    Attribute lines between the doc block and the fn are skipped, because
+    idiomatic Rust places the doc comment ABOVE the attributes. Without that
+    skip a fn whose doc block sits above two attributes has no doc block
+    found at all, and Layer 2 then demands `# Arguments` / `# Returns`
+    sections from a fn that is fully documented.
+    """
+    continuations = _multiline_attr_lines(lines)
     j = below_idx - 1
-    while j >= 0 and lines[j].strip() == "":
-        j -= 1
+    while j >= 0:
+        s = lines[j].strip()
+        if s == "" or j in continuations or s.startswith("#[") or s.startswith("#!["):
+            j -= 1
+            continue
+        break
     if j < 0 or not lines[j].lstrip().startswith("///"):
         return None
     doc_end = j
@@ -625,7 +722,15 @@ def _fn_signature_full(lines: list[str], fn_idx: int) -> tuple[str, str, list[st
 
 
 def audit_one(path: str) -> dict[str, list[tuple[int, str, str]]]:
-    """Return `{kind: [(line, name, detail), ...]}` violations for `path`."""
+    """Return `{kind: [(line, name, detail), ...]}` violations for `path`.
+
+    Returns empty for a `tests/` file: §14.5 forbids comments there, so a doc
+    block is never expected and never required. This guard lives here rather
+    than only in the CLI walker so that both entry points of this module
+    agree with `verify_doc_comment_format.py` on who owns a file.
+    """
+    if _is_test_path(path):
+        return defaultdict(list)
     violations: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
     try:
         with open(path) as fh:
@@ -681,7 +786,18 @@ def audit_one(path: str) -> dict[str, list[tuple[int, str, str]]]:
 
 
 def fix_one(path: str) -> tuple[int, int]:
-    """Run all three layers on `path`. Returns (layer1_fixes, layer2_fixes)."""
+    """Run all three layers on `path`. Returns (layer1_fixes, layer2_fixes).
+
+    Never writes to a `tests/` file. `_scan_test_regions()` exempts only
+    `#[cfg(test)]` modules and `#[test]` fns, which leaves a test helper fn,
+    an inherent `impl` and a `trait impl` in a `tests/` tree looking like
+    production code — and every doc block written there is a §14.5 violation
+    the next audit round reports, so Phase1↔Phase2 never converges (see the
+    module docstring). Guard at the entry point, not in the walker: callers
+    pass a path directly, and a walker-only guard leaves them unaffected.
+    """
+    if _is_test_path(path):
+        return 0, 0
     try:
         with open(path) as fh:
             original = fh.read()
@@ -698,20 +814,7 @@ def fix_one(path: str) -> tuple[int, int]:
     for fn_idx in fn_locs:
         if not _fn_needs_doc(lines, fn_idx, test_regions):
             continue
-        j = fn_idx - 1
-        first_attr_above = None
-        while j >= 0:
-            s = lines[j].strip()
-            if s == "":
-                j -= 1
-                continue
-            if s.startswith("#["):
-                if first_attr_above is None:
-                    first_attr_above = j
-                j -= 1
-                continue
-            break
-        insert_at = first_attr_above if first_attr_above is not None else fn_idx
+        _, insert_at = _attr_span_above(lines, fn_idx)
         name, *_ = _fn_signature_full(lines, fn_idx)
         impl_text = ""
         for k in range(fn_idx - 1, -1, -1):
@@ -789,10 +892,18 @@ def _scope_paths(root: str, files: list[str] | None) -> list[str]:
 
     `files=None` means whole-repo scope (explicit CLI opt-in). A non-empty
     `files` list restricts the run to just those paths.
+
+    `files=[]` — the flag was given with no path — is EMPTY scope, not
+    whole-repo. `--files` is `nargs="*"`, so `--files` alone parsed as `[]`
+    and fell through the `if files:` test into `git ls-files`, turning an
+    empty scope into a whole-repo rewrite. That is the same class of
+    accident as `phase_fixers` already guards against ("a scoped fixer with
+    an empty file list must not fall back to whole-repo"); this is the
+    other end of it, where the scope is empty at the CLI instead.
     """
-    if files:
-        return [f for f in files if f.endswith(".rs")]
-    return _list_rust_files(root)
+    if files is None:
+        return _list_rust_files(root)
+    return [f for f in files if f.endswith(".rs")]
 
 
 # ---------- driver ---------------------------------------------------------
