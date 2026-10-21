@@ -191,6 +191,81 @@ def code_tokens(src: str):
     return out
 
 
+def _is_string_literal(tok: str) -> bool:
+    """Whether a token is a Python string literal.
+
+    The quote may be repeated (''' or \"\"\"), so the check is on the
+    quote CHARACTER, not on the length.
+    """
+    return bool(tok) and tok[0] in "\"'"
+
+
+def strip_js_comments(tok: str) -> str:
+    """Remove the // and /* */ comments from a string literal's CONTENT.
+
+    A JS template in this skill carries its own explanatory notes, and a
+    note that names a banned call reads to a pattern matcher as a call:
+    "execCommand('delete') is a banned call" is prose, and the guard
+    reported it as a violation. A real call is code, and code is what is
+    left after the comments are gone.
+
+    The CONTENT is what is stripped, not the Python quoting: the content
+    of a Python string literal in this skill IS JavaScript, so the
+    comments inside it are JavaScript comments. The quoting is put back
+    afterwards, unchanged, so the token still reads as the literal it was.
+    """
+    m = re.match(r"([rRbBuUfF]*)(\"\"\"|'''|\"|')", tok)
+    if not m:
+        return tok
+    prefix, quote = m.group(1), m.group(2)
+    body = tok[len(prefix) + len(quote):]
+    if body.endswith(quote):
+        body = body[:-len(quote)]
+    return prefix + quote + _strip_js_comments_js(body) + quote
+
+
+def _strip_js_comments_js(text: str) -> str:
+    """Remove the // and /* */ comments from a JavaScript source string.
+
+    The string literals inside the JavaScript are NOT touched -- the banned
+    CDP method names are string ARGUMENTS, and dropping them would drop
+    the evidence.
+    """
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] != "\n":
+                i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+                i += 1
+            i += 2
+            continue
+        if ch in "\"'`":
+            quote = ch
+            out.append(ch)
+            i += 1
+            while i < n:
+                if text[i] == "\\" and i + 1 < n:
+                    out.append(text[i:i + 2])
+                    i += 2
+                    continue
+                out.append(text[i])
+                if text[i] == quote:
+                    i += 1
+                    break
+                i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def check_syntax(path: Path) -> list[str]:
     try:
         ast.parse(path.read_text(encoding="utf-8", errors="replace"))
@@ -202,13 +277,26 @@ def check_syntax(path: Path) -> list[str]:
 def check_file(path: Path) -> list[str]:
     """Report every banned call in one file, with its real line number.
 
-    Matches run over the joined token text (so a banned name split across
-    lines is still found) and each hit is mapped back to the line its FIRST
-    token starts on -- which is why line numbers are trustworthy here.
+    Matches run over the joined token text (so a banned name split across lines
+    is still found) and each hit is mapped back to the line its FIRST token
+    starts on -- which is why line numbers are trustworthy here.
+
+    A JS TEMPLATE IS A STRING, AND A STRING IS EVIDENCE. The skill's own
+    notes live inside the templates as comments, and a note that says
+    "execCommand('delete') is a banned call" reads to a pattern matcher as
+    a call. So the banned-call patterns are checked against the string
+    LITERALS only, with the notes inside them removed: a template's own
+    explanatory text is prose, and a real call is code.
     """
     problems: list[str] = []
     src = path.read_text(encoding="utf-8", errors="replace")
     toks = code_tokens(src)
+    # A JS template carries its own notes, and a note naming a banned call
+    # is prose, not a call. The notes are stripped from the string literals
+    # before the patterns run; the literals themselves are kept, because
+    # the banned CDP method names ARE string arguments.
+    toks = [(ln, strip_js_comments(tok) if _is_string_literal(tok) else tok)
+            for ln, tok in toks]
     # Join with a space: a newline between tokens would split `send(` from
     # `"Page.reload"` and most patterns would stop matching.
     code = " ".join(tok for _, tok in toks)
@@ -297,6 +385,8 @@ FIXTURES = {
     "no-clearing": """c.js("document.execCommand('delete')")""",
     "no-clearing-2": ('c.send("Input.dispatchKeyEvent", type="rawKeyDown", '
                       'key="Backspace")'),
+    "no-clearing-3": ('TPL = """(() => { document.execCommand("delete"); '
+                      'return 1; })()"""\n'),
     "no-daily-browser": ('profile = "/Users/someone/Library/Application '
                          'Support/Google/Chrome"\n'
                          'argv = ["--user-data-dir=" + profile]\n'),
@@ -326,6 +416,13 @@ CLEAN = {
         "argv = ['--user-data-dir=%s' % private]\n"
         "await b.new_tab('https://x.com/home')\n"
         "await b.call('Page.navigate', {'url': url})\n",
+    "notes-mention-a-banned-call":
+        "TPL = '''(() => {\n"
+        "  // execCommand('delete') is a banned call: it raises the\n"
+        "  // unsaved-changes dialog, which blocks every later CDP call.\n"
+        "  // We do not use it; the copy goes in through Input.insertText.\n"
+        "  return 1;\n"
+        "})()'''\n",
 }
 
 

@@ -81,25 +81,18 @@ INSERT = """(function() {
     let best = null, bs = -1;
     for (const e of eds) { const s = score(e); if (s > bs) { bs = s; best = e; } }
     if (!best) return {err: 'no-editor'};
+    // Focus the editor and select its contents, so the insertion REPLACES
+    // whatever is there. The copy itself goes in through CDP's
+    // Input.insertText, which is a real input event: document.execCommand
+    // was measured DOUBLING the copy, and execCommand('delete') to clear
+    // the selection first is a banned call.
     best.focus();
-    // The copy REPLACES the selection. There is no delete: the composer was
-    // checked to be empty before this ran, so there is nothing to clear,
-    // and clearing raises Chrome's unsaved-changes dialog, which then
-    // blocks every later CDP call.
     const r = document.createRange();
     r.selectNodeContents(best);
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(r);
-    const insOk = document.execCommand('insertText', false, __COPY__);
-    const txt = (best.innerText||'').replace(/\\s+$/,'');
-    // Compared WITHOUT whitespace: the composer renders a paragraph break
-    // as more newlines than the source has, so a raw compare reads one
-    // character off on a copy that is character-for-character correct.
-    const flat = txt.split(' ').join('').split('\\n').join('').split('\\t').join('');
-    const want = __COPY__.split(' ').join('').split('\\n').join('').split('\\t').join('');
-    return {insOk: insOk, domLen: txt.length,
-            domMatch: flat === want, score: bs, head: txt.slice(0,40)};
+    return {ok: true, score: bs, before: (best.innerText||'').trim().length};
   } catch (e) { return {caught: String(e && e.message ? e.message : e)}; }
 })()"""
 
@@ -248,8 +241,21 @@ def strip_chrome(raw: str) -> str:
 
 
 def gate_copy(copy: str, repo: str) -> list:
-    """Reasons the post may not be published. Empty list means it may."""
+    """Reasons the post may not be published. Empty list means it may.
+
+    X linkifies any dotted token, not just one it recognises as a URL, and
+    the span it replaces then reads back as a line break -- a bare
+    "crates.io" in the body split a sentence in two and shipped twice
+    before it was refused. So the check is on the COPY, before a character
+    is typed.
+
+    The check is on a LETTER-SUFFIXED TOKEN, and nothing else. A version
+    number ends in digits, X does not linkify it, and a post about a
+    release is mostly version numbers.
+    """
     problems = []
+    if not repo:
+        return ["no repository address given"]
     if not (10 <= len(copy) <= 3000):
         problems.append("length %d outside 10-3000" % len(copy))
     if copy.count(repo) != 1:
@@ -265,9 +271,6 @@ def gate_copy(copy: str, repo: str) -> list:
               if not w.startswith("github")]
     if dotted:
         problems.append("dotted tokens: %s" % dotted)
-    decimals = re.findall(r"\b\d+\.\d+(?:\.\d+)?\b", copy)
-    if decimals:
-        problems.append("decimals: %s" % decimals)
     if copy.count("�"):
         problems.append("replacement character in the copy")
     return problems
@@ -300,11 +303,14 @@ async def run(copy: str, repo: str, dry_run: bool) -> int:
                 print("REJECTED: the composer already holds text (%s)" % filled)
                 return 3
 
-            ins = await b.ev(sess, sub(INSERT, COPY=copy))
+            ins = await b.ev(sess, INSERT)
             print("INSERT:", json.dumps(ins, ensure_ascii=False)[:300])
-            if not isinstance(ins, dict) or ins.get("domMatch") is not True:
-                print("REJECTED: the copy did not read back from the composer")
+            if not isinstance(ins, dict) or not ins.get("ok"):
+                print("REJECTED: the composer could not be focused for the copy")
                 return 4
+            # The copy goes in through CDP's Input.insertText: a real input
+            # event, which is what the composer's own input path expects.
+            await b.call("Input.insertText", {"text": copy}, session_id=sess)
             await asyncio.sleep(2.5)
             rr = await b.ev(sess, sub(REREAD, COPY=copy, REPO=repo))
             print("REREAD:", json.dumps(rr, ensure_ascii=False)[:250])
