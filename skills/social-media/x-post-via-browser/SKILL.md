@@ -52,8 +52,16 @@ the URL reads false on a perfectly landed link, and a comparison that
 leaves a marker where the span was makes the two differ by exactly that
 one character — so a reply that landed perfectly reads as a mismatch.
 Remove the url span from BOTH sides and compare as prose; the address is
-proved by the card text and the t.co redirect. `xcompare_test.py` pins
+proved by following the t.co to the place it names. `xcompare_test.py` pins
 this in both `xreply.py` and `xpost.py`; run it after touching either.
+
+**The card's TITLE is not the address.** The card X renders for a trailing
+address carries the target page's own title, so it names the repository
+only for a bare repository address. A pull request or issue address ends
+in its NUMBER, and no title contains a number — so a check that looked
+for the address's last path segment in the title read false on a post
+that had landed perfectly. Follow the t.co and compare the place it names
+with the address that was sent; the card's title stays a second proof.
 
 **The card hydrates AFTER the post's own text.** The article mounts
 first; the card wrapper and the t.co anchor arrive a beat later. A

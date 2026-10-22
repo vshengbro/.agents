@@ -16,9 +16,10 @@ reason, and move to the next candidate.
 | `the landed text is not the copy that was sent` | the post is up but its prose differs from the copy | **Read the landed post before concluding anything.** A trailing address becomes a card, so the landed text has no url span while the copy has one: that is a ONE-CHARACTER difference, not a mangled post. See `xcompare_test.py`. |
 | `NO POST ON PAGE` | nothing was established on the permalink | Nothing is proven. Report it; do not publish a replacement. |
 | `LANDED LINK LOST` | the post is up WITHOUT its address | A public defect. Report the URL, do not send the remaining versions, do not send a replacement. |
-| `LANDED LINK PRESENT BUT NOT PROVEN` | the post is up and carries a rewritten link, but no card names the repository | Treat as a failure. Report it. |
+| `LANDED LINK PRESENT BUT NOT PROVEN` | the post is up and carries a rewritten link, but the address does not resolve to the one that was sent | Treat as a failure. Report it. |
 | `the link landed as no card and no t.co` | the post is up but the read saw no card and no t.co | The card hydrates after the text. The read now waits for both; if it still refuses, the address really is not there. Report it; do not send a replacement. |
-| `the link landed without a card` | the post is up with a t.co but no card wrapper | The card is the proof that the address names the repository. Report it; do not send a replacement. |
+| `the link landed without a card` | the post is up with a t.co but no card wrapper | The card is the proof that the address survived publication. Report it; do not send a replacement. |
+| `the link does not point at the address that was sent` | the post is up and its link resolves to a different place | The redirect names the place, and it names the wrong one. A public defect. Report it; do not send a replacement. |
 | `another engagement run holds the lock` | a correct skip | Report and stop entirely. Do not wait it out inside the run. |
 
 ## The refusals that exist because of a measurement
@@ -69,3 +70,18 @@ span it replaces reads back as a line break — a bare `crates.io` in the
 body split a sentence in two. A version number ends in digits, X does not
 linkify it, and a reply about a release is mostly version numbers. A
 gate that refuses decimals refuses the reply most worth sending.
+
+**THE ADDRESS IS PROVED BY THE REDIRECT, NOT BY THE CARD'S TITLE.** The
+card X renders for a trailing address carries the TARGET PAGE's own
+title, so it names the repository only for a bare repository address. A
+pull request, an issue or a release address lands a card titled with the
+REQUEST — and the last path segment of such an address is its NUMBER, so
+the check that looked for that segment in the title read false on a post
+that had landed perfectly. That is what happened on 2026-10-22: a
+standalone post carrying a pull request address was up, with its card and
+its t.co, and the run reported it as unproven.
+
+So the short link is followed to the place it names, and that place is
+compared with the address that was sent. The card's title stays a second
+proof, for the bare repository case and for the case where the redirect
+cannot be read at all. `xcompare_test.py` pins both.

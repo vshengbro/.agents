@@ -37,12 +37,27 @@ import json
 import re
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import xconfig                                            # noqa: E402
 import xstate                                             # noqa: E402
 from xcdp import Browser, sub                             # noqa: E402
+
+# An ordinary browser user agent, so the target answers the way a reader's
+# browser gets it and not the way a bot is answered.
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 "
+      "Safari/537.36")
+
+# Where a t.co's body names the place it points at. The server answers
+# either with a 301 and a Location header, or with a 200 whose body
+# carries the target in a meta refresh -- so both are read, because the
+# proof must not depend on which one the server chose.
+TARGET_IN_BODY = re.compile(
+    r"(?:URL=|location\.replace\(\s*[\"'])(https?://[^\"'\s>]+)")
 
 # The composer on the page, with its context.
 ENUM_EDITORS = """(() => {
@@ -207,6 +222,86 @@ def link_ready(d: dict) -> bool:
     hydrated post, and it reports a perfectly landed link as a lost one.
     """
     return bool(d.get("hasCard")) and bool(d.get("tco") or [])
+
+
+def resolve_target(url: str, timeout: float = 15.0) -> str:
+    """The place a short link points at, or "" when it cannot be read.
+
+    The answer is a 301 with a Location header, or a 200 whose body
+    carries the target in a meta refresh. BOTH are read, because the
+    proof of an address must not depend on which one the server chose.
+
+    Nothing here touches the user's browser or the account: it is a
+    plain request for a link that is already public.
+    """
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", "replace")
+            found = TARGET_IN_BODY.search(body)
+            return found.group(1).replace("\\/", "/") if found else ""
+    except urllib.error.HTTPError as exc:
+        headers = exc.headers
+        loc = headers.get("Location") if headers else None
+        return loc or ""
+    except Exception:
+        return ""
+
+
+def address_key(url: str) -> str:
+    """An address reduced to the part that must match exactly.
+
+    The scheme, the query and the fragment are dropped, and the trailing
+    slash goes with them: X rewrites the address it shows, and a reader's
+    browser may follow a redirect that adds a slash. What is left is the
+    host and the path, which is what names the place.
+    """
+    text = (url or "").strip()
+    text = re.sub(r"^https?://", "", text, flags=re.I)
+    text = text.split("#", 1)[0].split("?", 1)[0]
+    return text.rstrip("/").lower()
+
+
+def address_proved(tco: list, repo: str, card_text: str,
+                   resolver=None) -> tuple:
+    """Whether the landed post carries the address that was sent.
+
+    THE REDIRECT IS THE PROOF. The card's TITLE is not: it carries the
+    target page's own title, so it names the repository only for a bare
+    repository address. A pull request, an issue or a release address
+    lands a card titled with the REQUEST, and the check that looked for
+    the address's last path segment in that title read false on a
+    perfectly landed post -- the segment of a pull request address is
+    its NUMBER, and no title contains it.
+
+    So the short link is followed to the place it names, and that place
+    is compared with the address that was sent. The card's title remains
+    a second proof, for the bare repository case, and for the case where
+    the redirect cannot be read at all.
+
+    The resolver is a parameter so the cases can be pinned without a
+    network: the proof is the comparison, and the comparison is what
+    has to be right.
+    """
+    resolve = resolver or resolve_target
+    want = address_key(repo)
+    for short in (tco or []):
+        target = resolve(short)
+        if not target:
+            continue
+        got = address_key(target)
+        print("RESOLVED:", got)
+        if got == want or got.startswith(want + "/"):
+            return True, "the link resolves to %s" % got
+    name = repo.rstrip("/").split("/")[-1]
+    if name and name.lower() in (card_text or "").lower():
+        return True, "the card names %s" % name
+    return False, "the link does not resolve to %s" % want
 
 
 def canon(text: str) -> str:
@@ -416,10 +511,11 @@ async def run(copy: str, repo: str, dry_run: bool) -> int:
             if not d.get("hasCard"):
                 print("LANDED LINK PRESENT BUT NOT PROVEN - no card on the post")
                 return 8
-            repo_name = repo.rstrip("/").split("/")[-1]
-            if repo_name and repo_name.lower() not in card_text.lower():
-                print("LANDED LINK PRESENT BUT NOT PROVEN - the card does not "
-                      "name the repository")
+            proved, why = address_proved(tco, repo, card_text)
+            print("ADDRESS PROVED:", proved, "-", why)
+            if not proved:
+                print("LANDED LINK PRESENT BUT NOT PROVEN - the address does "
+                      "not resolve to the one that was sent")
                 return 8
             if not ok:
                 print("LANDED TEXT>>>")
