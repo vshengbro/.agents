@@ -91,6 +91,17 @@ expression slot and every value is `json.dumps`'d. A placeholder inside
 a quoted string is a quote-injection bug; a bare 19-digit id is a number
 literal, which loses precision and matches nothing.
 
+**The copy is measured the way X measures it.** X does not count
+characters; it counts WEIGHTED characters, and the limit is 280 of them.
+A CJK character weighs 2, an address weighs 23 whatever its real length
+is, and a Latin character weighs 1 — so a Chinese reply of 186 characters
+is 372 and is refused by the site, while `len()` says it fits. The gate
+measures the weighted length, before anything is typed, because a copy
+refused at the send button leaves the text sitting in the composer where
+the next candidate trips the "composer already holds text" refusal.
+`xlength.py` holds the measurement and `xlength_test.py` pins it against
+twitter-text's own configuration; run the test after touching either.
+
 **A refusal is the script declining on purpose.**
 `references/refusals.md` says what each one means and what to do about
 it. Every one exists because the alternative produced a public defect.
@@ -108,6 +119,8 @@ it. Every one exists because the alternative produced a public defect.
 | `xtrending.py --limit N` | today's trending list, read live, with ownership from live git remotes |
 | `xrepo.py --pick\|--list\|--network` | which own repository may be promoted, and whether the network is broken |
 | `xcompare_test.py` | the landed-text comparison, in both posting scripts; run it after touching either |
+| `xlength.py` | the copy's length as X counts it — weighted, 280, CJK weighs 2; `python3 xlength.py FILE` prints it |
+| `xlength_test.py` | the weighted-length measurement, pinned against twitter-text's own configuration |
 | `verify_no_unsafe_posting.py` | the commit gate on these scripts; run its `--self-test` after changing it |
 
 Run them with `python3` from this directory. `xconfig.py` holds every

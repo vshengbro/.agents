@@ -43,6 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import xconfig                                            # noqa: E402
+import xlength                                            # noqa: E402
 import xstate                                             # noqa: E402
 from xcdp import Browser, sub                             # noqa: E402
 
@@ -378,6 +379,12 @@ def gate_copy(copy: str, repo: str) -> list:
         return ["no repository address given"]
     if not (10 <= len(copy) <= 3000):
         problems.append("length %d outside 10-3000" % len(copy))
+    weight = xlength.weighted_length(copy)
+    if weight > xlength.MAX_WEIGHTED:
+        problems.append(
+            "weighted length %d over X's %d (CJK counts double, an address "
+            "counts 23) -- shorten the copy"
+            % (weight, xlength.MAX_WEIGHTED))
     if copy.count(repo) != 1:
         problems.append("the address must appear exactly once, found %d"
                         % copy.count(repo))

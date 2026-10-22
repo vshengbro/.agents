@@ -21,6 +21,7 @@ reason, and move to the next candidate.
 | `the link landed without a card` | the post is up with a t.co but no card wrapper | The card is the proof that the address survived publication. Report it; do not send a replacement. |
 | `the link does not point at the address that was sent` | the post is up and its link resolves to a different place | The redirect names the place, and it names the wrong one. A public defect. Report it; do not send a replacement. |
 | `another engagement run holds the lock` | a correct skip | Report and stop entirely. Do not wait it out inside the run. |
+| `weighted length N over X's M` | the copy is longer than X will accept, counted the way X counts | Nothing was sent. Shorten the copy. The count is not `len()`: a CJK character weighs 2 and an address weighs 23, so a Chinese reply of 186 characters is 372 and is refused. |
 
 ## The refusals that exist because of a measurement
 
@@ -70,6 +71,21 @@ span it replaces reads back as a line break — a bare `crates.io` in the
 body split a sentence in two. A version number ends in digits, X does not
 linkify it, and a reply about a release is mostly version numbers. A
 gate that refuses decimals refuses the reply most worth sending.
+
+**THE COPY IS MEASURED THE WAY X MEASURES IT.** X counts WEIGHTED
+characters, not characters, and the limit is 280 of them: a CJK
+character weighs 2, an address weighs 23 whatever its real length is, and
+a Latin character weighs 1. A gate that measures `len()` therefore lets
+through a Chinese reply that the site refuses — 186 Chinese characters
+read as 186 to Python and as 372 to X. That is not a near miss: the copy
+goes into the composer, the send is refused, and the text stays there, so
+the NEXT candidate trips "the composer already holds text" and the run
+answers nothing.
+
+The rules come from twitter-text v3, the library the web client uses to
+size its composer, and `xlength.py` implements them: the four ranges
+whose characters weigh 1, the default weight of 2, and the fixed length
+of 23 for an address. `xlength_test.py` pins the measurement.
 
 **THE ADDRESS IS PROVED BY THE REDIRECT, NOT BY THE CARD'S TITLE.** The
 card X renders for a trailing address carries the TARGET PAGE's own

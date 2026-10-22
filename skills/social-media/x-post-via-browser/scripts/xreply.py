@@ -52,6 +52,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import xconfig                                            # noqa: E402
 import xcandidates                                        # noqa: E402
+import xlength                                            # noqa: E402
 import xstate                                             # noqa: E402
 from xcdp import Browser, sub                             # noqa: E402
 
@@ -486,6 +487,12 @@ def gate_copy(copy: str, repo: str | None) -> list:
     problems = []
     if not (10 <= len(copy) <= 2000):
         problems.append("length %d outside 10-2000" % len(copy))
+    weight = xlength.weighted_length(copy)
+    if weight > xlength.MAX_WEIGHTED:
+        problems.append(
+            "weighted length %d over X's %d (CJK counts double, an address "
+            "counts 23) -- shorten the copy"
+            % (weight, xlength.MAX_WEIGHTED))
     dotted = [w for w in re.findall(r"[A-Za-z0-9_-]+\.[A-Za-z]{2,}", copy)
               if not w.startswith("github")]
     if dotted:
