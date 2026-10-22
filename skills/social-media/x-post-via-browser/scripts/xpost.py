@@ -198,6 +198,17 @@ OWN_READ = """(() => {
 })()"""
 
 
+def link_ready(d: dict) -> bool:
+    """Whether the landing read carries the address's evidence.
+
+    The card wrapper and the t.co anchor arrive TOGETHER and AFTER the
+    post's own text: the article mounts first, and the card hydrates a beat
+    later. A read that stops when the text appears is reading a half-
+    hydrated post, and it reports a perfectly landed link as a lost one.
+    """
+    return bool(d.get("hasCard")) and bool(d.get("tco") or [])
+
+
 def canon(text: str) -> str:
     """Text reduced to the part that must match exactly.
 
@@ -372,7 +383,11 @@ async def run(copy: str, repo: str, dry_run: bool) -> int:
                     d = json.loads(raw) if isinstance(raw, str) else {}
                 except ValueError:
                     d = {}
-                if d.get("nMine"):
+                # The post's own text mounts BEFORE its link card. Stopping
+                # on the text alone reads a half-hydrated post and calls a
+                # landed link a lost one, so a post that is up with its
+                # card is reported as a rejection. Wait for the card.
+                if d.get("nMine") and link_ready(d):
                     break
             if not isinstance(raw, str):
                 print("NO POST ON PAGE")

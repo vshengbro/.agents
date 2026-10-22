@@ -529,6 +529,22 @@ def strip_chrome(raw: str) -> str:
     return "\n".join(body)
 
 
+def link_ready(d: dict) -> bool:
+    """Whether the landing read carries the address's evidence.
+
+    The card wrapper and the t.co anchor are the two pieces that prove the
+    address survived publication, and they arrive TOGETHER and AFTER the
+    post's own text: the article mounts first, and the card hydrates a beat
+    later. A read that stops when the text appears is therefore reading a
+    half-hydrated post, and it reports a perfectly landed link as a lost
+    one.
+
+    So the read keeps polling until this is true, and only then does it
+    judge the address.
+    """
+    return bool(d.get("hasCard")) and bool(d.get("tco") or [])
+
+
 def compare_prose(landed: str, source: str, repo: str | None):
     """Compare the landed prose with the copy that was sent.
 
@@ -715,7 +731,12 @@ async def run(index: int, sid: str, who: str, copy: str, repo: str | None,
                     d = json.loads(raw) if isinstance(raw, str) else {}
                 except ValueError:
                     d = {}
-                if d.get("nMine"):
+                # The post's own text mounts BEFORE its link card. Stopping
+                # on the text alone reads a half-hydrated post and calls a
+                # landed link a lost one, so a reply that is up with its
+                # card is reported as a rejection. When the copy carries
+                # an address, the read waits for the card and the t.co.
+                if d.get("nMine") and (not repo or link_ready(d)):
                     break
             if not isinstance(raw, str):
                 print("REJECTED: the permalink read failed: %s" % str(raw)[:200])
@@ -725,6 +746,12 @@ async def run(index: int, sid: str, who: str, copy: str, repo: str | None,
                 print("REJECTED: the reply did not mount on its own permalink; "
                       "last raw: %s" % str(raw)[:300])
                 return 12
+            # The reply is UP from here on: its own permalink rendered it.
+            # The parent is answered whatever the address proof says, so a
+            # later run skips it instead of replying to it a second time.
+            stamp = time.strftime("%Y%m%d_%H%M%S")
+            total = xstate.mark_answered(sid, backup_suffix=".bak_%s" % stamp)
+            print("STATE: %d answered (the reply's own id is NOT recorded)" % total)
             landed = d.get("text", "")
             ok, detail = compare_prose(landed, copy, repo)
             print("PROSE:", json.dumps(detail, ensure_ascii=False))
@@ -774,11 +801,7 @@ async def run(index: int, sid: str, who: str, copy: str, repo: str | None,
         finally:
             await b.close_tab(tid4)
 
-        # ---- 7. the state, the parent's id only
-        stamp = time.strftime("%Y%m%d_%H%M%S")
-        total = xstate.mark_answered(sid, backup_suffix=".bak_%s" % stamp)
-        print("STATE: %d answered (the reply's own id is NOT recorded)" % total)
-
+        # ---- 7. the state was already written when the reply was seen up
         # The receipt is the permalink, which the operator can open. The bare
         # id is not printed: it is redacted by the display layer, so a
         # transcript holding one is holding a token rather than an id.

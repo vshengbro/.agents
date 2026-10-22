@@ -66,6 +66,32 @@ CASES = [
      "看 " + PROSE, "看 " + PROSE + " " + REPO, REPO, True),
 ]
 
+# The landing read's readiness gate, in both posting scripts.
+#
+# A post's own text mounts BEFORE its link card. A read that stops on the
+# text alone reads a half-hydrated post, and it calls a link that landed
+# with its card a lost one -- which is what a run did to a perfectly
+# landed reply on 2026-10-22: the reply was up, with the card naming the
+# repository and the t.co resolving to it, and the run still reported it
+# as rejected.
+#
+# These cases pin the gate that stops the read from judging the address
+# before the card has hydrated.
+#
+# (name, landing read, expected)
+READY_CASES = [
+    ("the card and the t.co are both there",
+     {"hasCard": True, "tco": ["https://t.co/abc"]}, True),
+    ("the card has not hydrated yet",
+     {"hasCard": False, "tco": []}, False),
+    ("the card is there but the t.co is not",
+     {"hasCard": True, "tco": []}, False),
+    ("the t.co is there but the card is not",
+     {"hasCard": False, "tco": ["https://t.co/abc"]}, False),
+    ("nothing has rendered yet",
+     {}, False),
+]
+
 
 def main() -> int:
     failures = 0
@@ -89,10 +115,31 @@ def main() -> int:
         else:
             print("ok   xpost:  %s" % name)
 
+    # The readiness gate lives in both posting scripts, so both are pinned
+    # against the same fixtures.
+    for name, landing, expected in READY_CASES:
+        got = xreply.link_ready(landing)
+        if got != expected:
+            failures += 1
+            print("FAIL xreply: link_ready -- %s -- expected %s, got %s"
+                  % (name, expected, got))
+        else:
+            print("ok   xreply: link_ready -- %s" % name)
+
+    for name, landing, expected in READY_CASES:
+        got = xpost.link_ready(landing)
+        if got != expected:
+            failures += 1
+            print("FAIL xpost:  link_ready -- %s -- expected %s, got %s"
+                  % (name, expected, got))
+        else:
+            print("ok   xpost:  link_ready -- %s" % name)
+
     if failures:
         print("\n%d case(s) failed" % failures)
         return 1
-    print("\nall %d cases hold in both scripts" % len(CASES))
+    print("\nall %d comparison cases and %d readiness cases hold in both scripts"
+          % (len(CASES), len(READY_CASES)))
     return 0
 
 

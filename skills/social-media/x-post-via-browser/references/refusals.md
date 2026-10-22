@@ -17,6 +17,8 @@ reason, and move to the next candidate.
 | `NO POST ON PAGE` | nothing was established on the permalink | Nothing is proven. Report it; do not publish a replacement. |
 | `LANDED LINK LOST` | the post is up WITHOUT its address | A public defect. Report the URL, do not send the remaining versions, do not send a replacement. |
 | `LANDED LINK PRESENT BUT NOT PROVEN` | the post is up and carries a rewritten link, but no card names the repository | Treat as a failure. Report it. |
+| `the link landed as no card and no t.co` | the post is up but the read saw no card and no t.co | The card hydrates after the text. The read now waits for both; if it still refuses, the address really is not there. Report it; do not send a replacement. |
+| `the link landed without a card` | the post is up with a t.co but no card wrapper | The card is the proof that the address names the repository. Report it; do not send a replacement. |
 | `another engagement run holds the lock` | a correct skip | Report and stop entirely. Do not wait it out inside the run. |
 
 ## The refusals that exist because of a measurement

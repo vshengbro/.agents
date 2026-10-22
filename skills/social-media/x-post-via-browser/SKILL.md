@@ -55,6 +55,22 @@ Remove the url span from BOTH sides and compare as prose; the address is
 proved by the card text and the t.co redirect. `xcompare_test.py` pins
 this in both `xreply.py` and `xpost.py`; run it after touching either.
 
+**The card hydrates AFTER the post's own text.** The article mounts
+first; the card wrapper and the t.co anchor arrive a beat later. A
+landing read that stops as soon as the text is there is reading a
+half-hydrated post, and it calls a link that landed with its card a lost
+one — a reply that was up, with the card naming the repository and the
+t.co resolving to it, was reported as rejected. So the read keeps
+polling until BOTH the card and the t.co are present, and only then does
+it judge the address. `link_ready()` is that gate, and `xcompare_test.py`
+pins it in both scripts.
+
+**A reply that is up is answered, whatever the address proof says.** The
+parent's id is recorded the moment the reply renders on its own
+permalink — not after the last proof passes. A run that rejected a
+landed reply before recording it left the parent open, and the next run
+answered it a second time.
+
 **The copy goes in through CDP, not through the page.**
 `Input.insertText` is a real input event and the editor's own path
 accepts it. `document.execCommand('insertText')` was measured DOUBLING
