@@ -272,6 +272,56 @@ def status() -> int:
     return 0
 
 
+def prune() -> int:
+    """Close the stale X tabs this skill opened, keeping the newest one.
+
+    The error page is not only about request rate. A run that leaves its
+    tabs behind -- a crash, a killed run, a tab whose close did not land --
+    accumulates them, and a browser carrying a dozen stale tabs serves
+    X's error state on the timeline while the session is still signed in.
+    That was measured: 16 stale tabs, an empty timeline, and the feed
+    restored only by dropping them.
+
+    So the recovery is not "open another tab". It is "drop the tabs that
+    are not doing anything". This closes every X page tab except the
+    newest one, which is the one a retry would reuse.
+
+    ONLY TABS ON THE X SITE ARE TOUCHED. This browser is the skill's own
+    dedicated instance, but a page on another site is still somebody
+    else's work -- a local monitor, a docs preview -- and closing it
+    would take down a tab that has nothing to do with the feed.
+    """
+    port = running_port()
+    if not port:
+        print("no live browser; nothing to prune")
+        return 0
+    tabs = _http_json(port, "/json/list") or []
+    pages = [t for t in tabs if t.get("type") == "page"]
+    if not pages:
+        print("no page tabs")
+        return 0
+    site = xconfig.site()
+    x_pages = [t for t in pages if site in (t.get("url") or "")]
+    others = len(pages) - len(x_pages)
+    if len(x_pages) <= 1:
+        print("nothing to prune: %d x tabs, %d other tabs left alone"
+              % (len(x_pages), others))
+        return 0
+    keep = x_pages[-1]
+    closed = 0
+    for t in x_pages:
+        if t.get("id") == keep.get("id"):
+            continue
+        try:
+            _http_json(port, "/json/close/%s" % t.get("id"))
+            closed += 1
+        except Exception:
+            pass
+    print("pruned %d of %d x tabs (kept %s); %d other tabs left alone"
+          % (closed, len(x_pages), (keep.get("url") or "")[:60], others))
+    return 0
+
+
 def down() -> int:
     """Stop the browser this skill started. Nothing else is touched."""
     try:
@@ -301,6 +351,8 @@ def main(argv) -> int:
         return up()
     if action == "status":
         return status()
+    if action == "prune":
+        return prune()
     if action == "down":
         return down()
     print(__doc__)

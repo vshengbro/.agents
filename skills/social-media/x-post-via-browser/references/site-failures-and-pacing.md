@@ -14,6 +14,36 @@ load?" passes, and the article count is ZERO.
 **Detect it by the article count, not by the page title.** An article
 count of zero on a page that otherwise rendered IS the error page.
 
+**The error page is per-surface, not per-account.** The timeline can
+serve it while a status permalink still renders the article, and a
+different tab can serve it while the first recovers. So "one page
+rendered empty" does not mean the account is blocked — and a run that
+concludes "X is down" from one empty timeline has measured one page.
+
+**Distinguish it from an empty feed by asking for a second surface.**
+Open a known-good status permalink and count its articles. If the
+permalink renders and the timeline does not, the timeline is serving the
+error page. If both are empty, the session or the network is the
+problem. `xrepo.py --network` answers the network half.
+
+**THE CAUSE IS USUALLY STALE TABS, NOT THE REQUEST RATE.** Measured on
+2026-10-22: the timeline went to zero articles with the session still
+signed in and the network healthy, and the browser was carrying **16
+stale tabs** — leftovers from runs that were killed or whose tab close
+did not land. The feed came back by dropping them, not by waiting.
+
+So the recovery is **prune, then retry**: `xbrowser.py prune` closes
+every page tab except the newest, and `xfeed.py` does that automatically
+before each retry. Opening another tab is NOT the fix — a browser
+carrying the stale tabs serves the error page on the new one too. A
+restart of the browser (`xbrowser.py down && xbrowser.py up`) is the
+heavier version of the same remedy, and it works.
+
+**A tab that is closed in a `finally` is closed.** The stale tabs exist
+because a run was killed before its cleanup ran. A tab left open by an
+interrupted run is the thing that eventually takes the feed down, so
+close them as you go.
+
 **Zero candidates is not "nothing worth answering".** The feed reads as
 empty under an error page, and a run that cannot tell the two apart
 reports a success it did not earn. `xfeed.py` retries an error page

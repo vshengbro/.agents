@@ -75,7 +75,7 @@ it. Every one exists because the alternative produced a public defect.
 
 | script | what it does |
 | --- | --- |
-| `xbrowser.py up\|status\|down` | the dedicated browser; copies the session cookies out of the real Chrome profile and launches against the copy |
+| `xbrowser.py up\|status\|down\|prune` | the dedicated browser; copies the session cookies out of the real Chrome profile and launches against the copy; `prune` drops the stale X tabs |
 | `xfeed.py --out FILE --count N` | the candidates, into a file; already-answered ones filtered out |
 | `xread.py --candidates FILE --index N` | a candidate's FULL text, from its permalink |
 | `xlike.py --candidates FILE --index N` | like one post, proven by the button swap |

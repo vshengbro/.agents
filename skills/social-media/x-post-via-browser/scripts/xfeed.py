@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -127,8 +128,18 @@ async def collect(count: int, filter_answered: bool = True, retries: int = 3):
             finally:
                 await b.close_tab(tid)
             if attempt < retries:
-                print("  retrying the timeline (attempt %d of %d)"
+                # The error page is not only about request rate. A browser
+                # carrying stale tabs serves it while the session is still
+                # signed in -- measured: 16 stale tabs, an empty timeline,
+                # and the feed restored only by dropping them. So the retry
+                # first PRUNES, then opens a new tab. Pruning is a separate
+                # process because the browser outlives this one.
+                print("  pruning stale tabs before retry %d of %d"
                       % (attempt + 1, retries))
+                subprocess.run([sys.executable,
+                                str(Path(__file__).resolve().parent /
+                                    "xbrowser.py"), "prune"],
+                               capture_output=True, text=True, timeout=60)
                 await asyncio.sleep(6.0)
         return []
 

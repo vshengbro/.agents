@@ -21,6 +21,32 @@ reason, and move to the next candidate.
 
 ## The refusals that exist because of a measurement
 
+**A REFUSAL TABLE DRIFTS FROM THE CODE THAT PRINTS IT.** The verdict
+strings here are the API: a run reads them to decide what to do next, so
+a table that names a string the scripts stopped printing sends the reader
+after a verdict that no longer exists — and the one that DID replace it
+goes unmentioned. The copy insertion moved to a different mechanism and
+its refusal message changed with it, while the table kept the old one.
+
+So when a script's verdict changes, change the table in the same commit,
+and prove it mechanically rather than by reading:
+
+```sh
+python3 - <<'EOF'
+import re, glob, pathlib
+ref = pathlib.Path("references/refusals.md").read_text()
+src = "".join(pathlib.Path(p).read_text() for p in glob.glob("scripts/*.py"))
+for v in re.findall(r"^\| `([^`]+)`", ref, re.M):
+    static = re.sub(r"\b[NM]\b", "", v).strip()
+    parts = [p for p in re.split(r"\s{2,}", static) if len(p) > 8]
+    hit = all(p in src for p in parts) if parts else static in src
+    print("OK " if hit else "MISS", v)
+EOF
+```
+
+Every line must print OK. A MISS means the table describes a verdict the
+code does not emit.
+
 **THE SEND BUTTON MUST COME FROM THE EDITOR'S OWN DIALOG.** On the reply
 route the page holds a main composer and a reply dialog, and the FIRST
 enabled `tweetButton` on the page belongs to the main composer. Clicking
