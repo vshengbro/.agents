@@ -5,51 +5,71 @@ description: Use when posting, replying, or liking on X/Twitter from this accoun
 
 # X posting and engagement
 
-Posting on X from this account goes through the scripts in `scripts/`. They
-drive a dedicated headless Chrome over raw CDP, and they do the mechanical
-work — opening the composer, inserting the copy, clicking send, and reading
-the landed post back. The judgement work — what to say, to whom, and whether
-it is worth saying — stays with the caller.
+## When to Use
+
+Posting, replying or liking on X/Twitter as this account; an X engagement
+cron job that has to collect, like, reply and prove each one landed; a
+promotion post that has to carry this account's project address.
+
+Not for: reading X as research, other social platforms, or copy that is
+not going to be sent.
+
+The scripts in `scripts/` drive a dedicated headless Chrome over raw CDP
+and do the mechanical work — opening the composer, inserting the copy,
+clicking send, reading the landed post back. The judgement work stays
+with the caller.
 
 ## The rules that matter
 
 **A landed post is the only proof.** The toast is not a receipt: a sibling
 run's toast is byte-identical, and it was read as success on a reply that
-never landed. The proof is a read of the post on its own permalink, with the
-prose compared against the copy that was sent.
+never landed. The proof is a read of the post on its own permalink, with
+the prose compared against the copy that was sent — read from the post's
+OWN text element, not the whole article, which carries the link card and
+the engagement chrome and reads false on a perfectly landed post. Find the
+owning article by the article whose own time link points at the id, so a
+quoted post is never mistaken for the one being verified.
 
 **Like first, then reply, then verify.** A post that is answered is a post
-that is liked. The like is idempotent — it reads the button state before it
-clicks, so a retry cannot toggle a like off.
+that is liked, and the two sets must match exactly. The like is idempotent
+— it reads the button state before it clicks, so a retry cannot toggle a
+like off.
 
 **A status id never appears in a transcript.** An id is a bare 19-digit
-number, and the display layer replaces such numbers with a redaction token:
-one id in a list of seven was redacted. Name candidates by their INDEX and
-let the scripts read the ids out of the candidates file. `read_file` shows
-the real value; a terminal transcript does not.
+number, and the display layer replaces such numbers with a redaction
+token: one id in a list of seven was redacted. Name candidates by their
+INDEX and let the scripts read the ids out of the candidates file.
 
-**The collect and the answer are one process.** The feed virtualises articles
-out of the DOM within about a minute, so a candidate read at one moment can
-be gone at the next. `xreply.py` works against the parent's own permalink.
+**The collect and the answer are one process.** The feed virtualises
+articles out of the DOM within about a minute, so a candidate read at one
+moment can be gone at the next. `xreply.py` works against the parent's
+own permalink.
 
-**A trailing address lands as a card.** When the last token is a URL, X
-promotes it to a link card and the raw URL string is then absent from the
-post's text. A substring check for the URL reads false on a perfectly landed
-link. The proof is the card text plus the t.co redirect.
-
-**A one-character difference is a marker, not a mangled post.** The card
-is not part of the post's own text, so the landed text carries NO url
-span while the source copy carries one. A comparison that leaves a marker
-where the span was makes the two differ by exactly that one character, and
-a reply that landed perfectly reads as a mismatch. The url span is removed
-from BOTH sides, so the two compare as prose. `xcompare_test.py` pins
+**A trailing address lands as a card, so the landed text has no url in
+it.** When the last token is a URL, X promotes it to a link card and the
+raw URL string is then absent from the post's text. A substring check for
+the URL reads false on a perfectly landed link, and a comparison that
+leaves a marker where the span was makes the two differ by exactly that
+one character — so a reply that landed perfectly reads as a mismatch.
+Remove the url span from BOTH sides and compare as prose; the address is
+proved by the card text and the t.co redirect. `xcompare_test.py` pins
 this in both `xreply.py` and `xpost.py`; run it after touching either.
 
+**The copy goes in through CDP, not through the page.**
+`Input.insertText` is a real input event and the editor's own path
+accepts it. `document.execCommand('insertText')` was measured DOUBLING
+the copy — 208 characters read back as 416 — and `execCommand('delete')`
+to clear the selection first is a banned call: it raises Chrome's
+unsaved-changes dialog, which then blocks every later CDP call.
+
 **One substitution mode.** Every placeholder in a JS template is a JS
-expression slot and every value is `json.dumps`'d. A placeholder inside a
-quoted string is a quote-injection bug; a bare 19-digit id is a number
-literal, which loses precision and matches nothing. Build selectors by
-concatenation.
+expression slot and every value is `json.dumps`'d. A placeholder inside
+a quoted string is a quote-injection bug; a bare 19-digit id is a number
+literal, which loses precision and matches nothing.
+
+**A refusal is the script declining on purpose.**
+`references/refusals.md` says what each one means and what to do about
+it. Every one exists because the alternative produced a public defect.
 
 ## The scripts
 
@@ -63,13 +83,12 @@ concatenation.
 | `xpost.py --copy FILE --repo URL [--dry-run]` | publish one standalone post and verify its address |
 | `xtrending.py --limit N` | today's trending list, read live, with ownership from live git remotes |
 | `xrepo.py --pick\|--list\|--network` | which own repository may be promoted, and whether the network is broken |
-| `xstate.py` | the atomic state store and the advisory lock |
 | `xcompare_test.py` | the landed-text comparison, in both posting scripts; run it after touching either |
+| `verify_no_unsafe_posting.py` | the commit gate on these scripts; run its `--self-test` after changing it |
 
 Run them with `python3` from this directory. `xconfig.py` holds every
-environment-specific value and reads it at call time: the state directory
-(`~/.hermes/state/x-post`), the browser endpoint, the account handle, and the
-code directory. Nothing is baked in and nothing is a constant.
+environment-specific value and reads it at call time — the state
+directory, the browser endpoint, the account handle, the code directory.
 
 ## A reply, end to end
 
@@ -84,86 +103,52 @@ python3 scripts/xreply.py --candidates /tmp/cand.json --index 3 \
 
 `--repo URL` is for a reply that promotes one of this account's own
 repositories; the address must appear exactly once, at the end, preceded by
-one space. `--allow-no-repo` is for a reply that carries no address at all;
-the gate refuses any URL in that case.
+one space. `--allow-no-repo` is for a reply that carries no address at all.
+The exit code is 0 only when the reply was verified; a non-zero code means
+nothing was sent or the landing was unproven, and the verdict line names
+the step that refused.
 
-The exit code is 0 only when the reply was verified. A non-zero code means
-nothing was sent, or the landing was not proven — read the script's own
-verdict line, which names the step that refused.
+## The browser and the state
 
-## What each refusal means
-
-- **`the composer already holds text`** — a draft that is not ours. Do not
-  clear it, do not reload, do not open a tab.
-- **`the parent post is not mounted`** — the composer is not bound to the
-  parent, so a send would publish a standalone post where a reply was meant.
-- **`the composer is not inside a dialog`** — the send button cannot be told
-  apart from the main composer's. Refused rather than risking a standalone
-  post.
-- **`the copy did not read back from the editor`** — the composer holds
-  something other than the copy. Nothing was sent.
-- **`the editor holds N paragraphs for M in the source`** — the paragraph
-  structure would be lost on publication.
-- **`NO POST ON PAGE` / `LANDED LINK LOST`** — the post is up but not what
-  was asked for. A post that lost its address is a public defect; report it
-  and do not publish a replacement on top of it.
-
-## The dedicated browser
-
-The harness browser answers 403 on x.com — it identifies as HeadlessChrome,
-and the same URL answers 200 with an ordinary user agent from the same
-address in the same second. Overriding the user agent fixes the 403, but the
-harness's own profile carries no x.com session, so the page redirects to the
-login screen.
-
-So `xbrowser.py` copies the session cookies out of the user's real Chrome
-profile — a read-only sqlite backup, so a running Chrome cannot lose a
-committed WAL page — into a private profile under the state directory, and
-launches a headless Chrome against that copy. It never writes to the real
-profile and never opens a window the user can see.
-
-## The state
-
-`~/.hermes/state/x-post/` holds the browser endpoint, the account handle, the
-answered ids, the publication record, and the lock. It is deliberately NOT
-the scratch directory: the daily cleanup removes scratch files older than a
-day, and a port file that disappears between two runs is a job that cannot
-find its own browser.
-
-The state file is written atomically — a temporary file, renamed over the
-target, read back before the call returns. A bare `open(path, "w")`
-truncates the moment it is called, so a write that raises afterwards leaves
-a zero-byte file and every prior run's record gone.
-
-The lock is advisory and per-process. Two jobs on a schedule can overlap, and
-a reply that lands under the wrong post is the result, so a run that cannot
-take the lock waits and says so.
+The harness browser answers 403 on x.com and carries no x.com session, so
+`xbrowser.py` copies the session cookies out of the user's real Chrome
+profile into a private profile and launches a headless Chrome against the
+copy. `~/.hermes/state/x-post/` holds the browser endpoint, the account
+handle, the answered ids, the publication record and the lock — NOT the
+scratch directory, because the daily cleanup removes scratch files older
+than a day. `references/browser-and-state.md` has the details.
 
 ## The reply's own rules
 
-- Read the post in full before writing about it. The feed clips long posts,
+- Read the post in full before writing about it — the feed clips long posts,
   and the clipped half is usually the point.
-- Say something the post did not already say. A restatement is a wasted
+- Say something the post did not already say; a restatement is a wasted
   reply.
 - Ground every claim in something read this run — the post, the source, the
   advisory. A claim that cannot be sourced does not go in.
-- Write in the post's language.
-- Never like a post you did not reply to, and never reply to a post you did
-  not like.
-- A failed send is reported, never retried into a second post.
+- Write in the post's language. A failed send is reported, never retried
+  into a second post.
 
-## When the site times out
+## When the site fails
 
-`xrepo.py --network` says which case it is. Every proxied host timing out
-while a direct host answers means **the proxy is dead** — not Cloudflare,
-not the network, and not a user agent to bisect.
+`references/site-failures-and-pacing.md` covers the three states a run
+cannot tell apart by eye: the site serving its error page, the site
+rate-limiting an account that answers too fast, and the proxy being
+dead. Read it when the feed comes back empty or a page stops rendering.
+
+**Zero candidates is not "nothing worth answering".** The feed reads as
+empty under an error page, and a run that cannot tell the two apart
+reports a success it did not earn. `xfeed.py` retries an error page
+before giving up; when the retries are exhausted, report the failure,
+not a target count of zero. **Pace the replies** too: one account
+answering dozens of posts inside an hour trips the same limit. The count
+is a target, not a quota — fewer replies, each landed and verified, beats
+a burst that ends in a rate-limited run and an unverifiable last reply.
 
 ## Which own repository may be promoted
 
 `xrepo.py --pick` decides it, and the decision is **reachability**, not
-on-topic-ness. A repository that answers 404 anonymously is not a
-candidate: the link would be dead for every reader who is not signed in.
-The on-topic repository and the reachable one are often different ones, so
-every own repository is checked and only the ones answering 200 are
-offered. One whose last push is over a fortnight old is not worth
+on-topic-ness: a repository that answers 404 anonymously is not a
+candidate, because the link would be dead for every reader who is not
+signed in. One whose last push is over a fortnight old is not worth
 promoting either.
