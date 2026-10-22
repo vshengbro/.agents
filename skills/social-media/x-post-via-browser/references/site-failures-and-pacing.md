@@ -86,3 +86,29 @@ whole run's budget on the wrong question.
 Two runs driving one tab put a reply under the wrong post. The advisory
 lock in the state directory serialises the posting scripts, and the
 browser endpoint file is written once per browser, not once per run.
+
+## A rejected landing does not mean nothing was posted
+
+The posting scripts refuse in two very different places, and they are not
+the same failure:
+
+- **A refusal BEFORE the send click** means nothing was published. The
+  composer was untouched.
+- **A refusal AFTER the send click** means a post IS up. The reply
+  rendered on its own permalink; only the proof of it failed.
+
+So when a run reports a rejection after the send, READ the landed post
+before concluding anything. A reply that is up with its card and its
+t.co has landed, whatever the script said.
+
+The cause of the false rejection on 2026-10-22 was a race, not a
+defect in the reply: a post's own text mounts before its link card, and
+the landing read stopped on the text, so it judged a half-hydrated post
+and called the card a lost link. The read now waits for the card.
+
+**Record the parent as answered as soon as the reply renders.** The
+answered set is what stops a later run from answering the same post
+twice. A run that refuses after the send but before recording leaves the
+parent open, and the next run posts a second reply to it — two public
+replies under one post, which is the defect the lock and the answered set
+exist to prevent.
