@@ -33,6 +33,24 @@ bare repository address — a pull request address ends in a number, and no
 title contains a number. Follow the t.co and compare the place it names with
 the address that was sent. `references/refusals.md` has the case.
 
+## A META TAG CARRIES A TRUNCATED t.co THAT 404s
+
+The page's `og:description` holds the post's own prose, but the address in
+it is TRUNCATED: `https://t.co/Vr5C…` with an ellipsis, where the link in the
+page body is the full `https://t.co/Vr5CkJ35kq`. The truncated one answers
+404, so resolving it reads as "the address does not resolve" and a perfectly
+landed post is reported as unproven.
+
+The proof reads the t.co out of the PAGE BODY, not out of the meta tag, and
+resolves every full-length one it finds. Measured on 2026-10-24: the
+truncated link 404'd while the full-length link 301'd to the repository, and
+the post was correct.
+
+So when a landing is proved over plain HTTP — the path that
+`references/site-failures-and-pacing.md` recommends when the browser is busy —
+take the address from the article's own anchors, and treat a 404 on a short
+link as "that link is truncated", not as "the address is gone".
+
 ## The copy is measured the way X measures it
 
 X does not count characters; it counts WEIGHTED characters, and the limit is
