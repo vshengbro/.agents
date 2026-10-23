@@ -48,6 +48,33 @@ gh auth login --with-token <<<"$TOKEN"
 `repo,read:org,gist` is the documented minimum; add `workflow` only when you
 push workflow files. Later: `gh auth refresh -h github.com -s write:discussion`.
 
+**Scope gates are per-endpoint, not per-account.** `DELETE /repos/{owner}/{repo}`
+needs `delete_repo`, which `repo` does not imply — a `403` whose body names
+the missing scope is the whole answer. Extend with
+`gh auth refresh -h github.com -s delete_repo`.
+
+**Ask for a device code, never for a 2FA/TOTP.** The device code is a routing
+token, not a secret — it authorises an application, it does not authenticate
+the person, and it can be pasted into chat. An authenticator-app code *is* the
+person's credential, and asking for one in chat crosses a line the tooling
+draws deliberately: a code that authenticates the account should be entered
+by the account owner, in a place the owner controls. So when the sudo
+re-auth needs a second factor, the ask is for the **owner to complete it** —
+run the command, finish the prompt in their own browser, then report back —
+not for them to hand the code over.
+
+Where the surrounding work must be prepared around that hand-off, prepare the
+**submission** (the exact URL, the hidden fields, the session cookie) so the
+owner's step is one command. Do not prepare it by taking their code and
+submitting it on their behalf: that is the same act with the consent
+invisible, and it also fails — a TOTP is valid about 30 seconds, so the chat
+round trip spends it before it can be used.
+
+A flagged account cannot authorize a third-party app at all, and the device
+form's dash may be a slot or may be static text — both failure modes, plus
+the symptom table, are in
+[references/scope-gates-and-device-flow.md](references/scope-gates-and-device-flow.md).
+
 **Headless keyring hang.** On keyring-less hosts (VPS, containers) `gh auth
 login --with-token` can block forever waiting on a secret service, even with
 `--insecure-storage` and no output. Wrap it in `timeout 20 …`; on exit 124

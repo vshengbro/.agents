@@ -52,3 +52,62 @@ pub struct CompliantRawString {
     /// Sample text.
     pub sample: &'static str,
 }
+
+/// RULE 2 (§17.16.1), already-fixed shape: `Getter` with the mutator
+/// attributes removed. Nothing to report.
+#[derive(Clone, Debug, Getter)]
+pub struct GetterOnlyFixed {
+    /// Surface width in pixels.
+    #[get(pub(crate), type(copy))]
+    pub(crate) width: u32,
+    /// The immutable backend identity.
+    #[get(pub(crate))]
+    pub(crate) backend: RayTraceBackend,
+}
+
+/// A `Data` struct that still generates a setter for one field is genuinely
+/// `Data`, however few call sites use it. No call-site counting here.
+#[derive(Clone, Debug, Data)]
+pub struct DataStillSettable {
+    /// Written by the builder.
+    #[get(pub(crate))]
+    #[get_mut(pub(crate))]
+    #[set(pub(crate))]
+    pub(crate) value: u32,
+}
+
+/// A `Data` struct that still generates one `get_mut` stays `Data`.
+#[derive(Clone, Debug, Data)]
+pub struct DataStillMutable {
+    /// Written by the backend.
+    #[get(skip)]
+    #[get_mut(pub(crate))]
+    #[set(pub(crate))]
+    pub(crate) adapter: RayTraceBackendAdapter,
+}
+
+/// Every field skips `get` too, so no accessor is generated at all and
+/// `Getter` would not describe this struct either.
+#[derive(Clone, Debug, Data)]
+pub struct DataNoAccessorsAtAll {
+    /// Never exposed.
+    #[get(skip)]
+    #[get_mut(skip)]
+    #[set(skip)]
+    pub(crate) secret: u32,
+}
+
+/// An empty `Data` struct has no field to read a skip off.
+#[derive(Clone, Debug, Data)]
+pub struct DataEmpty {}
+
+/// Tuple and unit structs have no named field to anchor a skip to.
+#[derive(Clone, Debug, Data)]
+pub struct DataTuple(pub(crate) u32);
+
+/// `Getter` on its own is the fixed form of rule 2 — never reported.
+#[derive(Clone, Debug, Getter)]
+pub struct PlainGetter {
+    /// Public field.
+    pub name: String,
+}

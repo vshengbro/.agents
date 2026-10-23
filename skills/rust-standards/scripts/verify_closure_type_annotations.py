@@ -84,7 +84,23 @@ CLOSURE = re.compile(
 )
 
 
-def _mask_line(line: str) -> list[bool]:
+class _RawStringState:
+    """Carries an open raw-string delimiter across lines.
+
+    `_mask_line` is per-line, so a `r#"` opened on line N left every
+    following line unmasked — the WGSL inside `src/render/const.rs`
+    (`||` short-circuits) was then read as closure parameters (2026-10-16,
+    vice-city-web: 5 false positives).  The caller threads one instance
+    through a file so only the opening line is special-cased.
+    """
+
+    __slots__ = ("hashes",)
+
+    def __init__(self) -> None:
+        self.hashes: int | None = None
+
+
+def _mask_line(line: str, state: "_RawStringState | None" = None) -> list[bool]:
     """Return a per-character mask: True where the char is CODE, False
     where it belongs to a string / char / byte literal or a comment.
 
@@ -106,6 +122,19 @@ def _mask_line(line: str) -> list[bool]:
             for k in range(i, n):
                 mask[k] = False
             break
+        # continuation of a raw string opened on an earlier line: the whole
+        # line is literal until the closing delimiter appears (or the line
+        # ends, in which case the string stays open for the next line).
+        if state is not None and state.hashes is not None:
+            close = '"' + "#" * state.hashes
+            end = line.find(close)
+            if end == -1:
+                return [False] * n
+            for k in range(0, end + len(close)):
+                mask[k] = False
+            state.hashes = None
+            i = end + len(close)
+            continue
         # raw string r"..." / r#"..."#
         if ch == "r" and line[i + 1:i + 2] in ('"', "#"):
             j = i + 1
@@ -118,7 +147,13 @@ def _mask_line(line: str) -> list[bool]:
                 continue
             close = '"' + "#" * hashes
             end = line.find(close, j + 1)
-            end = n if end == -1 else end + len(close)
+            if end == -1:
+                for k in range(i, n):
+                    mask[k] = False
+                if state is not None:
+                    state.hashes = hashes
+                return mask
+            end = end + len(close)
             for k in range(i, end):
                 mask[k] = False
             i = end
@@ -161,10 +196,10 @@ def _mask_line(line: str) -> list[bool]:
     return mask
 
 
-def _masked_spans(line: str) -> str:
+def _masked_spans(line: str, state: "_RawStringState | None" = None) -> str:
     """Return `line` with every literal/comment character replaced by a
     space.  Offsets are preserved, so span arithmetic stays valid."""
-    mask = _mask_line(line)
+    mask = _mask_line(line, state)
     return "".join(ch if keep else " " for ch, keep in zip(line, mask))
 
 
@@ -316,6 +351,38 @@ def _next_nonspace(line: str, index: int, step: int) -> str | None:
         return ch
 
 
+def _is_or_pattern_arm(params: str, code: str, end: int) -> bool:
+    """True when this `|` belongs to a `match` or-pattern, not a closure.
+
+    `CLOSURE` matches one `|`-delimited span at a time, so for
+    `A | B | C | D => { .. }` the first hit ends right after the SECOND
+    `|` and its "after" text is `C`, never `=>`.  The decision therefore
+    has to be made on the LAST alternative: scan forward through
+    `alternative | alternative | ...` and ask whether the chain ends in
+    `=>`.  A closure is never followed by a further `|`-alternative, so
+    this cannot swallow a real closure (2026-10-16).
+    """
+    n = len(code)
+    i = end
+    while i < n:
+        j = i
+        while j < n and code[j].isspace():
+            j += 1
+        k = j
+        while k < n and code[k] not in "|=>" and not code[k].isspace():
+            k += 1
+        if k == j:
+            return False
+        while k < n and code[k].isspace():
+            k += 1
+        if code[k:k + 2] == "=>":
+            return True
+        if k >= n or code[k] != "|":
+            return False
+        i = k + 1
+    return False
+
+
 def _is_bitwise_or_chain(
     params: str, line: str, span: tuple[int, int]
 ) -> bool:
@@ -385,6 +452,7 @@ def audit_one(path: Path) -> list[str]:
     except (OSError, UnicodeDecodeError):
         return []
     violations: list[str] = []
+    state = _RawStringState()
     for i, line in enumerate(text.splitlines(), start=1):
         # Skip comments — we don't want to flag closure-shaped
         # content inside `// ...` lines.
@@ -395,7 +463,7 @@ def audit_one(path: Path) -> list[str]:
         # a `|` inside `log::info!("a|b|c")` is never read as a closure
         # delimiter (2026-09-28).  Exempting by span, not by line, keeps
         # real closures on the same line visible.
-        code = _masked_spans(line)
+        code = _masked_spans(line, state)
         # Skip macro_rules! lines whose `|` sits inside a `$( ... )`
         # repetition (2026-09-28).  A macro matcher and a macro body are
         # both patterns, not closures: `move |$( $arg:ident $(: $ty:ty)? ),*|`
@@ -411,6 +479,12 @@ def audit_one(path: Path) -> list[str]:
             # because that one needs the surrounding span; this one is
             # self-contained and covers `==`/`!=`/`<=`/`&&` too.
             if _is_op_chain(params_str):
+                continue
+            # `match` or-patterns (`PROP_A | PROP_B => ..`) are patterns,
+            # not closure parameter lists — every alternative is a path in
+            # a value, and adding `: T` to one would not compile
+            # (vice-city-web src/game/fn.rs, 2026-10-16).
+            if _is_or_pattern_arm(params_str, code, m.span(0)[1]):
                 continue
             if _is_bitwise_or_chain(params_str, code, m.span("params")):
                 # `|`-separated bit operations, e.g.

@@ -537,6 +537,17 @@ pub(crate) enum Visibility {
 
 > **⚠️ 删掉 `pub` 不等于合规**: §17.14.1 修完 `#[get(pub)]` 会得到裸 `#[get]`,而**裸 `#[get]` / `#[get_mut]` / `#[set]` 本身也是禁止的**(§17.14.2)—— 因为 `#[derive(Data)]` 已经生成了全部 accessor。正确做法是**整个属性行删掉**,不是只删 `pub`。
 
+**空括号形式同样禁止** —— `#[get()]` / `#[get_mut()]` / `#[set()]` 与裸形式语义完全相同(`cargo check` 实测三者生成的 accessor 签名一致),只是多一对无意义的括号。整个属性行删掉:
+
+```rust
+#[get()]     // 禁止 —— 等价于 #[get],而 #[get] 也禁止
+#[get( )]    // 禁止 —— 空白不改变语义
+#[get(
+)]   // 禁止
+```
+
+> verifier `verify_no_redundant_accessor_attr.py` 的 `BARE_RE` 已覆盖裸形式与空括号形式两种写法(2026-10-17 补齐,此前 `#[get()]` 可绕过拦截)。有意义的三类写法 `#[get(pub(crate))]` / `#[get(type(copy))]` / `#[get(skip)]` 仍然豁免。
+
 **收窄可见性不受影响、必须保留** —— `pub(crate)` / `pub(super)` 是 §17.14 要求的收紧,不是冗余:
 
 ```rust
@@ -671,7 +682,49 @@ pub struct RouteMatcher { /* … */ }
 
 **豁免**:① `enum` / `union` —— `inner_lombok_data` 的 `_ => panic!(UNSUPPORTED_DATA_DERIVE)` 直接拒绝,trio 挂不上 enum,所以规则只对 struct 生效;② 注释 / doc comment / 字符串字面量(含 raw string)里的 `#[derive(...)]` 是文档不是代码,永不计数;③ 顺序无关 —— `#[derive(Setter, GetterMut, Getter)]` 同样违规;④ path 限定写法按最后一段判名(`lombok_macros::Getter` / `lombok_macros::Data`)。
 
-**执行脚本**:`scripts/verify_no_redundant_accessor_derive.py`,audit **check 53** 调用,已注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则)。自测 `scripts/self_test_no_redundant_accessor_derive.py`(compliant 0 / violating 4 精确 / tricky 0 / audit_one 双向 / gate 四向:暂存 trio 拦、`Data` 放行、历史债不拦、新 trio 照拦),并做过**变异验证**:关掉规则 → FAIL、放开 struct 作用域 → FAIL、关掉注释/字面量屏蔽 → FAIL,还原 → PASS —— 证明自测抓得住「规则被改宽/被关掉」,不是恒过测试。Fixture `scripts/fixtures/accessor-derive/{compliant,violating,tricky}`。**真仓命中:hyperlane 3(`core/src/route/struct.rs:22` `RouteMatcher` / `type/src/request/model/struct.rs:44` / `type/src/response/struct.rs:7`)/ euv 0 / ctares 0(`lombok-macros/debug/src/main.rs:25` 是 `Getter + Setter` **两个**,没有合并宏,按规则放行)/ vice-city-web 0 / hyperlane-drop 0。
+**执行脚本**:`scripts/verify_no_redundant_accessor_derive.py`,audit **check 53** 调用(`--rule trio`),已注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则)。自测 `scripts/self_test_no_redundant_accessor_derive.py`(compliant 0 / violating 4 精确 / tricky 0 / audit_one 双向 / gate 四向:暂存 trio 拦、`Data` 放行、历史债不拦、新 trio 照拦),并做过**变异验证**:关掉规则 → FAIL、放开 struct 作用域 → FAIL、关掉注释/字面量屏蔽 → FAIL,还原 → PASS —— 证明自测抓得住「规则被改宽/被关掉」,不是恒过测试。Fixture `scripts/fixtures/accessor-derive/{compliant,violating,tricky}`。**真仓命中:hyperlane 3(`core/src/route/struct.rs:22` `RouteMatcher` / `type/src/request/model/struct.rs:44` / `type/src/response/struct.rs:7`)/ euv 0 / ctares 0(`lombok-macros/debug/src/main.rs:25` 是 `Getter + Setter` **两个**,没有合并宏,按规则放行)/ vice-city-web 0 / hyperlane-drop 0。
+
+## §17.16.1 所有字段都跳过 mutator 时,`Data` 应该是 `Getter`(2026-10-18 user 钦定)
+
+§17.16 说 `Data` **就是**三合一,但三半是**逐字段、独立开关**的 —— `#[get_mut(skip)]` / `#[set(skip)]` 各自关掉对应的生成(`lombok-macros` 10.2.7 `src/parse/fn.rs`:`config.skip_flags.insert(FuncType::GetMut / Set)`)。所以一个 `Data` struct 可以**一个可变 accessor 都不生成**,这时描述它的 derive 就是 `Getter`,不是 `Data`。
+
+```rust
+// ❌ 违规:Data 承诺了没有任何字段会生成的 get_mut_* / set_*
+#[derive(Clone, Debug, Data)]
+pub struct RayTraceScene {
+    #[get(pub(crate))]
+    #[get_mut(skip)]
+    #[set(skip)]
+    pub(crate) nodes: Vec<RayTraceNode>,
+}
+
+// ✅ 规范写法。属性必须跟着 derive 一起删
+#[derive(Clone, Debug, Getter)]
+pub struct RayTraceScene {
+    #[get(pub(crate))]
+    pub(crate) nodes: Vec<RayTraceNode>,
+}
+```
+
+**属性必须删,不能只换 derive**:`Getter` 声明的是 `#[proc_macro_derive(Getter, attributes(get))]`,残留的 `#[get_mut(..)]` / `#[set(..)]` 是未知 helper attribute,rustc 直接拒绝(10.2.7 真实 `cargo check`:exit 101,`cannot find attribute`)。这与 §17.16 的「字段属性一字不改」相反 —— §17.16 换成 `Data`(属性并集不变),§17.16.1 换成 `Getter`(属性并集**变小**),这是两个方向的两条规则。
+
+**这是「形状规则」,不是「使用率规则」** —— 判定输入只有 derive 列表和字段属性,**不看调用点**:
+
+| 情况 | 结论 | 为什么 |
+|---|---|---|
+| `Data`,**所有**字段同时有 `#[get_mut(skip)]` + `#[set(skip)]`,且至少一个字段仍有普通 getter | ❌ 违规,写 `Getter` 并删两个属性 | `Data` 承诺了从未生成的 mutator |
+| `Data`,**任一**字段还有活的 `get_mut` 或 `set` | ✅ 保留 `Data` | 它确实生成了三个,`Data` 如实描述 |
+| `Data`,所有字段连 `get` 也 skip | ✅ 放行 | 一个 accessor 都不生成,`Getter` 也不对 |
+| 字段带 `cfg` / `cfg_attr` | ✅ 放行 | 无条件形状无法证明,宁放过不猜 |
+| 空 struct / unit struct | ✅ 放行 | 没有字段生成 getter |
+| 非空 tuple struct | 按同一规则检查 | `Fields::Unnamed` 同样生成 getter 与 mutator,字段属性同样生效 |
+| 宏调用 token blob(`m!([ ... ])`)里的伪 struct | ✅ 放行 | 不是 item,derive 到不了任何 proc-macro |
+
+**「没人调用就缩 API」不是这条规则**:mutator 无人调用但仍然生成的 `Data`,照旧放行 —— 按调用点缩公共 API 是另一个决定、另一种爆炸半径,§17.16.1 不隐式代劳。
+
+**执行脚本**:同一个 `scripts/verify_no_redundant_accessor_derive.py`(两条规则共用一个解析器,避免两套字段扫描漂移),audit 以独立检查调用 `--rule getter-only`,同样注册进 `staged_file_gate.py` commit hook。检查编号以实际 `CHECKS` 列表为准,不写死总数。解析要点:derive 只从**紧贴 `struct` 关键字的那段连续属性**里读(绝不跨 struct 泄漏);字段按**顶层逗号**切分,泛型内逗号及 `Fn() -> T` 的箭头都不得截断字段;`type(...)` 配置先摘掉再找 `skip` 标识符(否则 `#[set(type(skip))]` 会被误读成 `#[set(skip)]`)。
+
+**重复属性必须按真实宏语义判定**:lombok-macros 10.2.7 在生成方法前先合并所有字段属性里的 skip flags。因此任一同名属性带 `skip` 就禁用该类 accessor,顺序无关;不能把它误当作「首个 non-skip 总会生成」。用锁定版本的真实方法调用验证,缺失方法必须得到 E0599,而不是只让 checker 与自己的错误预期互相证明。迁移前后通过 rustdoc JSON 比较 getter 名称、签名、可见性及泛型约束,确认旧版与新版都不生成 mutator;再跑真实 hook 正反例和全审计。
 
 ## §17.17 有 `new` 就用 `New` 宏,不要自己实现 —— `#[new(skip)]` 支持字段跳过(2026-10-16 user 钦定)
 

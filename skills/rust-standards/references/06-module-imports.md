@@ -179,6 +179,23 @@ use std::{fmt::{self, Write as FmtWrite}};
 pub use std::io::Result as IoResult;
 ```
 
+### 豁免:`as _` (2026-10-17)
+
+`use foo as _;` **允许**。它不引入任何名字,`_` 永远不会被读到,所以不存在"用短名误导读者"的问题,也没有"使用处该写哪个命名空间"的问题 —— 这句 `use` 存在的唯一目的是**让链接器把这个 crate 留在二进制里**:
+
+```rust
+// ✅ 允许:该 crate 只有 side effect(例如 inventory::submit! 注册钩子)
+use my_hooks as _;
+
+// ❌ 仍然违规:`_foo` 是真名字,照样会被读到
+use foo::Bar as _foo;
+
+// ❌ 仍然违规:`_` 之外的任何重命名
+use std::task::Context as TaskContext;
+```
+
+判据是**绑定的是不是 `_`**,不是"语句在不在宏里"。proc-macro 展开出的 `use` 由 §6.3 的 `QUOTED_INTERPOLATION` 单独豁免,与本条无关。
+
 ### 类型冲突的正确解法:使用处最短可区分命名空间
 
 冲突时**不改 import**,在**使用处**写最短可区分的命名空间路径:

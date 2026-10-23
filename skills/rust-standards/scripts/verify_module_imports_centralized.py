@@ -280,6 +280,17 @@ CHAIN_PREFIXES = {"super", "self", "crate"}
 OUTERMOST_PARENTS = {"src", "tests"}
 
 
+# A `use` line carrying a quote! interpolation — `#name` or `#{...}` — cannot
+# be an import into THIS crate: a path with a metavariable resolves in the
+# CALLER's crate, because the line only exists after a macro expands. The same
+# goes for a `use` spelled inside a macro_rules! body. Judging those against
+# §6.1/§6.3 reports generated text as if this crate had written it, and there is
+# no spelling of the macro that fixes it: the macro has to emit a `use`, that is
+# its purpose.
+QUOTED_INTERPOLATION = re.compile(r"use\s+[^;]*#")
+
+
+
 def _sibling_modules(directory: Path) -> set[str]:
     """Module names a sibling directory declares, which are not crates."""
     names = set()
@@ -433,6 +444,9 @@ def audit_sub_file(path: Path, lines: list[str]) -> list[str]:
             idx += 1
             continue
         if SUPER_STAR.match(lines[idx]):
+            idx += 1
+            continue
+        if QUOTED_INTERPOLATION.search(lines[idx]):
             idx += 1
             continue
         violations.append(

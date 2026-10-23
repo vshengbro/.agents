@@ -94,3 +94,64 @@ BadParse(Error("unknown variant `hosted_page`, expected `embedded` or `hosted`",
 **正确做法**:真实事件放 fixture 文件,测试里用 `include_str!` 读,HMAC 用 Python/JS 现算好再写死进测试。改 fixture 后**必须**确认字节没变(我这次是 `cmp` + 比对 sha256)。同理,时间戳要现算 —— 写死的 `const TIMESTAMP` 会随时间漂移,一旦超过 300 秒容差就开始假失败,而报错同样只会说 `BadSignature`。
 
 **通用判据**:验签类测试失败时,先把「我算的输入」和「程序实际收到的字节」逐字节比一遍,再怀疑算法。我这次连着三次都在自己的 fixture 上错,而不是在 Stripe 或 async-stripe 上错。
+
+
+## 凭据只写 env 文件,且要验证「仅靠这个文件」能起服务
+
+启动 hyperlane 服务时把 `resources/env/dev/server.env` 用 `set -a && . ./resources/env/dev/server.env && set +a` 载入,不要再在命令行重复 `KEY=...`(命令会进 shell history)。验证方式不是看变量存不存在,而是:
+
+```bash
+set -a && . ./resources/env/dev/server.env && set +a && unset DATABASE_URL
+<binary>
+curl -s localhost:9099/api/health
+ps eww -p <pid> | grep -c HD_STRIPE   # 确认进程真的拿到了
+```
+
+`ps eww` 那一步是关键:它能证明**是文件里的值进了进程**,而不是我手工传参带进去的。顺手 `unset DATABASE_URL` 能证明应用没偷偷依赖某个外部注入。
+
+配套三条:
+- 文件权限 `chmod 600`
+- `.gitignore` 要有 `resources/env/*/server.env` + `!resources/env/*/server.env.example`,并确认 `git ls-files resources/env/` 只剩 `.example`
+- 模板由真实文件生成:把 `KEY|SECRET|PASSWORD|TOKEN|DATABASE_URL` 的值替换成 `<set this in your own copy>`,再 diff 两边的**键名**(不含值)确认结构一致
+
+## `#[cfg(test)]` 不等于安全 —— 测试常量别放被跟踪的源码里
+
+给 fixture 测试用的常量加 `#[cfg(test)]` 只是让它不进 release 二进制,**文件本身仍然被 git 跟踪**,里面的值会跟着仓库走。把真实 webhook secret 放进 `application/controller/billing/const.rs` 就是这么泄漏的。
+
+正确做法:测试里的 HMAC key 用**合成值**(`whsec_fixture_key_for_unit_tests_only`),只要它对同一段字节的签名稳定,覆盖度完全一样 —— HMAC 校验的是「字节有没有被改动」,不是「这个 key 是不是真的」。然后把 fixture 里的真实标识符(event id / account id / payment_intent / 邮箱)脱敏,但**保留触发 bug 的那个字段**(比如 `ui_mode: "hosted_page"`)。
+
+提交前对 staged diff 跑一遍 pattern 扫描:secret、restricted key、event/account/pi/cs id,必须全为 0。
+
+## Dynamic route segments use `{name}`, never `[name]` (§ recorded 2026-10-13)
+
+A bracket segment is NOT a placeholder. `#[route("/api/admin/keys/[id]")]` registers a
+**literal** `[id]` path segment, compiles cleanly, shows up in the route table, and then
+never matches any real request.
+
+The symptom is unusually quiet: the request falls through to the SPA catch-all, which
+answers `404 NOT_FOUND` with the app's own JSON envelope. So the endpoint looks like it
+returns a well-formed error rather than not existing — and because the catch-all excludes
+`/api/*`, it does not even serve HTML that would have hinted at a routing problem.
+
+```rust
+// wrong: matches the literal path "/api/admin/keys/[id]"
+pub(crate) const API_KEY_PATH: &str = "/api/admin/keys/[id]";
+// right: matches "/api/admin/keys/490" and binds `id` -> "490"
+pub(crate) const API_KEY_PATH: &str = "/api/admin/keys/{id}";
+```
+
+Read the param with `ctx.try_get_route_param(ROUTE_PARAM_KEY_ID)`.
+
+**How it was found:** a browser E2E pass clicked Revoke, the button fired, nothing happened,
+and the DB column stayed NULL. Only comparing `/api/admin/keys` (200) against
+`/api/admin/keys/490` (404) on the same session revealed the route never matched. Unit and
+integration tests had passed because none of them asserted the route *shape*.
+
+**Guard:** assert the pattern's shape, not just its behaviour — `API_KEY_PATH.ends_with("{id}")`
+plus `!API_KEY_PATH.contains("[id]")`. Mutation-tested: reverting to brackets fails both
+assertions. A behavioural test would not catch this, because the 404 comes from a
+different component than the one under test.
+
+**Related:** a route can match while another listener on the same port serves a stale
+build, which looks exactly like the route is broken. Check `lsof -ti :<port>` before
+concluding a route is wrong — this cost a confusing detour.

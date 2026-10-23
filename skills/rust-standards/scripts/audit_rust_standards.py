@@ -1100,7 +1100,7 @@ exit "$exit_code"
 '''),
     # check 53 — §17.16 (2026-10-14 user 钦定): when a struct wants all
     # three accessor kinds, write `Data` — it IS the trio. lombok's own
-    # generator proves the equivalence (src/lib.rs, 10.2.4):
+    # generator proves the equivalence (src/lib.rs, 10.2.4 / 10.2.7):
     #   Getter    -> inner_lombok_data(input, true,  false, false)
     #   GetterMut -> inner_lombok_data(input, false, true,  false)
     #   Setter    -> inner_lombok_data(input, false, false, true )
@@ -1115,6 +1115,9 @@ exit "$exit_code"
     # The summary line is filtered for ANY count, not just 0 violations:
     # run_check counts stdout LINES as hits, so a trailing
     # "N files checked, M violations" would inflate the audit's count to M+1.
+    # `--rule trio` keeps this check scoped to the trio: the same script also
+    # carries §17.16.1, which a separate check below registers; without the filter the
+    # two rules would both be counted by both checks.
     ('no Getter + GetterMut + Setter trio spelled out instead of Data (§17.16)', '''
 # `Data` is exactly `Getter + GetterMut + Setter`, so the trio is one
 # derive too many:
@@ -1131,11 +1134,11 @@ exit "$exit_code"
 # methods); the message then names the individual derives as the ones to
 # delete.
 cd {{target}}
-python3 "{{audit_script_dir}}/verify_no_redundant_accessor_derive.py" "{{target}}" 2>/dev/null \\
+python3 "{{audit_script_dir}}/verify_no_redundant_accessor_derive.py" --rule trio "{{target}}" 2>/dev/null \\
     | grep -v -E '^[0-9]+ files checked, [0-9]+ violations?$'
 exit_code=${PIPESTATUS[0]}
 if [ "$exit_code" -ne 0 ]; then
-    echo "FAIL: verify_no_redundant_accessor_derive.py exited $exit_code" >&2
+    echo "FAIL: verify_no_redundant_accessor_derive.py --rule trio exited $exit_code" >&2
 fi
 exit "$exit_code"
 '''),
@@ -1175,6 +1178,62 @@ python3 "{{audit_script_dir}}/verify_no_manual_new_fn.py" "{{target}}" 2>/dev/nu
 exit_code=${PIPESTATUS[0]}
 if [ "$exit_code" -ne 0 ]; then
     echo "FAIL: verify_no_manual_new_fn.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
+    # §17.16.1 (2026-10-18 user 钦定): the OTHER end of §17.16.
+    # `Data` is `Getter + GetterMut + Setter`, but each half is switched off
+    # per field and independently, via `#[get_mut(skip)]` / `#[set(skip)]`
+    # (lombok parse/fn.rs: `config.skip_flags.insert(FuncType::GetMut / Set)`).
+    # So a `Data` struct can generate no mutable accessor at all, in which
+    # case the derive that describes what it actually does is `Getter`:
+    #
+    #     #[derive(Data)]  + every field `#[get_mut(skip)] #[set(skip)]`
+    #                    -> violation, write `#[derive(Getter)]`
+    #     #[derive(Data)]  + any field with a live get_mut or set
+    #                    -> correct, `Data` genuinely describes it
+    #
+    # The `#[get_mut(...)]` / `#[set(...)]` attributes must be DELETED with
+    # the swap, not left behind: `Getter` is declared `attributes(get)`, so a
+    # surviving get_mut/set helper attribute is rejected by rustc. Verified
+    # against lombok-macros 10.2.7 with a real `cargo check` (exit 101,
+    # "cannot find attribute").
+    #
+    # Narrow on purpose: this is a SHAPE rule, not a usage rule. A `Data`
+    # struct whose mutators nobody calls is NOT reported — shrinking a
+    # public API because of call-site counts is a different decision with a
+    # different blast radius, and §17.16.1 must not make it implicitly.
+    ('`Data` that generates no mutable accessor should be `Getter` (§17.16.1)', '''
+# Every field skips both mutators, so `Data` promises accessors the struct
+# never generates:
+#
+#     #[derive(Clone, Debug, Data)]
+#     pub struct RayTraceScene {
+#         #[get(pub(crate))]
+#         #[get_mut(skip)]
+#         #[set(skip)]
+#         pub(crate) nodes: Vec<RayTraceNode>,
+#     }                                            -> violation
+#
+#     #[derive(Clone, Debug, Getter)]
+#     pub struct RayTraceScene {
+#         #[get(pub(crate))]
+#         pub(crate) nodes: Vec<RayTraceNode>,
+#     }          <-- the get_mut / set attributes go WITH the derive swap;
+#                     `Getter` is `attributes(get)` and rustc rejects them
+#
+# What is KEPT — a `Data` struct that still generates a live `get_mut` or
+# `set` for ANY field. Call-site counts are deliberately NOT an input:
+#
+#     #[derive(Data)] pub struct Still { #[get(pub(crate))]
+#                                          #[get_mut(pub(crate))]
+#                                          #[set(pub(crate))] a: u32 }
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_redundant_accessor_derive.py" --rule getter-only "{{target}}" 2>/dev/null \\
+    | grep -v -E '^[0-9]+ files checked, [0-9]+ violations?$'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_redundant_accessor_derive.py --rule getter-only exited $exit_code" >&2
 fi
 exit "$exit_code"
 '''),

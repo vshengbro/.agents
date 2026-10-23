@@ -103,11 +103,14 @@ VERIFIERS = {
     "verify_no_self_field_access": "self.field access §17.3/§17.12",
     "verify_lib_rs_doc_comment": "lib.rs //! block §2.4",
     "verify_no_redundant_accessor_attr": "bare accessor attr §L",
-    # §17.16 (2026-10-14 user 钦定). `Data` IS `Getter + GetterMut + Setter`
-    # — lombok's own `inner_lombok_data(input, true, true, true)` — so
-    # spelling out all three is one derive too many. Registered in the audit
-    # and here together; a rule enforced in only one caller is not a rule.
-    "verify_no_redundant_accessor_derive": "Getter + GetterMut + Setter trio spelled out instead of Data §17.16",
+    # §17.16 + §17.16.1 (2026-10-14 / 2026-10-18 user 钦定). `Data` IS
+    # `Getter + GetterMut + Setter` — lombok's own
+    # `inner_lombok_data(input, true, true, true)` — so spelling out all three
+    # is one derive too many; and conversely a `Data` struct whose every
+    # field skips both `get_mut` and `set` generates no mutator at all and
+    # should be `Getter`. Registered in the audit and here together; a rule
+    # enforced in only one caller is not a rule.
+    "verify_no_redundant_accessor_derive": "accessor derive shape: Getter+GetterMut+Setter spelled out instead of Data / Data with no mutator instead of Getter §17.16/§17.16.1",
     # §17.17 (2026-10-16 user 钦定). If a type has a `new`, it comes from
     # `#[derive(New)]` — whose whole advantage is `#[new(skip)]` dropping a
     # field out of the signature and defaulting it, which a hand-written

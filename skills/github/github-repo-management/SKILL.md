@@ -55,8 +55,7 @@ gh repo sync owner/repo                  # or: git fetch upstream && git merge u
 Forking a repo you already own fails (`cannot be forked. A single user account
 cannot own both a parent and fork`), and orgs may disable forking entirely
 (`POST /repos/<o>/<r>/forks` → 403). With write access, skip the fork and push
-the branch to the upstream directly — check
-`gh repo view <o>/<r> --json viewerPermission`.
+the branch to the upstream directly.
 
 ## Read repo state
 
@@ -70,6 +69,7 @@ gh search repos "query" --sort stars
 Enumerate **all** branches with `gh api repos/<o>/<r>/git/refs/heads` — the
 `/branches` endpoint returns only protected and default branches, so it reports
 a false "only master exists" when auditing leftovers.
+
 ## Settings
 
 ```bash
@@ -84,22 +84,10 @@ REST equivalents: `references/github-api-cheatsheet.md`. Visibility changes need
 
 ## Branch protection, secrets, variables
 
-Branch protection: `gh api -X PUT repos/<o>/<r>/branches/<default>/protection`
-with `required_status_checks` (use **full check names**), `enforce_admins` and
-`required_pull_request_reviews`; read current state with `GET` on the same
-endpoint (token needs `administration:write`).
+Branch protection, the `gh secret` / `gh variable` commands, and the libsodium
+`SealedBox` path for setting a secret over REST are in
+[references/github-api-cheatsheet.md](references/github-api-cheatsheet.md).
 
-Secrets and variables:
-```bash
-gh secret set NAME --body "value"      # or: gh secret set NAME < file
-gh secret list                          # names only, values never returned
-gh variable set NAME --body "value"
-```
-
-Without `gh`, REST needs the repo public key
-(`GET /repos/<o>/<r>/actions/secrets/public-key`), libsodium `SealedBox`
-encryption, then `PUT …/actions/secrets/<NAME>` with `encrypted_value` +
-`key_id`. Prefer `gh secret set`.
 ## Releases
 
 ```bash
@@ -111,6 +99,22 @@ gh release list && gh release download v1.2.0 --dir ./downloads
 REST: `POST /repos/<o>/<r>/releases`, then upload the asset with a
 `Content-Type: application/octet-stream` POST to
 `uploads.github.com/repos/<o>/<r>/releases/<id>/assets?name=…`.
+
+## Delete
+
+```bash
+gh repo delete owner/repo --yes
+gh api -X DELETE repos/<o>/<r>
+```
+
+**The API needs the `delete_repo` scope** — `repo` alone answers `403` naming
+the missing scope, and `gh auth refresh -h github.com -s delete_repo` then
+demands a sudo-mode re-auth that is the user's to complete.
+
+Bulk fork cleanup — proving a fork is disposable (no unique commits, no unique
+branch, no open PR, no release, no workflow reference), the compare-API and
+PR-filter traps, the multi-stage web-UI flow, and the pitfalls below — is in
+[references/fork-audit-and-bulk-deletion.md](references/fork-audit-and-bulk-deletion.md).
 
 ## Actions, gists, CI
 ```bash
@@ -129,24 +133,12 @@ Gists: `gh gist create script.py --public --desc "…"` (REST `POST /gists`).
 
 A Discussion is for conversation (announcements, Q&A, show-and-tell, roadmap,
 polls); an Issue is for work (bugs, features with acceptance criteria). Don't
-file benchmark results as issues or reproducible crashes as discussions.
-```bash
-gh discussion create --repo <o>/<r> --category "Show and tell" \
-  --title "…" --body-file /tmp/body.md
-gh discussion list --repo <o>/<r>
-gh discussion comment <number> --repo <o>/<r> --body "…"
-gh discussion edit <number> --repo <o>/<r> --title "…"
-```
+file benchmark results as issues or reproducible crashes as discussions. The
+`gh discussion` commands, the `write:discussion` scope it needs, and the
+GraphQL-only path are in
+[references/github-api-cheatsheet.md](references/github-api-cheatsheet.md).
 
-`gh discussion` is a preview surface: `create`, `list`, `comment`, `edit`,
-`view`. Creating requires the `write:discussion` scope (classic PAT) or the
-Discussions read/write permission (fine-grained); a token with plain `repo` gets
-a misleading `NOT_FOUND … DIC_…` error, which is a scope problem, not a wrong
-ID. When the token comes from `GH_TOKEN`, `gh auth refresh` refuses — the user
-has to regenerate it. GraphQL (`createDiscussion`, `addDiscussionComment`,
-`closeDiscussion`, `reopenDiscussion`) is the only programmatic path.
 ## Pitfalls
-
 1. Creating a public repo when private was meant — omit the flag or pass
    `--private`.
 2. Forking a repo you already own, or one with forking disabled.
@@ -158,3 +150,7 @@ has to regenerate it. GraphQL (`createDiscussion`, `addDiscussionComment`,
    `gh api repos/<o>/<r> --jq .allow_auto_merge`.
 7. Editing a repo that holds only deployed build output — find the source repo
    first (`gh-pr-creation-workflow/references/network-and-api-fallbacks.md`).
+8–11. The fork-deletion traps — the `delete_repo` scope, the owner-only PR
+   filter, `/user/repos` missing `parent`, and verifying a delete by `GET`
+   rather than by loading the page — are in
+   [references/fork-audit-and-bulk-deletion.md](references/fork-audit-and-bulk-deletion.md).

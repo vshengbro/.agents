@@ -28,3 +28,37 @@ pub struct TrioWithData {
     /// Public field.
     pub name: String,
 }
+
+/// RULE 2 (§17.16.1): every field skips both mutators, so `Data` promises
+/// `get_mut_*` / `set_*` that no field ever generates.
+#[derive(Clone, Debug, Data)]
+pub struct DataWithoutMutators {
+    /// Surface width in pixels.
+    #[get(pub(crate), type(copy))]
+    #[get_mut(skip)]
+    #[set(skip)]
+    pub(crate) width: u32,
+    /// The immutable backend identity.
+    #[get(pub(crate))]
+    #[get_mut(skip)]
+    #[set(skip)]
+    pub(crate) backend: RayTraceBackend,
+    /// A generic type with commas and nesting must stay ONE field.
+    #[get(pub(crate), type(copy))]
+    #[get_mut(skip)]
+    #[set(skip)]
+    pub(crate) table: HashMap<String, Vec<u32>>,
+}
+
+/// RULE 2: one getter, and a multi-line attribute run above the field.
+#[derive(Clone, Debug, Data)]
+pub struct DataWithoutMutatorsMultiLine {
+    /// A single field with the skips spelled across lines.
+    #[get(
+        pub(crate),
+        type(copy)
+    )]
+    #[get_mut(skip)]
+    #[set(skip)]
+    pub(crate) count: u32,
+}

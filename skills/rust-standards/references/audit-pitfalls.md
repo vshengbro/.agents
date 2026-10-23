@@ -3372,6 +3372,40 @@ done
 
 **本次实测结果**:ctares / hyperlane / euv 三仓均 ① 拦截并点名 `verify_no_manual_new_fn` ② 合规版不再出现该 verifier。euv 在修 `core.hooksPath` 之前,连 hook 都不执行,② 也无从谈起 —— 这就是先查配置再谈验证的原因。
 
+## Diff-scoped verifiers read COMMITTED state only
+
+`verify_no_external_crate_path.py` (R6.4) sources its file list from:
+
+```python
+_git(root, "diff", "--name-only", "origin/master", "HEAD", "--", "*.rs")
+_git(root, "diff", "-U0", "origin/master", "HEAD", "--", rel)
+```
+
+Both read git objects, never the working tree. Consequences:
+
+- It reports violations a fixed-in-the-worktree change has already resolved,
+  until that change is actually committed. Verified 2026-10-17: hyperlane
+  reported 2 hits against `type/src/stream/transport/impl.rs`
+  (`rustls::Error` annotations) that the working tree had replaced with the
+  local alias `PeerError`; committing the worktree into a throwaway clone
+  and re-running gave `0 violation(s)`.
+- A test clone built early and re-audited later will report stale violations.
+  A verifier run reported 227 §14.5 comment hits that did not exist in the
+  real tree (0 comments in every `tests/**/*.rs`); the clone predated the
+  cleanup. Sync the clone and diff every `.rs` before trusting its verdict.
+
+To evaluate a change that is not committed yet: clone, rsync the working
+tree over it, `git add -A`, commit, point `origin/master` at the new HEAD,
+then run the verifier. Never do this in the real repository.
+
+## False "async fn is not permitted in Rust 2015" from patch-time linting
+
+The `patch` tool's auto-lint runs `rustc` without crate manifest context and
+reports `error[E0670]: async fn is not permitted in Rust 2015` for any file
+containing `async fn`. The crate is edition 2024 and compiles clean. Treat
+these as harness artifacts and confirm with
+`cargo check --workspace --all-targets` rather than the patch lint.
+
 ## A doc block above TWO attributes reads as undocumented (2026-10-21)
 
 `doc_comment_audit.py` used to stop at the INNERMOST attribute when it

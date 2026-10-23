@@ -23,7 +23,7 @@ Usage
     classify_change.py                      # uncommitted changes vs HEAD (staged + unstaged)
     classify_change.py --staged             # index vs HEAD only
     classify_change.py --base origin/master # any ref as the base
-    classify_change.py --repo ~/code/euv    # classify another repo
+    classify_change.py --repo /Users/sqs/code/euv    # classify another repo
     classify_change.py --strict-warnings    # a risky-config warning escalates to NEEDS_PR
     classify_change.py -- path/to/a.rs ...  # limit to specific paths
     classify_change.py --json               # machine-readable

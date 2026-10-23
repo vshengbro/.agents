@@ -17,6 +17,41 @@
 
 set -euo pipefail
 
+# Never leave bytecode caches in the skills tree (.agents temp-file ban, 2026-10-10)
+export PYTHONDONTWRITEBYTECODE=1
+
+# -------------------------------------------------------------------
+# X/Twitter browser-posting guard
+#
+# This runs BEFORE the Rust detection below, because that detection exits 0
+# for any repo without a Cargo.toml — and the skills repo, which owns the
+# scripts this guard protects, has no Cargo.toml. Registered after the fact,
+# the guard below that line was unreachable in exactly the repo it exists for:
+# it read as wired, and it never ran.
+#
+# Cheap by construction: the guard only does work when a staged path actually
+# lives under that skill's scripts/ directory. Everything else exits silently.
+X_GUARD_STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- \
+    'skills/social-media/x-post-via-browser/scripts/' 2>/dev/null || true)
+if [[ -n "$X_GUARD_STAGED" ]]; then
+    X_GUARD_DIR=""
+    for candidate in \
+        "$HOME/.agents/skills/social-media/x-post-via-browser" \
+        "$HOME/.hermes/skills/social-media/x-post-via-browser"; do
+        if [[ -f "$candidate/scripts/verify_no_unsafe_posting.py" ]]; then
+            X_GUARD_DIR="$candidate"
+            break
+        fi
+    done
+    if [[ -n "$X_GUARD_DIR" ]]; then
+        if ! python3 "$X_GUARD_DIR/scripts/verify_no_unsafe_posting.py" --staged --repo .; then
+            exit 1
+        fi
+    else
+        echo "pre-commit hook: x-posting guard not found, skipping" >&2
+    fi
+fi
+
 # -------------------------------------------------------------------
 # Locate helpers (HOOK_DIR-relative, not cwd-relative)
 # -------------------------------------------------------------------
@@ -139,6 +174,16 @@ if [[ -n "$GATE_FILES" ]]; then
     if ! python3 "$SCRIPTS_DIR/staged_file_gate.py" "$REPO_ROOT" --file $GATE_FILES; then
         VIOLATIONS=$((VIOLATIONS + 1))
         FAILED_FILES+=("staged .rs/.toml files (staged_file_gate.py — new violations vs HEAD)")
+    fi
+
+    # These rules are only reachable at commit time as far as this hook is
+    # concerned, so a violation written minutes ago surfaces here for the first
+    # time. verify_on_save.py applies the same verifiers per file and is meant to
+    # run from an editor save hook; mention it so the failure is not a surprise.
+    if [[ -f "$SCRIPTS_DIR/verify_on_save.py" ]]; then
+        echo ""
+        echo "  To catch these at save time instead of commit time, wire this into your editor:"
+        echo "    python3 $SCRIPTS_DIR/verify_on_save.py $REPO_ROOT <file>"
     fi
 fi
 

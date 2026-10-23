@@ -14,6 +14,11 @@ Detection:
   - Any `as <ident>` inside a `use` statement is a violation,
     regardless of visibility (`use` / `pub use` / `pub(crate) use`).
 
+Exemption (2026-10-17): `use foo as _;` is allowed. `_` is never read, so
+there is no short name to mislead a reader and nothing to qualify at the use
+site — the statement exists only to keep the crate in the binary. `as _foo`
+is NOT the exemption and is still reported.
+
 Exit code: 0 = compliant, 1 = violations found, 2 = usage error.
 """
 
@@ -24,6 +29,15 @@ from pathlib import Path
 
 USE_START = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s")
 AS_RENAME = re.compile(r"\bas\s+[A-Za-z_][A-Za-z0-9_]*")
+
+# `use foo as _;` binds the crate without importing a name. §6.5 forbids
+# renaming an import to obtain a short local name — that is a readability
+# concern about a name the code then READS. `_` is the opposite: it is never
+# read, and the statement exists only to force the linker to keep the crate
+# in the binary. That is the idiom for a crate whose only contribution is
+# side effects (`inventory::submit!`), where binding any real name would
+# collide with the caller's own imports.
+AS_UNDERSCORE = re.compile(r"\bas\s+_(?=\s*[,;}]|$)")
 
 
 def list_rs_files(root: Path) -> list[Path]:
@@ -71,7 +85,11 @@ def audit_one(path: Path) -> list[str]:
             in_use = True
         if in_use:
             match = AS_RENAME.search(line)
-            if match and not stripped.startswith("//"):
+            if (
+                match
+                and not stripped.startswith("//")
+                and not AS_UNDERSCORE.search(line)
+            ):
                 violations.append(
                     f"{path}:{number}: import rename via `as` forbidden; "
                     f"qualify at usage site instead (§6.5): {stripped!r}"

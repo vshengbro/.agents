@@ -69,6 +69,11 @@ def _inside_test_scope(lines: list[str], index: int) -> bool:
     depth = 0
     in_test_mod = False
     in_test_fn = False
+    # The line that sets the flag is the ATTRIBUTE line, whose own brace delta is
+    # 0. Clearing on `depth <= 0` in that same iteration would immediately undo
+    # the entry, and since a file has exactly one `#[cfg(test)]`, the scope is
+    # then never re-entered. Hold the exit back for one iteration.
+    pending_entry = False
     for i in range(0, index + 1):
         line = lines[i]
         stripped = line.strip()
@@ -77,16 +82,22 @@ def _inside_test_scope(lines: list[str], index: int) -> bool:
             if in_test_mod or in_test_fn:
                 continue
             nxt = lines[i + 1] if i + 1 < len(lines) else ""
-            if re.match(r"\s*(pub\s+)?(async\s+)?fn\b", nxt) or re.match(r"\s*(pub\s+)?mod\b", nxt):
-                if re.match(r"\s*(pub\s+)?mod\b", nxt):
-                    in_test_mod = True
-                else:
-                    in_test_fn = True
-        if re.match(r"(pub\s+)?(async\s+)?fn\b", stripped) and in_test_fn:
-            pass
+            # `pub(crate) fn` is the normal shape inside a split `fn.rs`: check 50
+            # forbids a bare `pub` in tests, so the old `pub\s+` pattern never
+            # matched and the flag stayed off.
+            item = r"\s*(pub(\(crate\))?\s+)*(async\s+)?"
+            if re.match(item + r"fn\b", nxt):
+                in_test_fn = True
+                pending_entry = True
+            elif re.match(item + r"mod\b", nxt):
+                in_test_mod = True
+                pending_entry = True
         depth += line.count("{") - line.count("}")
-        if in_test_mod and depth <= 0 and i > 0:
+        if in_test_mod and depth <= 0 and i > 0 and not pending_entry:
             in_test_mod = False
+        if in_test_fn and depth <= 0 and i > 0 and not pending_entry:
+            in_test_fn = False
+        pending_entry = False
     return in_test_mod or in_test_fn
 
 

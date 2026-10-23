@@ -34,6 +34,65 @@ a different technique and say which method is blocked, rather than reporting
 the restriction as a blocker or silently falling back to a forbidden channel
 because it was easier.
 
+## One account, one browser session
+
+Two logged-in browsers for the same account invalidate each other, and the
+failure looks like a broken app, not a session conflict.
+
+GitHub's symptom set: a flash reading *"You signed in with another tab or
+window. Reload to refresh your session."*, an **Authorize** button that stays
+disabled on a page where every other gate passes, a `401` on a same-origin
+`POST` that returned `200` a minute earlier, and a signed-out session in the
+*other* browser after the first one logged in.
+
+So when a flow that worked in one browser breaks in another, **suspect the
+second session before the application logic**. A profile copy of the user's
+browser is a *separate* session from the user's live browser, and the site does
+not keep both.
+
+**Resolve the conflict by making both browsers present one session, never by
+signing either out.** Signing the automation copy out invalidates the token
+the user's own live browser holds — the copy's `/logout` is a server-side
+invalidation, so the user's browser lands on the site's sign-in page and any
+flow already in flight dies with it. If the user is mid-task in their browser,
+signing it out from under them is a worse failure than the conflict itself.
+
+Two non-destructive resolutions:
+
+- **Give the copy the user's session.** Copy the real browser's session
+  cookies for the site into the automation profile's cookie jar. Both profiles
+  share the keychain key that encrypts them, so the copy then presents the
+  *same* session token and there is only one session. Recipe and the
+  cookie-schema trap: `github-repo-management/references/fork-audit-and-bulk-deletion.md`.
+- **Close the site's tabs in the other browser.** Any tab on the site can
+  re-establish a session and invalidate the copy's; closing a tab is harmless,
+  signing out is not.
+
+Navigating the copy away from the site is the third option: it stops the copy
+making session requests, but leaves it unable to act on the site, so it only
+helps for flows that live entirely in the other browser.
+
+## A form's submit button can carry the action
+
+`form.submit()` sends the form's fields **without the submit button's
+name/value**. Where the button carries the action — `name="authorize"
+value="1"` — the server sees a submission missing that parameter and treats
+it as the *opposite* of the intent. The request succeeds, the page navigates,
+and the outcome is a denial.
+
+So a form that must be submitted with a specific button's semantics gets it
+by **clicking the button** (or by including the button's name and value in
+the posted body). Reading the button's `name` and `value` before submitting
+tells you in one step whether `submit()` is even safe here.
+
+The same shape hides in multi-stage dialogs: a stage reached only after the
+previous one, whose markup sits in a `<template>` until the flow gets there,
+so `querySelector` on the live document finds nothing and the stage looks
+absent. Enumerate the templates and match on the **control's identity** (its
+id, its `name`, its own label) — several stages in one dialog reuse the same
+ids for different flows, so a substring match on visible text picks the wrong
+one.
+
 ## Before touching a real account, inventory it — read-only
 
 ```bash

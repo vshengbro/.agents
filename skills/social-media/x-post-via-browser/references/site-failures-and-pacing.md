@@ -130,6 +130,39 @@ Two runs driving one tab put a reply under the wrong post. The advisory
 lock in the state directory serialises the posting scripts, and the
 browser endpoint file is written once per browser, not once per run.
 
+**THE BROWSER IS SHARED, SO A BUSY ONE IS A CONTENTION SYMPTOM.** The
+scheduled engagement runs drive the same dedicated browser, and a CDP
+call that lands while one of them is working blocks until it times out.
+That timeout is the browser being occupied, not the site or the network
+failing — and it is not fixed by retrying the same call faster.
+
+**A LANDING CAN BE PROVED WITHOUT THE BROWSER.** The permalink answers
+an ordinary HTTP request, and the short link resolves to the place it
+names, so a landing can be established with plain requests while the
+browser is busy:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' --noproxy '*' <permalink>
+python3 - <<'EOF'
+import urllib.request, urllib.error
+class S(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+try:
+    urllib.request.build_opener(S).open(
+        urllib.request.Request("<t.co>", headers={"User-Agent": "Mozilla/5.0"}),
+        timeout=20)
+except urllib.error.HTTPError as e:
+    print(e.code, e.headers.get("Location"))
+EOF
+```
+
+The permalink's status says the post is there; the redirect says the
+address on it is the one that was sent. Both are the same facts the
+browser read would have established, at a fraction of the contention —
+so reach for them when the browser is busy rather than reporting the
+run as unverified.
+
 ## A rejected landing does not mean nothing was posted
 
 The posting scripts refuse in two very different places, and they are not

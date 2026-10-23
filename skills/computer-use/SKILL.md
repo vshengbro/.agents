@@ -84,6 +84,10 @@ Narrow fallbacks: `recommended: "px"` → the same action by `coordinate=[x,y]`,
 
 `Element N not in cache` → re-capture rather than mis-click. No effect → inspect the fresh state for focus/modal/target problems before retrying. `type` delivered 0 characters → try `set_value`. Driver missing or empty captures → run `hermes computer-use doctor` and diagnose its actual checks; ask for user action only when a permission grant or interactive step requires it. Platform details are available through `cua-driver skills`; install its pack only when that is authorized and necessary.
 
+**A purely-numeric string argument can arrive as a number.** Passing `"1"` as a `value` or `keys` argument is rejected by the argument layer as *"1 is not of type 'string'"* — a numeric-looking string is coerced before it reaches the driver. It matters for one-character fields (a device code's per-slot inputs, a single-digit box): the fix is to carry the digit in the `text` field of a `type` action instead, where the value is not type-checked the same way, or to write the field through the page's own script.
+
+**A segmented field is one field, not N.** An input row of one-character boxes (a one-time code split across slots) is a single control with `maxlength=1` per slot: setting each slot separately writes one character and the rest are rejected, and `type` delivers only the first character before the focus must advance. Type the **whole** string into the first slot and let the page advance the focus, or write the slots through the page's own script — and confirm what landed by reading the values back rather than by the tool reporting "delivered".
+
 ## Delivering a screenshot
 
 If the user is on a messaging platform and should see a capture, use the returned `screenshot_path` and send it with `MEDIA:/absolute/path.png`. Don't do this for captures you only used for control.

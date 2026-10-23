@@ -32,6 +32,13 @@ touched — their arguments configure generation and are not redundant.
 
 Read-only. Exits non-zero when any redundant bare attribute is present.
 """
+# Known conservative behaviour (verified 2026-10-17): a struct deriving ONLY
+# `Getter`/`Setter` (no `Data`) still reports its bare `#[get]`/`#[set]`, since
+# PROVIDES maps that derive to the same kind. That is a false positive — with
+# `#[derive(Getter)]` the bare attribute is the DECLARING marker, not a
+# redundancy. Left in place: no struct in any audited repo uses that shape, and
+# narrowing the rule risks silencing the `Data` case.
+
 
 from __future__ import annotations
 
@@ -50,7 +57,7 @@ PROVIDES: dict[str, set[str]] = {
 SKIP_DIRS = {"target", ".git", "node_modules", ".cargo", "dist", "www"}
 
 # Bare accessor attribute: no parentheses at all.
-BARE_RE = re.compile(r"#\[(get|get_mut|set)\]")
+BARE_RE = re.compile(r"#\[(get|get_mut|set)(\(\s*\))?\]")
 
 # Item declarations (braced or tuple structs, enums, unions).
 ITEM_RE = re.compile(r"\b(?:struct|enum|union)\s+(\w+)")

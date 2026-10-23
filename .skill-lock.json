@@ -6,8 +6,8 @@
       "sourceType": "local",
       "skillPath": "skills/agent-skills-source-sync/SKILL.md",
       "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-10-18T14:49:19.132Z",
-      "skillFolderHash": "d0b4e1f40c8f2260889fb125fc9954a20b18e655"
+      "updatedAt": "2026-10-23T03:10:36.053Z",
+      "skillFolderHash": "dc6f3f4f60bacfb2e9db6398c5c53b3cc52c9f15"
     },
     "agently-mail": {
       "source": "agent.qq.com",
@@ -81,8 +81,8 @@
       "sourceType": "local",
       "skillPath": "skills/computer-use/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-18T14:49:19.132Z",
-      "skillFolderHash": "127d2d6d9e703bf9435627ef702e6757bb679ba9"
+      "updatedAt": "2026-10-23T03:10:36.053Z",
+      "skillFolderHash": "2ca8f66ce8bd43a1188ce8514f22a772ed3d139e"
     },
     "euv": {
       "source": "local",
@@ -105,8 +105,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-21T17:07:07.616Z",
-      "skillFolderHash": "c948fd1e0d0e65a01e5a0c73ea57e2815dcea367"
+      "updatedAt": "2026-10-23T03:10:36.053Z",
+      "skillFolderHash": "7bc5887caa7cc7431e75743d85c193b8370c247d"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
@@ -121,16 +121,16 @@
       "sourceType": "local",
       "skillPath": "skills/git-standards/SKILL.md",
       "installedAt": "2026-08-15T01:08:07.343Z",
-      "updatedAt": "2026-10-21T16:45:44.931Z",
-      "skillFolderHash": "b962f91df126cfd8e29e5e874627f188785bed28"
+      "updatedAt": "2026-10-23T03:18:50.838Z",
+      "skillFolderHash": "aa29eaeef96174654a92fc61a08118683f048c3d"
     },
     "github-auth": {
       "source": "local",
       "sourceType": "local",
       "skillPath": "skills/github/github-auth/SKILL.md",
       "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-10-18T14:49:19.132Z",
-      "skillFolderHash": "5f86b7354d628672b2507bdbde1c1303c22ae0ac"
+      "updatedAt": "2026-10-23T03:18:50.838Z",
+      "skillFolderHash": "b14b353f460c8f5be4b2a0d17ebaf5f8a0a17e20"
     },
     "github-code-review": {
       "source": "local",
@@ -161,8 +161,8 @@
       "sourceType": "local",
       "skillPath": "skills/github/github-repo-management/SKILL.md",
       "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-10-18T14:49:19.132Z",
-      "skillFolderHash": "1554110e7c6dfd0e75b755664719488996287a50"
+      "updatedAt": "2026-10-23T03:18:50.838Z",
+      "skillFolderHash": "c427cf8bfa7e9894be6e7b27d0eb8b2fc8665e0f"
     },
     "hyperlane": {
       "source": "local",
@@ -201,8 +201,8 @@
       "sourceType": "local",
       "skillPath": "skills/social-media/x-post-via-browser/SKILL.md",
       "installedAt": "2026-10-21T16:45:44.931Z",
-      "updatedAt": "2026-10-22T04:05:47.771Z",
-      "skillFolderHash": "5e4a041e4330376c3ff5154a48e77660508d8668"
+      "updatedAt": "2026-10-23T03:18:50.838Z",
+      "skillFolderHash": "008b524b934322f9183790c6930ed73950519327"
     },
     "blocked-page-recovery": {
       "source": "local",

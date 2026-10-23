@@ -110,6 +110,24 @@ Note: The Issues API also returns PRs. Filter with `"pull_request" not in item` 
 | Set protection | PUT | `/repos/{owner}/{repo}/branches/{branch}/protection` |
 | Delete protection | DELETE | `/repos/{owner}/{repo}/branches/{branch}/protection` |
 
+### Branch protection, secrets and variables (gh commands)
+
+Branch protection: `gh api -X PUT repos/<o>/<r>/branches/<default>/protection`
+with `required_status_checks` (use **full check names**), `enforce_admins` and
+`required_pull_request_reviews`; read current state with `GET` on the same
+endpoint (token needs `administration:write`).
+
+```bash
+gh secret set NAME --body "value"      # or: gh secret set NAME < file
+gh secret list                          # names only, values never returned
+gh variable set NAME --body "value"
+```
+
+Without `gh`, setting a secret needs the repo public key
+(`GET /repos/<o>/<r>/actions/secrets/public-key`), libsodium `SealedBox`
+encryption, then `PUT …/actions/secrets/<NAME>` with `encrypted_value` +
+`key_id`. Prefer `gh secret set`.
+
 ## User / Auth
 
 | Action | Method | Endpoint |
@@ -159,3 +177,24 @@ curl -s -X DELETE \
 # Parse JSON response with python3
 curl -s ... | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['field'])"
 ```
+
+## Discussions
+
+A Discussion is for conversation (announcements, Q&A, show-and-tell, roadmap,
+polls); an Issue is for work (bugs, features with acceptance criteria). Don't
+file benchmark results as issues or reproducible crashes as discussions.
+
+```bash
+gh discussion create --repo <o>/<r> --category "Show and tell" \
+  --title "…" --body-file /tmp/body.md
+gh discussion list --repo <o>/<r>
+gh discussion comment <number> --repo <o>/<r> --body "…"
+gh discussion edit <number> --repo <o>/<r> --title "…"
+```
+
+`gh discussion` is a preview surface: `create`, `list`, `comment`, `edit`,
+`view`. Creating requires the `write:discussion` scope (classic PAT) or the
+Discussions read/write permission (fine-grained); a token with plain `repo` gets
+a misleading `NOT_FOUND … DIC_…` error, which is a scope problem, not a wrong
+ID. GraphQL (`createDiscussion`, `addDiscussionComment`, `closeDiscussion`,
+`reopenDiscussion`) is the only programmatic path.

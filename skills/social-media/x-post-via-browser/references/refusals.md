@@ -72,6 +72,14 @@ body split a sentence in two. A version number ends in digits, X does not
 linkify it, and a reply about a release is mostly version numbers. A
 gate that refuses decimals refuses the reply most worth sending.
 
+**WRITE THE COPY SO IT PASSES THE GATE, AND KEEP THE FACT.** The gate
+refuses the dotted token, not the fact, so a source that genuinely
+carries a dot gets named in prose — a pricing catalogue as "the model
+price catalogue", not as the dotted domain. Dropping the name instead is
+the wrong repair: the post then credits a source the reader cannot
+reach. When you rewrite around the gate, keep the claim and lose only
+the punctuation.
+
 **THE COPY IS MEASURED THE WAY X MEASURES IT.** X counts WEIGHTED
 characters, not characters, and the limit is 280 of them: a CJK
 character weighs 2, an address weighs 23 whatever its real length is, and

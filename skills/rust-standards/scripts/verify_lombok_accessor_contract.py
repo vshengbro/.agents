@@ -99,7 +99,15 @@ def check_file(path: Path) -> list[str]:
     lines = text.split("\n")
 
     out: list[str] = []
-    last_derive = ""
+    # The attribute run belonging to the item currently being read. Reset by
+    # any line that is not part of that run, so a derive can never leak from
+    # one item into the next one.
+    item_attrs: list[str] = []
+    cur_attrs: list[str] = []
+    # A run being accumulated, plus its bracket depth: `#[derive(` spans
+    # several lines and its continuation lines do not start with `#[`.
+    attr_buf: list[str] = []
+    attr_depth = 0
     in_struct = False
     struct_is_pub = False
     brace_depth = 0
@@ -113,13 +121,33 @@ def check_file(path: Path) -> list[str]:
         if stripped.startswith("//"):
             continue
 
-        d = DERIVE_RE.search(stripped)
-        if d:
-            last_derive = d.group(1)
+        # Accumulate one attribute run, then bind it to the next item. The
+        # binding is consumed by the item's own line, so `cur_attrs` must be
+        # captured BEFORE the run is cleared.
+        if attr_depth > 0:
+            attr_buf.append(stripped)
+            attr_depth += stripped.count("[") - stripped.count("]")
+            if attr_depth <= 0:
+                item_attrs = attr_buf
+                attr_buf = []
+                attr_depth = 0
+        elif stripped.startswith("#["):
+            attr_buf = [stripped]
+            attr_depth = stripped.count("[") - stripped.count("]")
+            if attr_depth <= 0:
+                item_attrs = attr_buf
+                attr_buf = []
+        else:
+            cur_attrs = item_attrs
+            item_attrs = []
 
         sm = STRUCT_RE.match(stripped)
         if sm and not stripped.endswith(";"):
-            in_struct = _derive_has_accessor(last_derive)
+            # A struct only opts into the accessor rules through ITS OWN
+            # derive list. Carrying the previous item's derive forward would
+            # flag plain `pub(crate)` structs that lombok never touches.
+            d = DERIVE_RE.search(" ".join(cur_attrs))
+            in_struct = bool(d) and _derive_has_accessor(d.group(1))
             struct_is_pub = bool(STRUCT_PUB_RE.match(stripped))
             brace_depth = 0
             pending = []
