@@ -57,12 +57,11 @@ async def like(sid: str, url: str | None = None) -> str:
             pre = await xlike_state.read_state(b, sess, sid)
             if pre.get("probe_failed"):
                 return "NOT_CONFIRMED (probe failed: %s)" % pre.get("probe_failed")
-            pd = pre
-            if pd.get("err"):
-                return "TARGET_NOT_ON_PAGE (%s)" % pd.get("err")
-            if pd.get("unlike"):
+            if pre.get("err"):
+                return "TARGET_NOT_ON_PAGE (%s)" % pre.get("err")
+            if pre.get("unlike"):
                 return "ALREADY_LIKED"
-            if not pd.get("like"):
+            if not pre.get("like"):
                 return "NO_LIKE_BUTTON"
             clicked = await b.ev(sess, sub(xlike_state.LIKE_CLICK, SID=sid))
             if clicked == "ALREADY_LIKED":

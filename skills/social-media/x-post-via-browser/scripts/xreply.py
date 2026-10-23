@@ -658,11 +658,10 @@ async def run(index: int, sid: str, who: str, copy: str, repo: str | None,
             print("ACCOUNT:", handle)
 
             # ---- 1. the like, first and idempotently
-            pre = await xlike_state.read_state(b, sess, sid)
-            if pre.get("probe_failed"):
-                print("REJECTED: probe failed: %s" % pre.get("probe_failed"))
+            pd = await xlike_state.read_state(b, sess, sid)
+            if pd.get("probe_failed"):
+                print("REJECTED: probe failed: %s" % pd.get("probe_failed"))
                 return 3
-            pd = pre
             if pd.get("err"):
                 print("REJECTED: target not on page (%s)" % pd.get("err"))
                 return 3
