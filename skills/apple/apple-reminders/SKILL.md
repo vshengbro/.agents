@@ -17,6 +17,10 @@ prerequisites:
 `remindctl` reads and updates the same reminders Reminders.app shows, through
 public EventKit APIs, so they stay in sync on every device. Sibling skills:
 Notes → `apple-notes`, messages → `imessage`, location → `findmy`.
+## Index
+
+Prerequisites · When NOT to use · Workflow · Verification and rules
+
 
 ## Prerequisites
 

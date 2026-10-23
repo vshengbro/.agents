@@ -16,6 +16,10 @@ metadata:
 
 **Use for** the user's **native** surfaces: Finder/Explorer, Mail/Thunderbird, native chat clients, Figma desktop, settings panels, OS dialogs, anything not a web page.
 **Not for:** web work → `browser_exec` (or `web/chrome-devtools-protocol` for raw CDP; signed-in/logged-in browser work goes through the `browser` toolset, **not** `computer_use`); file edits → `read_file`/`write_file`/`patch`; shell commands → `terminal`, not typing into a terminal emulator.
+## Index
+
+Resource lifecycle gate (mandatory) · Canonical workflow — capture, one action, fresh verify · Background rules (the whole point) · Escalation — react to a returned signal, never predict · Safety — hard rules · When input fails · Delivering a screenshot
+
 
 ## Resource lifecycle gate (mandatory)
 

@@ -9,6 +9,10 @@ license: MIT
 First apply [`git-standards`](../git-standards/SKILL.md). `.agents` always pushes
 directly to `master`; do not create a PR for it. An explicit current user delivery
 instruction overrides generic routing, not hook checks or unrelated scope.
+## Index
+
+§1 Resolve the target and authorization · §2 Create or update · §3 Verify CI, then merge only when authorized · §4 Prove delivery and clean up
+
 
 ## 1. Resolve the target and authorization
 

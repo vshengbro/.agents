@@ -14,6 +14,10 @@ Use for renderer contracts and backend implementations, not page CSS or Signal
 reactivity. Load `rust-standards`; read the selected package's real source before
 using cached API references. `engine/src/renderer/mod.rs` routes to backend,
 descriptor and status modules; do not assume a flat `renderer/impl.rs` exists.
+## Index
+
+§1 Shared renderer contract · §2 Lombok getter shape · §3 Public API belongs on the owning type · §4 Refactoring safety
+
 
 ## 1. Shared renderer contract
 

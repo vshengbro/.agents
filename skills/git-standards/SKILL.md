@@ -6,6 +6,10 @@ license: MIT
 
 # Git standards
 
+## Index
+
+§1 Commit and PR text · §2 Choose delivery before branching · §3 Commit only the reviewed scope · §4 Hooks are mandatory · §5 Minimize CI runs: complete the work locally first · §6 Verify policy helpers
+
 ## 1. Commit and PR text
 
 - All commit subjects/bodies and PR titles/bodies are English, including quoted material.
@@ -26,15 +30,13 @@ The verifier measures the SUBJECT and every BODY line, and it reports the
 offending line number, so the fix is to rewrap by hand until it is silent. Two
 traps make that slower than it looks:
 
-- **The limit applies to the subject too**, and the subject includes the
-  `<type>(<scope>): ` prefix. A 75-character subject fails even though the
-  prose after the prefix looks short. Shorten the scope or the wording, not
-  the margin.
+- **The limit applies to the subject too**, and it includes the
+  `<type>(<scope>): ` prefix: a 75-character subject fails even though the
+  prose after the prefix looks short. Shorten the scope or the wording.
 - **Do not machine-rewrap the body.** `textwrap.wrap` does not know about
   markdown: it flattens a list item's continuation lines out to column zero
-  and turns `- the scheme comes from X` into a paragraph with a stray `-`
-  bullet. Write the wrapped body by hand, or rewrap with a hanging indent
-  that preserves the list marker, then re-read the rendered message.
+  and turns `- the scheme comes from X` into a stray `-` bullet. Wrap by hand
+  with a hanging indent that preserves the list marker.
 
 Verify the message AFTER the final edit, not before it — a rewrap is another
 edit, and the last one is the one that gets committed.
@@ -50,14 +52,12 @@ user's explicit delivery instruction; otherwise:
 python3 ~/.agents/skills/git-standards/scripts/classify_change.py --staged --json
 ```
 
-Exit `0` = DIRECT_PUSH, `1` = NEEDS_PR, `2` = classification error: stop and diagnose.
-Documentation, config, comments and presentation-only changes ordinarily direct-push;
-executable changes and mixed diffs need a PR. Run the classifier rather than infer
-from file extensions; host-language style blocks have their own tested rules.
-Use [`gh-pr-creation-workflow`](../gh-pr-creation-workflow/SKILL.md) for the PR lifecycle.
-If a classifier conflicts with a user rule, show the concrete mismatch; never
-silently narrow the rule or bypass a gate. Explicit authorized exceptions must be
-recorded in the delivery text.
+Exit `0` = DIRECT_PUSH, `1` = NEEDS_PR, `2` = classification error: stop and
+diagnose. Run the classifier rather than infer from file extensions; host-language
+style blocks have their own tested rules. The PR lifecycle is
+[`gh-pr-creation-workflow`](../gh-pr-creation-workflow/SKILL.md). If a classifier
+conflicts with a user rule, show the concrete mismatch; never silently narrow the
+rule or bypass a gate.
 
 ### The route belongs to the repository, not to the diff
 

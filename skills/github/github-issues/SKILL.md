@@ -13,6 +13,10 @@ for review — this skill is for work items with acceptance criteria. Auth is
 source "${HERMES_HOME:-$HOME/.hermes}/skills/github/github-auth/scripts/gh-env.sh"
 # GH_OWNER / GH_REPO from the git remote; pass --repo <o>/<r> to override
 ```
+## Index
+
+Read · Create · Manage · Triage · Branch from an issue · Bulk · REST equivalents · Pitfalls
+
 
 ## Read
 

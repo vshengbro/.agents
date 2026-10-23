@@ -16,6 +16,10 @@ source "${HERMES_HOME:-$HOME/.hermes}/skills/github/github-auth/scripts/gh-env.s
 
 Never put a token in a URL — pass it as an `Authorization` header; it ends up in
 shell history and the remote URL.
+## Index
+
+Clone · Create · Fork · Read repo state · Settings · Branch protection, secrets, variables · Releases · Delete · Actions, gists, CI · Discussions · Pitfalls
+
 
 ## Clone
 

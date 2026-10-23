@@ -6,6 +6,10 @@ description: Use when inspecting or editing Blender scenes through the official 
 # Blender through MCP
 
 This package launches Blender Lab's MCP server. It does not install Blender, enable its add-on, or open a user's scene. A successful MCP tool listing proves server startup, not a connection to Blender.
+## Index
+
+First run on a new computer · Before working · Scene workflow · Security and setup boundaries
+
 
 ## First run on a new computer
 

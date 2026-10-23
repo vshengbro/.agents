@@ -9,6 +9,10 @@ metadata:
 
 # euv framework entry
 
+## Index
+
+Shortest path · Load by task · Delivery constraints
+
 ## Shortest path
 
 1. Resolve the target dependency version and actual workspace with `cargo metadata

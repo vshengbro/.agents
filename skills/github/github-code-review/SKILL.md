@@ -8,6 +8,10 @@ license: MIT
 Reviewing code, not shipping it: `gh-pr-creation-workflow` owns the PR
 lifecycle, this owns the judgement and the review comments. Auth is
 `github-auth`.
+## Index
+
+Local diff (no API needed) · Review a PR · Checklist · Post the review · Pitfalls
+
 
 ## Local diff (no API needed)
 

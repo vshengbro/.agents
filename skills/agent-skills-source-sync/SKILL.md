@@ -5,6 +5,10 @@ description: "Use when auditing or updating skill documents against their source
 
 # Skill documents → source verification
 
+## Index
+
+仓库硬规则 · 最短对账流程 · 命中与验收
+
 ## 仓库硬规则
 
 - 不自动新增 skill；只有用户明确要求时才创建。优先精简现有入口，删除重复路径。

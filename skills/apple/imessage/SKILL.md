@@ -17,6 +17,10 @@ prerequisites:
 `imsg` reads the local Messages `chat.db` and sends through Messages.app
 automation. Sibling skills: Notes → `apple-notes`, Reminders →
 `apple-reminders`, device tracking → `findmy`.
+## Index
+
+Prerequisites · Workflow · Rules
+
 
 ## Prerequisites
 

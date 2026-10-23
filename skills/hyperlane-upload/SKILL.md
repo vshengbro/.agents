@@ -28,6 +28,10 @@ if it is genuinely unstated.
 URLs. Do not run it "to test the docs", to dry-run the workflow, or while
 writing documentation. Read `scripts/upload.js` to learn the interface; run it
 only for an actual publish.
+## Index
+
+Single file · Multi-file with dependencies · Rust / wasm bundles · Failure modes
+
 
 ## Single file
 

@@ -5,6 +5,10 @@ description: Use when a §1.3d fix says "move foo.rs to foo/mod.rs".
 
 # 「搬进子目录」不能靠改名为 mod.rs 达成
 
+## Index
+
+触发 · 原因(三条独立的硬约束) · 正确形态 · 目录命名 · 附带坑:git rename 检测会断
+
 ## 触发
 
 任何 Wave 0 / 「只做文件搬迁」的任务书里出现这句话:

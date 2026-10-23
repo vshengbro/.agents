@@ -5,6 +5,10 @@ description: Use when posting, replying, or liking on X/Twitter from this accoun
 
 # X posting and engagement
 
+## Index
+
+When to Use · The rules that matter · The scripts · A reply, end to end · The browser and the state · The reply's own rules · When the site fails · Which own repository may be promoted
+
 ## When to Use
 
 Posting, replying or liking on X/Twitter as this account; an X engagement
@@ -28,10 +32,9 @@ that is liked, and the two sets must match exactly. The like is idempotent
 — it reads the button state before it clicks, so a retry cannot toggle a
 like off.
 
-**A status id never appears in a transcript.** An id is a bare 19-digit
-number, and the display layer replaces such numbers with a redaction
-token: one id in a list of seven was redacted. Name candidates by their
-INDEX and let the scripts read the ids out of the candidates file.
+**A status id never appears in a transcript.** The display layer replaces
+bare 19-digit numbers with a redaction token — one id in a list of seven was
+redacted. Name candidates by INDEX and let the scripts read the ids.
 
 **The collect and the answer are one process.** The feed virtualises
 articles out of the DOM within about a minute, so a candidate read at one
@@ -39,18 +42,13 @@ moment can be gone at the next. `xreply.py` works against the parent's
 own permalink.
 
 **A trailing address lands as a card, so the landed text has no url in
-it.** Remove the url span from BOTH sides and compare as prose; the address
-is proved by following the t.co to the place it names. The card hydrates
-AFTER the post's own text, so the read must poll until both the card and
-the t.co are present — and the card's TITLE is not the address, it carries
-the target page's own title. All three, and the tests that pin them, are in
+it.** Remove the url span from BOTH sides and compare as prose. The card
+traps and the tests that pin them are in
 [references/reading-a-landed-post.md](references/reading-a-landed-post.md).
 
 **A reply that is up is answered, whatever the address proof says.** The
-parent's id is recorded the moment the reply renders on its own
-permalink — not after the last proof passes. A run that rejected a
-landed reply before recording it left the parent open, and the next run
-answered it a second time.
+parent's id is recorded when the reply renders, not after the last proof
+passes — otherwise the parent stays open and the next run answers it twice.
 
 **The copy goes in through CDP, not through the page** — `Input.insertText`
 only. `execCommand` doubles the copy and its `delete` variant raises

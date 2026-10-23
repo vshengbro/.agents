@@ -8,6 +8,10 @@ license: MIT
 The end-to-end discipline for "fix issue #N and open a PR". It owns the
 *process*; `github-issues` owns the issue mechanics and
 `gh-pr-creation-workflow` owns the PR mechanics.
+## Index
+
+§1 Read the live issue · §2 Sweep for existing work · §3 Validate the premise — and the design intent · §4 Define acceptance and risk · §5 Implement the smallest complete change, then fix the class · §6 Prove the regression test bites · §7 Run the repo gates, then open the PR immediately · §8 Shepherd CI honestly, then close the loop
+
 
 ## 1. Read the live issue
 

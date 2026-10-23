@@ -16,6 +16,10 @@ metadata:
 When a page won't fetch — 403/429, "Just a moment…", a bot wall, a paywall —
 don't loop on the same URL and don't hammer the origin. A third party often
 holds a **copy**. Work this ladder, cheapest first.
+## Index
+
+Stop conditions — read before climbing · The ladder — one script · Provenance discipline (non-negotiable) · Fake successes — routes that LIE · Proxy relays: don't · Resource lifecycle · Not this skill
+
 
 ## Stop conditions — read before climbing
 

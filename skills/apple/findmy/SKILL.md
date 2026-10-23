@@ -19,6 +19,10 @@ AppleScript that "tells FindMy to do something" — it exposes no commands.
 
 Sibling skills: Notes → `apple-notes`, Reminders → `apple-reminders`,
 messages → `imessage`.
+## Index
+
+Prerequisites · Method A — screenshot + vision (no extra tools) · Method B — peekaboo (preferred when installed) · Switching Devices ↔ Items · Rules · Resource lifecycle
+
 
 ## Prerequisites
 

@@ -17,6 +17,10 @@ Speak CDP over a WebSocket to a Chromium-class browser from a terminal script �
 
 **Use when:** Page/DOM/Runtime/Network/Emulation/Console scripting, an AX dump, request interception, a fake viewport, pinned `:hover`, or driving Chromium from a kernel whose proxy covers everything except `localhost`.
 **Not for:** a screenshot or page text (`browser_exec`, `web_extract`) or anything a Playwright one-liner covers. Signed-in browsing goes through `browser_exec`; writes into a real account need `references/real-account-automation.md`.
+## Index
+
+§1 — Baseline, launch, drive · §2 — Verify before claiming done · §3 — Tear down (per target, by exact id)
+
 
 ## Resource lifecycle gate (mandatory — read before launching)
 

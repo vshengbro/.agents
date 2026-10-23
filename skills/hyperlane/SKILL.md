@@ -9,6 +9,10 @@ metadata:
 
 # Hyperlane framework entry
 
+## Index
+
+Shortest path · Current source contracts to verify · Load by task
+
 ## Shortest path
 
 1. Resolve the actual dependency version and workspace with `cargo metadata

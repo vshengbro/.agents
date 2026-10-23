@@ -5,6 +5,10 @@ description: 'Rust 开发规范(最高优先级,与任何 skill 冲突时以此�
 
 # Rust 开发规范
 
+## Index
+
+⚠️ 强制加载声明(本节每次会话必须读) · 调用时机(强制规则) · 角色定位 · Mutual-Lock Routing(把 description 的互锁写明) · 检索方式(优先用这个) · 可复用模板 · 可复用脚本 · 关键硬性规则(快速记忆) · 跨章节冲突时 · Pre-commit 必跑(单条命令,自动 loop) · 进程级全局 + `unsafe impl Sync` = 真 UB,并行测试会崩 · 密码学/签名代码:自研实现必须配标准向量 · 端到端验签测试:真实 fixture + 现算的输入
+
 ## ⚠️ 强制加载声明(本节每次会话必须读)
 
 **本 skill 是 Rust 代码开发的硬性 gate。** 不读本 skill 直接写 Rust 代码 = 开发者 review 直接驳回,PR 不得合并。

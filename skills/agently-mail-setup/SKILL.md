@@ -13,6 +13,10 @@ metadata:
 Only setup, explicit CLI upgrades or expired OAuth grants. Reading/sending mail
 uses [`agently-mail`](../agently-mail/SKILL.md). Inspect the current state first;
 a normal mail request must not reinstall tools, replace skills or reset credentials.
+## Index
+
+§1 Check prerequisites and install only if needed · §2 Check the current credential namespace · §3 OAuth only when required · §4 Verify the actual account
+
 
 ## 1. Check prerequisites and install only if needed
 
