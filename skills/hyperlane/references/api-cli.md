@@ -1,8 +1,8 @@
-# hyperlane-cli 完整 pub API
+# hyperlane-cli complete pub API
 
 Source: `cli/src/` — auto-extracted from `pub` declarations.
 
-**注意**:`hyperlane-cli` 只提供 `watch / new / template / help / version` 5 个子命令。`bump / sync / fmt / publish` 由外部 `crate-cli` 提供。
+**Note**: `hyperlane-cli` provides only the five subcommands `watch / new / template / help / version`. `bump / sync / fmt / publish` come from the external `crate-cli`.
 
 ### `command::enum`
 

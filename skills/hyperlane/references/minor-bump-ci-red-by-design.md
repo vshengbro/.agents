@@ -1,107 +1,147 @@
-# minor/major bump 的 PR check 必然红(设计内) + §12 旧坑表行修正
+# A minor/major bump PR's checks are red by design
 
-> 2026-09-13 实测 PR #211(0.22.2→0.23.0)再次确认;原始机制 2026-09-06 PR #160 确立。
-> 本文件 = SKILL.md §17 的补充 + §12 坑表「minor 版本升级」行旧方案的作废声明。
-> (SKILL.md 本体 patch 当时受 read-before-write 门限制未写入,规则以此文件为准。)
+> Verified on hyperlane by bumping the root `Cargo.toml` from `22.0.2` to
+> `23.0.0` in a scratch clone: `cargo check --workspace --all-features` failed
+> during version resolution with
+> `failed to select a version for the requirement `http-compress = "^22.0.2"``.
+>
+> **The sections below that mention `euv`, `Signal::subscribe`, the wasm32 target
+> or `GH_TOKEN` were recorded against the euv repository. They are kept as
+> transferable CI lessons, not as hyperlane facts** — the hyperlane workflow has
+> no wasm32 build job and no post-publish curl verification.
 
-## 现象
+## The phenomenon
 
-根 `Cargo.toml` version bump 到新 minor/major 区间(如 0.22.2→0.23.0)后:
+After the root `Cargo.toml` version is bumped to a new minor/major range:
 
-- 子包 `[workspace.dependencies]` path-dep 仍钉旧区间(`^0.22.2`);
-- CI 的 build/clippy/tests 在 cargo 版本解析阶段 **~7-8s 三个 job 同时 fast-fail**;
-- 错误形如 `failed to select a version for the requirement euv = "^0.22.2"`;
-- **diff 仅根 Cargo.toml 1 行,这不是代码问题,不要修代码。**
+- the member `[workspace.dependencies]` path-dep pins still carry the old range
+  (`^22.0.2`);
+- cargo fails during **version resolution**, before any compilation;
+- the error looks like `failed to select a version for the requirement ...`;
+- **the diff is one line in the root `Cargo.toml`. This is not a code problem, so
+  do not "fix" the code.**
 
-patch bump(0.22.2→0.22.3)区间兼容,无此现象,正常等绿合。
+A patch bump stays inside the old range, so it resolves and the checks run
+normally.
 
-## 判别法(设计内红 vs 真问题)
+## Telling a designed-in red from a real problem
 
-| 信号 | 设计内红 | 真问题 |
+| Signal | Designed-in red | A real problem |
 |---|---|---|
-| 挂的 job | build+clippy+tests 同时 | 任一单挂 |
-| job 存活时长 | <10s(版本解析阶段) | 编译中段/测试段 |
-| 错误内容 | `failed to select a version` | 具体 compile error |
-| PR diff | 仅根 Cargo.toml 1 行 | 含代码改动 |
+| Which jobs fail | build, clippy and tests together | any single one |
+| Job lifetime | seconds (version resolution) | through compilation or the test phase |
+| The error text | `failed to select a version` | a concrete compile error |
+| The PR diff | one line in the root `Cargo.toml` | contains code changes |
 
-## 合并路径
+## Merge path
 
-minor/major bump PR = `gh pr merge --admin --squash`(不等绿;绿了反而是 patch bump)。
-merge 后 `sync_workspace_version` 在 master push 上自动补齐 6 子包 version + 6 个 path-dep 共 14 处。
-**合并后必须验证 sync commit 写的是新版本号**(PR #196 教训:sync 曾把 root 从 0.21.2 写回 0.21.1,需手工 fix commit,流程见 SKILL.md §17)。
+A minor/major bump PR is merged with `gh pr merge --admin --squash` without
+waiting for green — a green run would mean it was really a patch bump. After the
+merge, the CI `publish` job runs `crate sync` + `crate fmt` on the master push and
+commits the synchronised versions.
 
-## 本地验证 minor-bump 工作树(必须回滚)
+**Always verify after the merge that the sync commit carries the new version
+number.** A sync job has written a stale root version before, needing a manual
+fix commit.
 
-root 已 bump + 子包/pins 未同步时 `cargo check` 必失败。流程:
+## Verifying a minor-bump working tree locally (and rolling it back)
 
-1. 临时 sed 全部 7 处版本到目标号(根 + 6 子包 Cargo.toml;path-dep 段用 grep 锁定,避开 `compare_version = "2.0.14"` 这类非 path-dep 行);
-2. cargo check / cargo test 验证;
-3. **逐文件 `git checkout HEAD --` 回滚,只留根 version 一行**再提交。
+With the root bumped and the member pins not yet synchronised, `cargo check`
+fails. To verify locally:
 
-不回滚 = 违反「只改一行」铁律(PR #148 被 revert 的直接原因)。
+1. temporarily point every version at the target number (the root plus the member
+   `Cargo.toml` files; lock the `[workspace.dependencies]` path-dep lines with a
+   grep first, so a non-path-dep line such as `compare_version = "2.0.14"` is not
+   caught);
+2. run `cargo check` / `cargo test`;
+3. **roll back file by file with `git checkout HEAD --`, leaving only the root
+   version line**, then commit.
 
-## §12 坑表「minor 版本升级」行修正
+Not rolling back breaks the "change one line only" rule.
 
-SKILL.md §12 该行旧方案「本地复现 CI `sync_workspace_version` 的 sed 并随 PR 提交,CI sync 变 no-op」是 **0.15.x 时代的错误做法**(PR #148 / #160 均被 user 勒令 revert 重做),**作废**。正确做法 = 本文件上述流程(只改根一行 + admin squash + CI sync 自动补齐)。
+## The old "reproduce the CI sync locally and commit it" approach is withdrawn
 
-## 开 bump/perf PR 前的撞号检查
+Reproducing the CI sync's `sed` locally and committing the result alongside the
+PR was the wrong approach in the 0.15.x era; it was reverted and redone. The
+correct flow is the one above: change only the root line, merge with an admin
+squash, and let the CI sync fill the rest in.
 
-`gh pr list --repo euv-dev/euv --state open` 查在途 bump PR:若已有 open bump PR(如 2026-09-13 的 #211 = 0.23.0),后续 PR 的版本号须等其落地后从新 master 起 patch bump;并行开两个 bump 号会撞车或顺序颠倒。
+## Check for a version-number collision before opening a bump PR
 
-## listener-id / Reactive-slot id 类型切换的 exhaustive sweep 要求 (PR #218 + 直推 hotfix, 2026-09-13)
+List the open PRs and look for an in-flight bump. If one is already open for the
+next number, the following PR's version has to wait for it to land and then
+start a patch bump from the new master; opening two bump numbers in parallel
+collides or reverses their order.
 
-`Signal::subscribe` 返回的 subscription id 类型变更时(本次 `u64 → usize`):
+## An exhaustive sweep is required when a subscription id type changes (recorded on the euv repository)
 
-**必须搜的不只是直接调用**:
+When the type of the subscription id returned by `Signal::subscribe` changes
+(this was `u64` to `usize`):
+
+**search for more than the direct calls**:
 
 ```bash
-# 直系: 任何存储/使用 subscribe 返回值的局部变量
+# direct: any local that stores or uses a subscribe() result
 grep -rn 'let [a-z_]*id.*= .*\.subscribe(\|let subscription_id.*signal\.subscribe(' \
   --include='*.rs' core/ macros/ ui/ engine/
 
-# 间接: 闭包捕获、Cell/RefCell/Rc/Arc 包装
-grep -rn 'Cell<u\|Cell<\\?usize\\?>\|RefCell<u\|Rc<Cell\|Arc<Cell' \
+# indirect: closure capture, Cell/RefCell/Rc/Arc wrappers
+grep -rn 'Cell<u\|Cell<\?usize\?>\|RefCell<u\|Rc<Cell\|Arc<Cell' \
   --include='*.rs' core/ macros/ ui/ engine/
 
-# 间接: 闭包体里调用 unsubscribe(id_value)
+# indirect: an unsubscribe(id_value) inside a closure body
 grep -rn 'unsubscribe(' --include='*.rs' core/ macros/ ui/ engine/
 ```
 
-`core/src/vdom/cast/impl.rs:251-259` 命中「闭包内 Rc<Cell<u64>> 装 id,然后 subscribe 闭包体里 `source.unsubscribe(listener_id.get())` 拿回来 re-entrant self-unsubscribe」模式——这种 indirect binding 不被直系 grep 覆盖。改 id 类型必须把它也跟着改,否则 `cargo check --release --target wasm32-unknown-unknown` 会报 E0308。
+`core/src/vdom/cast/impl.rs:251-259` matched the pattern "an `Rc<Cell<u64>>`
+holds the id inside a closure, and the subscribe closure body calls
+`source.unsubscribe(listener_id.get())` back, re-entrant self-unsubscribe". Such
+an indirect binding is not covered by the direct grep. Changing the id type has to
+take it along, or the build reports E0308.
 
-**CI 用的是 release + wasm32 target**(`.github/workflows/rust.yml` 的 build job 命令是 `cargo check --release --all-features --target wasm32-unknown-unknown --workspace --exclude euv-cli`)。**本地 `cargo check --workspace --all-targets`(默认 dev profile, host target)漏掉这种 wasm-only 类型 mismatch**——dev profile 编译 euv-core / euv-engine / euv-ui 等子集,wasm32 路径上 cast/impl.rs 才会被实例化校验。Pre-commit `cargo check --workspace --all-targets` exit 0 不能证明 PR 干净。**验证清单在 PR 提交前补跑**:
+**CI builds for release on the wasm32 target** (the euv build job runs
+`cargo check --release --all-features --target wasm32-unknown-unknown --workspace
+--exclude euv-cli`). **A local `cargo check --workspace --all-targets`** (the
+default dev profile, host target) **misses a wasm-only type mismatch** like this
+one. A pre-commit `cargo check --workspace --all-targets` that exits 0 does not
+prove the PR is clean, so add this to the pre-submit checklist:
 
 ```bash
 cargo check --release --all-features --target wasm32-unknown-unknown --workspace --exclude euv-cli
 ```
 
-本会话已踩:PR #218 CI 挂 `error[E0308]: mismatched types ... expected usize, found u64` 三处 fail,只能直推 master hotfix `c888199d`。教训记入本节。
+**This is an euv fact, not a hyperlane one.** The hyperlane workflow's build job
+runs `cargo check --release --workspace --all-features` on the host target, with
+no wasm32 job.
 
-## sync_workspace_version push 失败的 admin fallback (2026-09-13 实测)
+## Admin fallback when the version-sync push fails (recorded on the euv repository)
 
-`sync_workspace_version` GH Action job 在 master push 上 commit `chore: sync all package versions to X.Y.Z` 后 `git push` 到 master,可能因为以下原因 fail:
+When the version-sync GitHub Action commits `chore: sync all package versions
+to X.Y.Z` on a master push and then fails to `git push`, the usual causes are:
 
-- CI token 缺 `workflow` / `contents: write` scope(本仓库 GH_TOKEN 不是 CI token)
-- branch protection rule reject(配置了 require review / status check)
-- master HEAD race condition(同步 job 拿到的 ref 比当前 HEAD 旧)
+- the CI token lacks the `workflow` / `contents: write` scope;
+- a branch protection rule rejects the push (it requires review or a status check);
+- a race on master, where the sync job's ref is older than the current HEAD.
 
-CI log 报 `remote rejected` / `failed to push some refs` 时,**admin 可手动复刻 sync commit** 直推 master:
+When the CI log reports `remote rejected` / `failed to push some refs`, an admin
+can reproduce the sync commit and push it to master directly:
 
 ```bash
 cd ~/github/euv-dev/euv
 git fetch euv-dev master
 git checkout -b tmp-sync-$NEW_VER euv-dev/master
-# 替换根 Cargo.toml 的 [package] version + 6 个 path-dep 行
+# replace the root Cargo.toml [package].version + the 6 path-dep lines
 for d in cli core engine example macros ui; do
   sed -i "s/^version = \"$OLD_VER\"\$/version = \"$NEW_VER\"/" $d/Cargo.toml
 done
-# Cargo.toml 内 workspace.dependencies 段:必须 grep 锁定再 sed,避开 'compare_version = "2.0.14"' 等非 path-dep 行
+# in the workspace.dependencies section: grep-lock the lines before sedding, so a
+# non-path-dep line such as 'compare_version = "2.0.14"' is not caught
 sed -i "s/version = \"$OLD_VER\"\$/version = \"$NEW_VER\"/g" Cargo.toml
-git diff --stat   # 期望: 7 files changed, 14 insertions(+), 14 deletions(-) (根 +1/-1 + 6 子包各 +1/-1 = 14 行)
-# user.name 用 eastspire(commit author 与 sync job 一致,避免 git log --author=eastspire 失效)
+git diff --stat   # expected: 7 files changed, 14 insertions(+), 14 deletions(-)
+# keep the commit author identical to the sync job's, so git log --author=... still works
 git -c user.name='eastspire' -c user.email='root@ltpp.vip' commit -m "chore: sync all package versions to $NEW_VER"
-git push euv-dev tmp-sync-$NEW_VER:master   # admin 直接 push master
-# 验证: master HEAD 含此 commit + 全仓 version 一致
+git push euv-dev tmp-sync-$NEW_VER:master   # admin pushes master directly
+# verify: master HEAD carries this commit and every version agrees
 git fetch euv-dev master
 git show euv-dev/master:Cargo.toml | head -3
 for d in cli core engine example macros ui; do
@@ -109,50 +149,76 @@ for d in cli core engine example macros ui; do
 done
 ```
 
-**重要**:push 完成后 master 会再触发一次 sync_workspace_version,看到自己写的版本和 sync job 写的版本一致(noop 或空 commit),确认 state 收敛。
+**Important**: after the push, master triggers the sync job once more; seeing it
+write the same version (a no-op or an empty commit) confirms the state has
+converged.
 
-## rebase 解决冲突后 `cargo fmt --check` 仍挂的 corner case (PR #217→#219, 2026-09-13)
+**For hyperlane, prefer `crate sync`.** The hyperlane workflow runs `crate sync`
++ `crate fmt` inside its `publish` job, so a manual sed loop is only the fallback
+when that job's own push fails.
 
-`<<<<<<< HEAD` / `=======` / `>>>>>>> branch` 三方合并时,**只删中间冲突块的两侧内容,容易留下两侧相同行的「重复 comment」且其中一行缩进错位**。`cargo check` 通过(`cargo fmt` 不参与编译),但 `cargo fmt --check` fail → CI `Format check` job 挂。
+## A corner case: `cargo fmt --check` still fails after a rebase conflict
 
-典型例子(`engine/src/renderer/impl.rs:3134-3135`):
+In a three-way merge (`<<<<<<< HEAD` / `=======` / `>>>>>>> branch`), deleting
+only the middle conflict block easily leaves the two sides' identical comment
+lines duplicated, with one of them at the wrong indentation. `cargo check` passes
+(`cargo fmt` does not take part in compilation), but `cargo fmt --check` fails, so
+the CI `Format check` job fails.
+
+The typical example (`engine/src/renderer/impl.rs:3134-3135`):
 
 ```rust
         // OPT 2b: cached `pass.setIndexBuffer(buffer, format)`.
-// OPT 2b: cached `pass.setIndexBuffer(buffer, format)`.   // ← 行首少了 8 空格,fmt 拒绝
+// OPT 2b: cached `pass.setIndexBuffer(buffer, format)`.   // <- 8 spaces short, fmt rejects it
         // The two spec formats hit the thread-local ...
 ```
 
-合并两侧「`// OPT 2b: ...`」行,冲突解决后 pick 了其中一侧的注释,但 pick 的位置在错误上下文(从上一行挪下来的孤儿,失去原缩进)。
+Both `// OPT 2b: ...` lines were merged and one side's comment was picked, but
+the pick landed in the wrong context — an orphan moved down from the previous
+line, with its original indentation lost.
 
-**预防**:
-1. rebase 完成、commit amend 之前,**直接跑 `cargo fmt --all -- --check`**,exit 非零立刻 `cargo fmt` 修一遍再继续 amend。
-2. force-push PR head 之前**必跑**`cargo fmt --all -- --check` + `cargo check --release --all-features --target wasm32-unknown-unknown --workspace --exclude euv-cli`(参见前节)。
-3. 如果 CI 已挂(`Format check` failure),开 PR 修注释(1 file / 1 line / 1 commit),不 revert 整 PR——本 PR 可能携带其他合法改动。
+**Prevention**:
+1. after a rebase and before amending the commit, **run `cargo fmt --all -- --check`
+   directly**; if it exits non-zero, run `cargo fmt` and fix it before continuing.
+2. before force-pushing a PR head, **always run** `cargo fmt --all -- --check`
+   plus the release check from the previous section.
+3. if CI has already failed (`Format check`), open a PR that fixes the comment
+   (1 file / 1 line / 1 commit) instead of reverting the whole PR — the PR may
+   carry other legitimate changes.
 
-## CI publish job 假失败 (PR #221, 2026-09-13)
+## A CI publish job that fails although the publish succeeded (recorded on the euv repository)
 
-`publish` job 的 post-publish verify curl 在 `set -e` 下遇到瞬时网络/TLS 错误(curl exit 35 = `CURLE_SSL_CONNECT_ERROR`)→ script 直接中断 → publish 报 failure → release job(`needs.publish.result == 'success'`)被阻断 → **git tag `vX.Y.Z` 不存在 + GitHub Release 不存在**,即便所有 crate 已成功上传 crates.io。
+The `publish` job's post-publish verification curl hit a transient network/TLS
+error under `set -e` (curl exit 35 = `CURLE_SSL_CONNECT_ERROR`) -> the script
+aborted -> the publish job reported failure -> the release job
+(`needs.publish.result == 'success'`) was blocked -> **no `vX.Y.Z` git tag and no
+GitHub Release**, even though every crate had already been uploaded to crates.io.
 
-**症状**:CI log 显示6 个 crate 全部 `✅ ... verified on crates.io (HTTP 200)`,然后 `##[error]Process completed with exit code 35`。crates.io API 仍报 `max_version=X.Y.Z max_stable=X.Y.Z` — publish 实质成功了。
+**The symptom**: the CI log shows all 6 crates as
+`✅ ... verified on crates.io (HTTP 200)` and then
+`##[error]Process completed with exit code 35`. The crates.io API still reports
+`max_version=X.Y.Z max_stable=X.Y.Z` — the publish really did succeed.
 
-**`.github/workflows/rust.yml` line 338 修复**(1 file / +1/-1,curl 末尾加 `|| echo "000"`):
+**The fix in `.github/workflows/rust.yml`** (1 file, +1/-1; add `|| echo "000"` to
+the end of the curl):
 
 ```diff
 - VERIFY_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: euv" "https://crates.io/api/v1/crates/$PKG_NAME/$VERSION")
 + VERIFY_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: euv" "https://crates.io/api/v1/crates/$PKG_NAME/$VERSION" || echo "000")
 ```
 
-verify 是 informational — `cargo publish` 已 exit 0 + registry 已接受 upload,verify 不该阻塞 script。
+The verification is informational — `cargo publish` already exited 0 and the
+registry accepted the upload, so the verification must not block the script.
 
-**已发布版本的补救**(workflow 修复只能管下次;已发布的 X.Y.Z 没 tag/release):
+**Recovering an already published version** (the workflow fix only covers the
+next run; an already published X.Y.Z has no tag or release):
 
 ```bash
-# 1. 建 tag 指向该版本 master HEAD(通常是 sync_workspace_version commit)
+# 1. create the tag on that version's master HEAD (usually the sync commit)
 git tag -a v0.24.1 <sync-commit-sha> -m "v0.24.1"
 git push origin v0.24.1
 
-# 2. 用 gh release create 建 GitHub Release(带源码 zip+tar.gz)
+# 2. create the GitHub Release with gh release create (source zip + tar.gz)
 PACKAGE_NAME=euv VERSION=0.24.1 TAG=v0.24.1
 git archive --format=zip --prefix="${PACKAGE_NAME}-${VERSION}/" HEAD > "${PACKAGE_NAME}-${VERSION}.zip"
 git archive --format=tar.gz --prefix="${PACKAGE_NAME}-${VERSION}/" HEAD > "${PACKAGE_NAME}-${VERSION}.tar.gz"
@@ -163,42 +229,60 @@ gh release create "$TAG" \
 gh release upload "$TAG" "${PACKAGE_NAME}-${VERSION}.zip" "${PACKAGE_NAME}-${VERSION}.tar.gz"
 ```
 
-## GH_TOKEN 缺 `read:org` scope 时 PR 创建/合并走 REST (2026-09-13)
+**The hyperlane workflow has no such verification step**: its `publish` job runs
+`crate publish` and then echoes `ALL PUBLISH SUCCESSFUL`, with no curl and no
+`set -e` around a network call. The lesson above therefore does not apply to
+hyperlane as it stands.
 
-本仓库 GH_TOKEN scopes = `notifications, repo, workflow`(缺 `read:org`)。`gh pr create` / `gh pr merge` / `gh pr close` 走 GraphQL,被拒:
+## When the GH_TOKEN lacks the `read:org` scope, create and merge PRs over REST (recorded on the euv repository)
+
+That repository's GH_TOKEN scopes are `notifications, repo, workflow` (no
+`read:org`). `gh pr create` / `gh pr merge` / `gh pr close` go through GraphQL and
+are rejected:
 
 ```
 GraphQL: Something went wrong while executing your query on ...
 ```
 
-`gh pr view` / `gh pr checks` / `gh api .../pulls/N` 走 REST,正常。
+`gh pr view` / `gh pr checks` / `gh api .../pulls/N` use REST and work.
 
-**绕道**(已知可靠):
+**The workaround** (known to be reliable):
 
 ```bash
-# 创建 PR
+# create the PR
 TOKEN=$GH_TOKEN
 python3 -c 'import json,sys;body=open("/tmp/pr-body.md").read();print(json.dumps({"title":"...","head":"eastspire:branch","base":"master","body":body}))' > /tmp/pr-payload.json
 curl -sS -X POST https://api.github.com/repos/euv-dev/euv/pulls \
-  -H "Authorization: token $TOKEN" -H 'Accept: application/vnd.github.v3+json' \
-  -H 'Content-Type: application/json' -d @/tmp/pr-payload.json | python3 -c 'import json,sys;d=json.loads(sys.stdin.read());print("PR #"+str(d["number"])+":",d["html_url"])'
+  -H "Authorization: token ***" -H 'Accept: application/vnd.github.v3+json' \
+  -H "Content-Type: application/json" -d @/tmp/pr-payload.json | python3 -c 'import json,sys;d=json.loads(sys.stdin.read());print("PR #"+str(d["number"])+":",d["html_url"])'
 
-# 合并 PR
+# merge the PR
 curl -sS -X PUT https://api.github.com/repos/euv-dev/euv/pulls/N/merge \
-  -H "Authorization: token $TOKEN" -H 'Accept: application/vnd.github.v3+json' \
+  -H "Authorization: token ***" -H 'Accept: application/vnd.github.v3+json' \
   -d '{"merge_method": "squash", "delete_branch": true}'
 ```
 
-**GitHub Actions API 偶发 502 Bad Gateway** — REST 调用第一次可能 `non-200 OK status code: 502 Bad Gateway`,重试一次通常 200 OK。Merge 后 `gh pr merge` 也可能返回 GraphQL 错,直接 `curl PUT` 即可。
+**The GitHub Actions API occasionally returns 502 Bad Gateway** — the first REST
+call can come back `non-200 OK status code: 502 Bad Gateway`, and a retry is
+usually a 200. After a merge, `gh pr merge` may also return a GraphQL error, so
+use `curl PUT` directly.
 
-`gh pr edit` 同样走 GraphQL,被拒 → REST 改 title/body:
+`gh pr edit` goes through GraphQL too and is rejected -> change the title and body
+over REST:
 
 ```bash
 curl -sS -X PATCH https://api.github.com/repos/euv-dev/euv/pulls/N \
-  -H "Authorization: token $TOKEN" \
+  -H "Authorization: token ***" \
   -F title="..." -F body=@file.md
 ```
 
-## patch tool 内置 rustfmt 假错 (let chains, Rust 2024) (2026-09-13)
+## A false rustfmt error from the patch tool (let chains, Rust 2024)
 
-patch tool 携带的 rustfmt 是旧版(< 1.85),对 Rust 2024 `let chains` 语法报 `error: let chains are only allowed in Rust 2024 or later`(伪造,因为我们正是 2024 edition)。patch 输出 `lint.status: error` 不代表代码有问题——只要改动局部(patch 工具显示「Pre-existing lint errors — this edit didn't introduce new ones」)就放心提交。CI 用 rustc 1.98 全过。**Rule**:patch 报错后必须以 `cargo check` exit code 为准,不以 patch 内置 lint 输出为准。
+The rustfmt bundled with the patch tool is old (< 1.85) and reports
+`error: let chains are only allowed in Rust 2024 or later` for Rust 2024 `let
+chains` syntax — a false positive, since the edition *is* 2024. A
+`lint.status: error` in the patch output does not mean the code is wrong: as long
+as the edit is local (the tool says "Pre-existing lint errors — this edit didn't
+introduce new ones"), submit it. CI passes with a current rustc. **Rule**: after
+a patch error, trust the `cargo check` exit code, not the patch tool's own lint
+output.

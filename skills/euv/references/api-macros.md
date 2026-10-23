@@ -1,10 +1,10 @@
-# euv-macros 完整 proc_macro 签名
+# Complete proc_macro Signatures for euv-macros
 
-Source: `macros/src/lib.rs` — 8 个 proc_macro。
+Source: `macros/src/lib.rs` — 8 proc_macros.
 
-## 完整签名
+## Full Signatures
 
-| proc_macro | 类型 | 签名 |
+| proc_macro | Kind | Signature |
 |---|---|---|
 | `html` | `#[proc_macro]` | `pub fn html(input: TokenStream)` |
 | `class` | `#[proc_macro]` | `pub fn class(input: TokenStream)` |
@@ -15,13 +15,13 @@ Source: `macros/src/lib.rs` — 8 个 proc_macro。
 | `unsafe_no_inline` | `#[proc_macro]` | `pub fn unsafe_no_inline(input: TokenStream)` |
 | `component` | `#[proc_macro_attribute]` | `pub fn component(_attr: TokenStream, item: TokenStream)` |
 
-## 用法对照
+## Usage Reference
 
-- `html!` — 声明式 UI 节点构造(JSX-like),compile-time 宏展开为 `VirtualNode` 树
-- `class!` — 嵌套 CSS class 定义,支持 `@media` / `@keyframes` / `var!(...)` 嵌套
-- `vars!` — 全局 CSS custom properties(theme tokens)
-- `var!` — class 内引用 `--name` 的语法糖
-- `watch!` — 响应式副作用,Signal 变化时执行
-- `computed!` — 派生 Signal(其他 Signal 的函数)
-- `component` — `#[component]` 属性宏,把函数转为 component + 自动 Props 注入
-- `unsafe_no_inline` — 内部宏,避免 `#[inline]` 误用(framework 内部用)
+- `html!` — declarative UI node construction (JSX-like), expanded at compile time into a `VirtualNode` tree
+- `class!` — nested CSS class definitions, supporting nested `@media` / `@keyframes` / `var!(...)`
+- `vars!` — global CSS custom properties (theme tokens)
+- `var!` — syntactic sugar for referencing `--name` inside a class
+- `watch!` — reactive side effect, runs when a Signal changes
+- `computed!` — derived Signal (a function of other Signals)
+- `component` — `#[component]` attribute macro, turns a function into a component + automatic Props injection
+- `unsafe_no_inline` — internal macro, prevents misuse of `#[inline]` (used inside the framework)

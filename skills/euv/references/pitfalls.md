@@ -1,41 +1,69 @@
-# euv 框架踩坑速查 (symptom → cause index)
+# euv Framework Pitfall Quick Reference (symptom → cause index)
 
 Symptom-first lookup. Each row names the symptom you observed and the cause or
 the place to look. Every "where" below is a real path in the repo — this file
 carries no links to documents that don't exist.
 
-## 症状索引
+## Symptom Index
 
-| 症状 | 原因 / 去哪看 |
+| Symptom | Cause / where to look |
 |---|---|
-| reactive `if` 换 arm 后，新 arm 的 click handler 不响应 | handler 没随 arm 重绑；查 `core/src/renderer/` 的事件注册路径，或改用 class 切换代替该形态 |
-| 跨 arm / 跨 route 的 `Signal` 状态残留，overlay 错位 | 组件状态没随 unmount 清理；检查 hook 的 cleanup 是否注册 |
-| iOS Safari 把 `<div>` tap 当滚动，delegated `onclick` 静默失效 | 触控与滚动的判定交给浏览器；可点击元素用真实 `<button>` |
-| canvas 固定宽高比放进全屏容器被拉成椭圆 | 容器没锁 aspect ratio；给容器加 `aspect-ratio` |
-| header/drawer 顶部出现大片死空白 | 误用了 `env(safe-area-inset-top)`；见 `euv-ui-standards` §2.3 的 `--euv-mobile-safe-top` 变量契约 |
-| `euv fmt` 与 `cargo fmt --check` 结果不一致 | `cargo fmt` 不重排宏体；`class!`/`html!` 一律用 macro-aware 的 `euv fmt` |
-| 下游 crate 写 `euv = "*"` 导致 CSS / API 不匹配 | 依赖漂移；版本只由根 `[workspace.package]` 决定，pin 到同一版本 |
-| bump 之后 sub-crate 版本 stale，或 master push 失败 | 核对根版本提交、同步流水线及其结果；成员/依赖版本由 CI 同步，不另跑本地改版本路径 |
-| `use_async` 在组件卸载后仍 fire | 异步 hook 缺 cleanup（`use_async` 在 `ui/src/hook/`） |
-| profiler hook 挂在 hot path 上拖慢生产构建 | 测量代码进了 release 路径（`use_profiler`） |
-| Signal 订阅与 DOM 节点 lifetime 不匹配 → 内存涨 | 订阅未随节点销毁解绑 |
-| 多个 render root 时 `use_node_ref` 串号 | NodeRef 跨 root 复用；每个 root 独立取（`core/src/app/impl.rs`） |
-| signal 重渲染路径某些 case 不生效 | `patch_attributes` fast-path 未被走到；查 `core/src/renderer/render/impl.rs` |
-| css reset / keyframes 与 page CSS 优先级冲突 | 注入顺序：`inject_app_global_css`（`ui/src/style/css/fn.rs`）；用 `html body` 前缀提 specificity |
-| 内部 CSS minify / inline pipeline 在某些输入爆栈 | 宏产物体积或嵌套深度；见 `euv-ui-standards` §3.G 的展平 selector 规则 |
-| release 时 crates.io publish 顺序写错 → path-dep 解析失败 | 按实际依赖图及发布流水线核对；workspace 成员列出的顺序本身不是拓扑序证明 |
+| reactive `if` switches arms, but the click handler of the new arm does not respond | The handler is not rebound along with the arm; check the event registration path in `core/src/renderer/`, or use a class toggle instead of that shape |
+| `Signal` state lingers across arms / routes, overlay is misaligned | Component state is not cleaned up on unmount; check whether the hook's cleanup is registered |
+| iOS Safari treats a tap on a `<div>` as a scroll, so delegated `onclick` silently stops working | Touch-vs-scroll detection is left to the browser; use a real `<button>` for clickable elements |
+| A canvas with a fixed aspect ratio is stretched into an ellipse inside a fullscreen container | The container does not lock the aspect ratio; add `aspect-ratio` to the container |
+| A large dead blank area appears at the top of the header/drawer | Wrong use of `env(safe-area-inset-top)`; see the `--euv-mobile-safe-top` variable contract in `euv-ui-standards` §2.3 |
+| `euv fmt` and `cargo fmt --check` disagree | `cargo fmt` does not reflow macro bodies; always use the macro-aware `euv fmt` for `class!`/`html!` |
+| A downstream crate writing `euv = "*"` ends up with mismatched CSS / API | Dependency drift; the version is decided only by the root `[workspace.package]`, pin it to the same version |
+| After a bump the sub-crate version is stale, or the master push fails | Check the root version commit, the sync pipeline and its result; member/dependency versions are synced by CI, do not run a separate local version-bump path |
+| `use_async` still fires after the component unmounts | The async hook lacks cleanup (`use_async` lives in `ui/src/hook/`) |
+| A profiler hook on the hot path slows down production builds | Measurement code leaked into the release path (`use_profiler`) |
+| Signal subscription lifetime does not match the DOM node → memory grows | The subscription is not unbound when the node is destroyed |
+| `use_node_ref` mixes up ids when there are multiple render roots | A NodeRef is reused across roots; take one per root (`core/src/app/impl.rs`) |
+| Some cases of the signal re-render path do not take effect | The `patch_attributes` fast-path is not reached; check `core/src/renderer/render/impl.rs` |
+| css reset / keyframes conflict with page CSS in specificity | Injection order: `inject_app_global_css` (`ui/src/style/css/fn.rs`); raise specificity with an `html body` prefix |
+| The internal CSS minify / inline pipeline blows the stack on some inputs | Macro output size or nesting depth; see the flattening selector rule in `euv-ui-standards` §3.G |
+| Wrong crates.io publish order at release time → path-dep resolution failure | Check against the real dependency graph and the publish pipeline; the order in which workspace members are listed is not itself proof of a topological order |
+| Downstream `cargo add euv-chart` reports "could not be found in registry index" | The crate is published, so the consumer's index/lockfile is stale; run `cargo update` / refresh the index, and check the registry for the version that actually exists |
+| After writing `euv-chart = "0.32"` cargo cannot resolve it | Repository version ≠ published version; ask the registry which version exists (`curl -s https://crates.io/api/v1/crates/euv-chart`) instead of reading `Cargo.toml` |
+| Expecting `use euv::*` to give you the chart types | The `euv` root crate does not re-export chart; get the chart types from `euv_chart::*` |
+| The chart renders blank but reports no error | First confirm which backend was selected: `BackendKind::name()` returns `webgpu` / `webgl2` / `canvas2d` |
+| The chart animation does not move | The animation is advanced by `Chart::advance(delta)`; without calling it only the first frame is drawn |
 
-## 工具分工
+## euv-chart Deep Dive
 
-| 工具 | 提供 | 不提供 |
+`euv-chart` is a standalone crate (`chart/`), not re-exported through the `euv`
+root crate; when verifying, look directly at `chart/src/`:
+
+| Point | Location |
+|---|---|
+| crate root export list | `chart/src/lib.rs` |
+| three backends + shared trait | `chart/src/backend/{webgpu,webgl,canvas2d,common}/` |
+| option model (ECharts compatible) | `chart/src/option/` |
+| display list and draw commands | `chart/src/display/` |
+| chart instance and command channel | `chart/src/chart/` (`Chart` / `ChartHandle` / `ChartCommand`) |
+| typesetting and text measurement | `chart/src/geom/`, `chart/src/text/` |
+
+- `Chart::create(canvas)` is **async** and returns `Option<Chart>`; it is `None`
+  when the host has no DOM, not a panic.
+- Commands are passed through `euv_core::Signal<Vec<ChartCommand>>`; `ChartHandle` is `Copy`,
+  and a copy still points at the same chart.
+- The backend has a fixed fallback chain: WebGPU → WebGL2 → Canvas2D. `BackendKind::is_gpu()` tells you
+  whether the GPU path is used.
+- That crate currently has **no test directory** (no `tests/` under `chart/`), so verification
+  can only rely on compilation + the rendering result in a real browser.
+
+## Division of Labor Between Tools
+
+| Tool | Provides | Does not provide |
 |---|---|---|
 | `euv` (euv-cli) | `run` / `build` / `fmt` / `help` | `bump` / `sync` / `publish` |
-| `crate-cli` (`~/.cargo/bin/crate`) | `bump` / `sync` / `fmt` / `publish` | dev server / 模板生成 |
-| `cargo fmt` | impl 代码 | `class!` / `html!` 宏体重排 |
+| `crate-cli` (`~/.cargo/bin/crate`) | `bump` / `sync` / `fmt` / `publish` | dev server / template generation |
+| `cargo fmt` | impl code | reordering `class!` / `html!` macro bodies |
 
-## 关键词速查
+## Keyword Quick Reference
 
-- **click 不响应** → reactive `if` 换 arm 行 / iOS delegated 行
-- **状态错位** → 卸载未清理行 / `use_node_ref` 跨 root 行
-- **样式回退** → 依赖漂移行 / `inject_app_global_css` 优先级行
-- **build / publish 失败** → `euv fmt` 行 / bump sync 行 / publish 顺序行
+- **click does not respond** → reactive `if` arm-switch row / iOS delegated row
+- **state misaligned** → unmount-without-cleanup row / `use_node_ref` cross-root row
+- **style fallback** → dependency-drift row / `inject_app_global_css` specificity row
+- **build / publish failure** → `euv fmt` row / bump sync row / publish order row

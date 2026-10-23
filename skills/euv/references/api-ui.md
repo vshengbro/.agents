@@ -1,26 +1,20 @@
-# euv-ui 完整 pub API(组件 + hooks + style)
+# euv-ui full pub API (components + hooks + style)
 
 Source: `ui/src/` — auto-extracted from `pub` declarations.
 
-Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src/lib.rs` `pub use {component::*, hook::*, style::*}`.
+Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `ui/src/lib.rs` `pub use {component::*, hook::*, style::*}`.
 
-### `component::router::fn`
+### `dom::fn`
 
-- `fn` **`normalize_path`** — `pub fn normalize_path(path: &str) -> String {...}`
-- `fn` **`route_matches`** — `pub fn route_matches(route_path: &str, request_path: &str) -> bool {...}`
-- `fn` **`find_active_route`** — `pub fn find_active_route<'a>( path: &str, routes: &'a [NestedRouteConfig], ) -> Option<&'a NestedRouteConfig> {...}`
-- `fn` **`route_chain`** — `pub fn route_chain<'a>(path: &str, routes: &'a [NestedRouteConfig]) -> Vec<&'a NestedRouteConfig> {...}`
-- `fn` **`build_chain`** — `pub(crate) fn build_chain<'a>( path: &str, routes: &'a [NestedRouteConfig], chain: &mut Vec<&'a NestedRouteConfig>, ) -> bool {...}`
+- `fn` **`after_mount`** — `pub(crate) fn after_mount<F>(callback: F) where F: FnOnce() + 'static, {...}`
+- `fn` **`schedule_after`** — `pub(crate) fn schedule_after<F>(delay_ms: u32, callback: F) where F: FnOnce() + 'static, {...}`
+- `fn` **`browser_window`** — `pub(crate) fn browser_window() -> Option<Window> {...}`
+- `fn` **`browser_document`** — `pub(crate) fn browser_document() -> Option<Document> {...}`
+- `fn` **`node_contains`** — `pub(crate) fn node_contains(container: &Node, candidate: &Node) -> bool {...}`
 
-### `component::router::impl`
+### `dom::type`
 
-- `fn` **`new`** — `pub fn new<P, F>(path: P, component: F, children: Vec<NestedRouteConfig>) -> Self where P: Into<String>, F: Fn() -> VirtualNode + 'static, {...}`
-- `fn` **`component`** — `pub fn component(&self) -> Rc<dyn Fn() -> VirtualNode> {...}`
-- `fn` **`children`** — `pub fn children(&self) -> &[NestedRouteConfig] {...}`
-
-### `component::router::struct`
-
-- `struct` **`NestedRouteConfig`** — `pub struct NestedRouteConfig {`
+- `type` **`Teardown`** — `pub(crate) type Teardown = Rc<RefCell<Option<Box<dyn Fn()>>>>;`
 
 ### `hook::counter::impl`
 
@@ -298,9 +292,275 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `type` **`DefaultLoadingHandle`** — `pub type DefaultLoadingHandle<T> = UseAsyncHandle<T, ()>;`
 
+### `hook::use_boolean::fn`
+
+- `fn` **`use_boolean`** — `pub fn use_boolean(initial: bool) -> UseBoolean {...}`
+
+### `hook::use_boolean::impl`
+
+- `fn` **`set_true`** — `pub fn set_true(&self) {...}`
+- `fn` **`set_false`** — `pub fn set_false(&self) {...}`
+- `fn` **`toggle`** — `pub fn toggle(&self) {...}`
+- `fn` **`set_value`** — `pub fn set_value(&self, next: bool) {...}`
+- `fn` **`get`** — `pub fn get(&self) -> bool {...}`
+
+### `hook::use_boolean::struct`
+
+- `struct` **`UseBoolean`** — `pub struct UseBoolean {`
+
+### `hook::use_click_outside::fn`
+
+- `fn` **`use_click_outside`** — `pub fn use_click_outside() -> UseClickOutside {...}`
+- `fn` **`press_is_outside`** — `pub(crate) fn press_is_outside(target: &NodeRef<Element>, event: &Event) -> bool {...}`
+
+### `hook::use_click_outside::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`is_triggered`** — `pub fn is_triggered(&self) -> bool {...}`
+- `fn` **`reset`** — `pub fn reset(&self) {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_click_outside::struct`
+
+- `struct` **`UseClickOutside`** — `pub struct UseClickOutside {`
+
+### `hook::use_clipboard::enum`
+
+- `enum` **`UseClipboardStatus`** — `pub enum UseClipboardStatus {`
+
+### `hook::use_clipboard::fn`
+
+- `fn` **`use_clipboard`** — `pub fn use_clipboard() -> UseClipboard {...}`
+
+### `hook::use_clipboard::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`current_status`** — `pub fn current_status(&self) -> UseClipboardStatus {...}`
+- `fn` **`copy`** — `pub fn copy(&self, text: &str) -> bool {...}`
+
+### `hook::use_clipboard::struct`
+
+- `struct` **`UseClipboard`** — `pub struct UseClipboard {`
+
+### `hook::use_hover::fn`
+
+- `fn` **`use_hover`** — `pub fn use_hover() -> UseHover {...}`
+- `fn` **`pointer_is_inside`** — `pub(crate) fn pointer_is_inside(target: &NodeRef<Element>, event: &Event) -> bool {...}`
+
+### `hook::use_hover::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`is_hovered`** — `pub fn is_hovered(&self) -> bool {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_hover::struct`
+
+- `struct` **`UseHover`** — `pub struct UseHover {`
+
+### `hook::use_id::fn`
+
+- `fn` **`use_id`** — `pub fn use_id(prefix: &'static str) -> UseId {...}`
+
+### `hook::use_id::static`
+
+- `static` **`ID_COUNTER`** — `pub(crate) static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);`
+
+### `hook::use_id::struct`
+
+- `struct` **`UseId`** — `pub struct UseId {`
+
+### `hook::use_intersection_observer::fn`
+
+- `fn` **`use_intersection_observer`** — `pub fn use_intersection_observer() -> UseIntersectionObserver {...}`
+
+### `hook::use_intersection_observer::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`is_visible`** — `pub fn is_visible(&self) -> bool {...}`
+- `fn` **`current_ratio`** — `pub fn current_ratio(&self) -> f64 {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_intersection_observer::struct`
+
+- `struct` **`UseIntersectionObserver`** — `pub struct UseIntersectionObserver {`
+
+### `hook::use_keyboard::fn`
+
+- `fn` **`use_keyboard`** — `pub fn use_keyboard() -> UseKeyboard {...}`
+
+### `hook::use_keyboard::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`current_key`** — `pub fn current_key(&self) -> String {...}`
+- `fn` **`is_pressed`** — `pub fn is_pressed(&self, key: &str) -> bool {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_keyboard::struct`
+
+- `struct` **`UseKeyboard`** — `pub struct UseKeyboard {`
+
+### `hook::use_media_query::fn`
+
+- `fn` **`use_media_query`** — `pub fn use_media_query(query: &'static str) -> UseMediaQuery {...}`
+
+### `hook::use_media_query::impl`
+
+- `fn` **`new`** — `pub(crate) fn new(query: &'static str) -> Self {...}`
+- `fn` **`is_matching`** — `pub fn is_matching(&self) -> bool {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_media_query::struct`
+
+- `struct` **`UseMediaQuery`** — `pub struct UseMediaQuery {`
+
+### `hook::use_mounted::fn`
+
+- `fn` **`use_mounted`** — `pub fn use_mounted() -> UseMounted {...}`
+
+### `hook::use_mounted::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`is_mounted`** — `pub fn is_mounted(&self) -> bool {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+
+### `hook::use_mounted::struct`
+
+- `struct` **`UseMounted`** — `pub struct UseMounted {`
+
+### `hook::use_online_status::fn`
+
+- `fn` **`use_online_status`** — `pub fn use_online_status() -> UseOnlineStatus {...}`
+
+### `hook::use_online_status::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`is_online`** — `pub fn is_online(&self) -> bool {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_online_status::struct`
+
+- `struct` **`UseOnlineStatus`** — `pub struct UseOnlineStatus {`
+
+### `hook::use_reduced_motion::fn`
+
+- `fn` **`use_reduced_motion`** — `pub fn use_reduced_motion() -> UseReducedMotion {...}`
+
+### `hook::use_reduced_motion::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`is_reduced`** — `pub fn is_reduced(&self) -> bool {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_reduced_motion::struct`
+
+- `struct` **`UseReducedMotion`** — `pub struct UseReducedMotion {`
+
+### `hook::use_resize_observer::fn`
+
+- `fn` **`use_resize_observer`** — `pub fn use_resize_observer() -> UseResizeObserver {...}`
+
+### `hook::use_resize_observer::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`current_width`** — `pub fn current_width(&self) -> f64 {...}`
+- `fn` **`current_height`** — `pub fn current_height(&self) -> f64 {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_resize_observer::struct`
+
+- `struct` **`UseResizeObserver`** — `pub struct UseResizeObserver {`
+
+### `hook::use_scroll::fn`
+
+- `fn` **`use_scroll`** — `pub fn use_scroll() -> UseScroll {...}`
+
+### `hook::use_scroll::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`current_y`** — `pub fn current_y(&self) -> f64 {...}`
+- `fn` **`current_x`** — `pub fn current_x(&self) -> f64 {...}`
+- `fn` **`scroll_to_top`** — `pub fn scroll_to_top(&self) {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_scroll::struct`
+
+- `struct` **`UseScroll`** — `pub struct UseScroll {`
+
+### `hook::use_storage::enum`
+
+- `enum` **`UseStorageKind`** — `pub enum UseStorageKind {`
+
+### `hook::use_storage::fn`
+
+- `fn` **`use_storage`** — `pub fn use_storage(key: &'static str, kind: UseStorageKind, initial: &str) -> UseStorage {...}`
+- `fn` **`read_storage`** — `pub(crate) fn read_storage(kind: UseStorageKind, key: &str) -> Option<String> {...}`
+- `fn` **`write_storage`** — `pub(crate) fn write_storage(kind: UseStorageKind, key: &str, value: &str) {...}`
+- `fn` **`remove_storage`** — `pub(crate) fn remove_storage(kind: UseStorageKind, key: &str) {...}`
+
+### `hook::use_storage::impl`
+
+- `fn` **`new`** — `pub(crate) fn new(key: &'static str, kind: UseStorageKind, initial: &str) -> Self {...}`
+- `fn` **`current`** — `pub fn current(&self) -> String {...}`
+- `fn` **`set_value`** — `pub fn set_value(&self, value: &str) {...}`
+- `fn` **`clear`** — `pub fn clear(&self) {...}`
+
+### `hook::use_storage::struct`
+
+- `struct` **`UseStorage`** — `pub struct UseStorage {`
+
+### `hook::use_timer::fn`
+
+- `fn` **`use_timer`** — `pub fn use_timer(interval_ms: u32) -> UseTimer {...}`
+- `fn` **`use_timeout`** — `pub fn use_timeout<F>(delay_ms: u32, callback: F) where F: FnOnce() + 'static, {...}`
+
+### `hook::use_timer::impl`
+
+- `fn` **`new`** — `pub(crate) fn new(interval_ms: u32) -> Self {...}`
+- `fn` **`current_ticks`** — `pub fn current_ticks(&self) -> u64 {...}`
+- `fn` **`reset`** — `pub fn reset(&self) {...}`
+
+### `hook::use_timer::struct`
+
+- `struct` **`UseTimer`** — `pub struct UseTimer {`
+
+### `hook::use_window_size::fn`
+
+- `fn` **`use_window_size`** — `pub fn use_window_size() -> UseWindowSize {...}`
+- `fn` **`read_dimension`** — `pub(crate) fn read_dimension(window: &Window, width: bool) -> i32 {...}`
+
+### `hook::use_window_size::impl`
+
+- `fn` **`new`** — `pub(crate) fn new() -> Self {...}`
+- `fn` **`current_width`** — `pub fn current_width(&self) -> i32 {...}`
+- `fn` **`current_height`** — `pub fn current_height(&self) -> i32 {...}`
+- `fn` **`attach`** — `pub(crate) fn attach(&self) {...}`
+- `fn` **`detach`** — `pub(crate) fn detach(&self) {...}`
+
+### `hook::use_window_size::struct`
+
+- `struct` **`UseWindowSize`** — `pub struct UseWindowSize {`
+
 ### `style::css::fn`
 
 - `fn` **`inject_app_global_css`** — `pub fn inject_app_global_css() {...}`
+- `fn` **`euv_md_css`** — `pub fn euv_md_css() -> &'static str {...}`
+
+### `component::affix::view::fn`
+
+- `fn` **`euv_affix`** — `pub fn euv_affix(node: VirtualNode<EuvAffixProps>) -> VirtualNode {...}`
+
+### `component::affix::view::struct`
+
+- `struct` **`EuvAffixProps`** — `pub struct EuvAffixProps {`
 
 ### `component::alert::view::enum`
 
@@ -314,6 +574,50 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `struct` **`EuvAlertProps`** — `pub struct EuvAlertProps {`
 
+### `component::anchor::view::fn`
+
+- `fn` **`euv_anchor`** — `pub fn euv_anchor(node: VirtualNode<EuvAnchorProps>) -> VirtualNode {...}`
+
+### `component::anchor::view::struct`
+
+- `struct` **`EuvAnchorItem`** — `pub struct EuvAnchorItem {`
+- `struct` **`EuvAnchorProps`** — `pub struct EuvAnchorProps {`
+
+### `component::auto_complete::view::fn`
+
+- `fn` **`auto_complete_matches`** — `pub fn auto_complete_matches(option: &EuvAutoCompleteOption, query: &str) -> bool {...}`
+- `fn` **`auto_complete_active`** — `pub fn auto_complete_active<'a>( filtered: &'a [EuvAutoCompleteOption], query: &str, ) -> Option<&'a EuvAutoCompleteOption> {...}`
+- `fn` **`euv_auto_complete`** — `pub fn euv_auto_complete(node: VirtualNode<EuvAutoCompleteProps>) -> VirtualNode {...}`
+
+### `component::auto_complete::view::struct`
+
+- `struct` **`EuvAutoCompleteOption`** — `pub struct EuvAutoCompleteOption {`
+- `struct` **`EuvAutoCompleteProps`** — `pub struct EuvAutoCompleteProps {`
+
+### `component::avatar::view::enum`
+
+- `enum` **`EuvAvatarSize`** — `pub enum EuvAvatarSize {`
+
+### `component::avatar::view::fn`
+
+- `fn` **`euv_avatar`** — `pub fn euv_avatar(node: VirtualNode<EuvAvatarProps>) -> VirtualNode {...}`
+
+### `component::avatar::view::impl`
+
+- `fn` **`px`** — `pub fn px(&self) -> i32 {...}`
+
+### `component::avatar::view::struct`
+
+- `struct` **`EuvAvatarProps`** — `pub struct EuvAvatarProps {`
+
+### `component::back_top::view::fn`
+
+- `fn` **`euv_back_top`** — `pub fn euv_back_top(node: VirtualNode<EuvBackTopProps>) -> VirtualNode {...}`
+
+### `component::back_top::view::struct`
+
+- `struct` **`EuvBackTopProps`** — `pub struct EuvBackTopProps {`
+
 ### `component::badge::view::fn`
 
 - `fn` **`euv_badge`** — `pub fn euv_badge(node: VirtualNode<EuvBadgeProps>) -> VirtualNode {...}`
@@ -321,6 +625,15 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 ### `component::badge::view::struct`
 
 - `struct` **`EuvBadgeProps`** — `pub struct EuvBadgeProps {`
+
+### `component::breadcrumb::view::fn`
+
+- `fn` **`euv_breadcrumb`** — `pub fn euv_breadcrumb(node: VirtualNode<EuvBreadcrumbProps>) -> VirtualNode {...}`
+
+### `component::breadcrumb::view::struct`
+
+- `struct` **`EuvBreadcrumbItem`** — `pub struct EuvBreadcrumbItem {`
+- `struct` **`EuvBreadcrumbProps`** — `pub struct EuvBreadcrumbProps {`
 
 ### `component::browser::hook::impl`
 
@@ -368,6 +681,20 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `struct` **`EuvButtonProps`** — `pub struct EuvButtonProps {`
 
+### `component::calendar::view::enum`
+
+- `enum` **`EuvCalendarWeekday`** — `pub enum EuvCalendarWeekday {`
+
+### `component::calendar::view::fn`
+
+- `fn` **`euv_calendar`** — `pub fn euv_calendar(node: VirtualNode<EuvCalendarProps>) -> VirtualNode {...}`
+- `fn` **`on_calendar_day_click`** — `pub fn on_calendar_day_click(selected: Signal<u32>, day: u32) -> Option<Rc<dyn Fn(Event)>> {...}`
+
+### `component::calendar::view::struct`
+
+- `struct` **`EuvCalendarDay`** — `pub struct EuvCalendarDay {`
+- `struct` **`EuvCalendarProps`** — `pub struct EuvCalendarProps {`
+
 ### `component::camera::hook::enum`
 
 - `enum` **`EuvCameraFacing`** — `pub enum EuvCameraFacing {`
@@ -408,6 +735,28 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `struct` **`EuvCardProps`** — `pub struct EuvCardProps {`
 
+### `component::carousel::view::fn`
+
+- `fn` **`euv_carousel`** — `pub fn euv_carousel(node: VirtualNode<EuvCarouselProps>) -> VirtualNode {...}`
+
+### `component::carousel::view::struct`
+
+- `struct` **`EuvCarouselSlide`** — `pub struct EuvCarouselSlide {`
+- `struct` **`EuvCarouselProps`** — `pub struct EuvCarouselProps {`
+
+### `component::cascader::view::fn`
+
+- `fn` **`euv_cascader`** — `pub fn euv_cascader(node: VirtualNode<EuvCascaderProps>) -> VirtualNode {...}`
+- `fn` **`cascader_path_labels`** — `pub fn cascader_path_labels(options: &[EuvCascaderOption], path: &[String]) -> Vec<&'static str> {...}`
+- `fn` **`cascader_columns`** — `pub fn cascader_columns<'a>( options: &'a [EuvCascaderOption], path: &[String], ) -> Vec<&'a [EuvCascaderOption]> {...}`
+- `fn` **`cascader_option_handler`** — `pub fn cascader_option_handler<E: 'static>( value: Signal<Vec<String>>, browsed: Signal<Vec<String>>, open: Signal<bool>, on_select: Option<Rc<dyn Fn(&'static str)>>, option_value: &'static str, depth: usize, has_children: bool, ) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`cascader_trigger_handler`** — `pub fn cascader_trigger_handler<E: 'static>( open: Signal<bool>, browsed: Signal<Vec<String>>, value: Signal<Vec<String>>, ) -> Option<Rc<dyn Fn(E)>> {...}`
+
+### `component::cascader::view::struct`
+
+- `struct` **`EuvCascaderOption`** — `pub struct EuvCascaderOption {`
+- `struct` **`EuvCascaderProps`** — `pub struct EuvCascaderProps {`
+
 ### `component::checkbox::view::fn`
 
 - `fn` **`euv_checkbox`** — `pub fn euv_checkbox(node: VirtualNode<EuvCheckboxProps>) -> VirtualNode {...}`
@@ -415,6 +764,54 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 ### `component::checkbox::view::struct`
 
 - `struct` **`EuvCheckboxProps`** — `pub struct EuvCheckboxProps {`
+
+### `component::checkbox_group::view::fn`
+
+- `fn` **`euv_checkbox_group`** — `pub fn euv_checkbox_group(node: VirtualNode<EuvCheckboxGroupProps>) -> VirtualNode {...}`
+
+### `component::checkbox_group::view::struct`
+
+- `struct` **`EuvCheckboxGroupOption`** — `pub struct EuvCheckboxGroupOption {`
+- `struct` **`EuvCheckboxGroupProps`** — `pub struct EuvCheckboxGroupProps {`
+
+### `component::collapse::view::fn`
+
+- `fn` **`euv_collapse`** — `pub fn euv_collapse(node: VirtualNode<EuvCollapseProps>) -> VirtualNode {...}`
+
+### `component::collapse::view::struct`
+
+- `struct` **`EuvCollapseItem`** — `pub struct EuvCollapseItem {`
+- `struct` **`EuvCollapseProps`** — `pub struct EuvCollapseProps {`
+
+### `component::date_picker::view::fn`
+
+- `fn` **`days_from_civil`** — `pub fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {...}`
+- `fn` **`civil_from_days`** — `pub fn civil_from_days(days: i64) -> (i64, u32, u32) {...}`
+- `fn` **`weekday_index`** — `pub fn weekday_index(year: i64, month: u32, day: u32) -> u32 {...}`
+- `fn` **`is_leap_year`** — `pub fn is_leap_year(year: i64) -> bool {...}`
+- `fn` **`days_in_month`** — `pub fn days_in_month(year: i64, month: u32) -> u32 {...}`
+- `fn` **`adjacent_month`** — `pub fn adjacent_month(year: i64, month: u32, delta: i64) -> (i64, u32) {...}`
+- `fn` **`encode_month`** — `pub fn encode_month(year: i64, month: u32) -> i64 {...}`
+- `fn` **`decode_month`** — `pub fn decode_month(code: i64) -> (i64, u32) {...}`
+- `fn` **`format_date`** — `pub fn format_date(year: i64, month: u32, day: u32) -> String {...}`
+- `fn` **`parse_date`** — `pub fn parse_date(text: &str) -> Option<(i64, u32, u32)> {...}`
+- `fn` **`date_within_bounds`** — `pub fn date_within_bounds(date: (i64, u32, u32), min: &str, max: &str) -> bool {...}`
+- `fn` **`month_grid`** — `pub fn month_grid(year: i64, month: u32, today: (i64, u32, u32)) -> Vec<EuvCalendarDay> {...}`
+- `fn` **`resolve_clicked_date`** — `pub fn resolve_clicked_date( year: i64, month: u32, day: u32, muted: bool, ) -> Option<(i64, u32, u32)> {...}`
+- `fn` **`euv_date_picker`** — `pub fn euv_date_picker(node: VirtualNode<EuvDatePickerProps>) -> VirtualNode {...}`
+
+### `component::date_picker::view::impl`
+
+- `fn` **`caption`** — `pub(crate) fn caption(&self, year: i64, month: u32) -> &'static str {...}`
+
+### `component::date_picker::view::struct`
+
+- `struct` **`EuvDatePickerProps`** — `pub struct EuvDatePickerProps {`
+- `struct` **`MonthCaption`** — `pub(crate) struct MonthCaption {`
+
+### `component::date_picker::view::type`
+
+- `type` **`CachedCaption`** — `pub(crate) type CachedCaption = Rc<RefCell<Option<(i64, u32, &'static str)>>>;`
 
 ### `component::debug::view::fn`
 
@@ -427,6 +824,27 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 ### `component::debug::view::type`
 
 - `type` **`DebugValueFormatter`** — `pub type DebugValueFormatter = Rc<dyn Fn() -> String>;`
+
+### `component::descriptions::view::fn`
+
+- `fn` **`euv_descriptions`** — `pub fn euv_descriptions(node: VirtualNode<EuvDescriptionsProps>) -> VirtualNode {...}`
+
+### `component::descriptions::view::struct`
+
+- `struct` **`EuvDescriptionsItem`** — `pub struct EuvDescriptionsItem {`
+- `struct` **`EuvDescriptionsProps`** — `pub struct EuvDescriptionsProps {`
+
+### `component::divider::view::enum`
+
+- `enum` **`EuvDividerOrientation`** — `pub enum EuvDividerOrientation {`
+
+### `component::divider::view::fn`
+
+- `fn` **`euv_divider`** — `pub fn euv_divider(node: VirtualNode<EuvDividerProps>) -> VirtualNode {...}`
+
+### `component::divider::view::struct`
+
+- `struct` **`EuvDividerProps`** — `pub struct EuvDividerProps {`
 
 ### `component::doc_layout::view::fn`
 
@@ -453,6 +871,23 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `struct` **`EuvDropdownItem`** — `pub struct EuvDropdownItem {`
 - `struct` **`EuvDropdownProps`** — `pub struct EuvDropdownProps {`
 
+### `component::empty::view::fn`
+
+- `fn` **`euv_empty`** — `pub fn euv_empty(node: VirtualNode<EuvEmptyProps>) -> VirtualNode {...}`
+
+### `component::empty::view::struct`
+
+- `struct` **`EuvEmptyProps`** — `pub struct EuvEmptyProps {`
+
+### `component::feature_grid::view::fn`
+
+- `fn` **`euv_feature_grid`** — `pub fn euv_feature_grid(node: VirtualNode<EuvFeatureGridProps>) -> VirtualNode {...}`
+
+### `component::feature_grid::view::struct`
+
+- `struct` **`EuvFeature`** — `pub struct EuvFeature {`
+- `struct` **`EuvFeatureGridProps`** — `pub struct EuvFeatureGridProps {`
+
 ### `component::field::view::fn`
 
 - `fn` **`euv_field`** — `pub fn euv_field(node: VirtualNode<EuvFieldProps>) -> VirtualNode {...}`
@@ -460,6 +895,23 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 ### `component::field::view::struct`
 
 - `struct` **`EuvFieldProps`** — `pub struct EuvFieldProps {`
+
+### `component::form::view::fn`
+
+- `fn` **`euv_form`** — `pub fn euv_form(node: VirtualNode<EuvFormProps>) -> VirtualNode {...}`
+
+### `component::form::view::struct`
+
+- `struct` **`EuvFormProps`** — `pub struct EuvFormProps {`
+
+### `component::grid::view::fn`
+
+- `fn` **`euv_grid`** — `pub fn euv_grid(node: VirtualNode<EuvGridProps>) -> VirtualNode {...}`
+
+### `component::grid::view::struct`
+
+- `struct` **`EuvGridCol`** — `pub struct EuvGridCol {`
+- `struct` **`EuvGridProps`** — `pub struct EuvGridProps {`
 
 ### `component::header::view::fn`
 
@@ -473,15 +925,40 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `fn` **`euv_hero`** — `pub fn euv_hero(node: VirtualNode<EuvHeroProps>) -> VirtualNode {...}`
 - `fn` **`euv_hero_action`** — `pub fn euv_hero_action(node: VirtualNode<EuvHeroActionProps>) -> VirtualNode {...}`
-- `fn` **`euv_feature_grid`** — `pub fn euv_feature_grid(node: VirtualNode<EuvFeatureGridProps>) -> VirtualNode {...}`
 
 ### `component::hero::view::struct`
 
 - `struct` **`EuvHeroAction`** — `pub struct EuvHeroAction {`
 - `struct` **`EuvHeroProps`** — `pub struct EuvHeroProps {`
-- `struct` **`EuvFeature`** — `pub struct EuvFeature {`
 - `struct` **`EuvHeroActionProps`** — `pub struct EuvHeroActionProps {`
-- `struct` **`EuvFeatureGridProps`** — `pub struct EuvFeatureGridProps {`
+
+### `component::icon::view::enum`
+
+- `enum` **`EuvIconSize`** — `pub enum EuvIconSize {`
+
+### `component::icon::view::fn`
+
+- `fn` **`euv_icon`** — `pub fn euv_icon(node: VirtualNode<EuvIconProps>) -> VirtualNode {...}`
+
+### `component::icon::view::impl`
+
+- `fn` **`px`** — `pub fn px(&self) -> i32 {...}`
+
+### `component::icon::view::struct`
+
+- `struct` **`EuvIconProps`** — `pub struct EuvIconProps {`
+
+### `component::image::view::enum`
+
+- `enum` **`EuvImageStatus`** — `pub enum EuvImageStatus {`
+
+### `component::image::view::fn`
+
+- `fn` **`euv_image`** — `pub fn euv_image(node: VirtualNode<EuvImageProps>) -> VirtualNode {...}`
+
+### `component::image::view::struct`
+
+- `struct` **`EuvImageProps`** — `pub struct EuvImageProps {`
 
 ### `component::info::view::fn`
 
@@ -512,11 +989,18 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `struct` **`EuvInputProps`** — `pub struct EuvInputProps {`
 
+### `component::layout::hook::fn`
+
+- `fn` **`is_edge_to_edge_viewport`** — `pub fn is_edge_to_edge_viewport(declared_immersive: bool, viewport_gap: Option<f64>) -> bool {...}`
+- `fn` **`safe_area_contract_value`** — `pub fn safe_area_contract_value(is_trusted: bool, measured: &str) -> String {...}`
+- `fn` **`measure_viewport_screen_gap`** — `pub(crate) fn measure_viewport_screen_gap() -> Option<f64> {...}`
+
 ### `component::layout::hook::impl`
 
 - `fn` **`use_resize`** — `pub fn use_resize() -> Signal<bool> {...}`
 - `fn` **`use_drawer_toggle`** — `pub fn use_drawer_toggle(drawer_open: Signal<bool>) -> Option<Rc<dyn Fn(Event)>> {...}`
 - `fn` **`use_safe_area_fix`** — `pub fn use_safe_area_fix() {...}`
+- `fn` **`is_immersive_declared`** — `pub(crate) fn is_immersive_declared() -> bool {...}`
 - `fn` **`apply_cached_insets`** — `pub fn apply_cached_insets() {...}`
 
 ### `component::layout::hook::static`
@@ -531,6 +1015,23 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 ### `component::layout::hook::struct`
 
 - `struct` **`UseEuvLayout`** — `pub struct UseEuvLayout;`
+
+### `component::link::view::fn`
+
+- `fn` **`euv_link`** — `pub fn euv_link(node: VirtualNode<EuvLinkProps>) -> VirtualNode {...}`
+
+### `component::link::view::struct`
+
+- `struct` **`EuvLinkProps`** — `pub struct EuvLinkProps {`
+
+### `component::list::view::fn`
+
+- `fn` **`euv_list`** — `pub fn euv_list(node: VirtualNode<EuvListProps>) -> VirtualNode {...}`
+
+### `component::list::view::struct`
+
+- `struct` **`EuvListItem`** — `pub struct EuvListItem {`
+- `struct` **`EuvListProps`** — `pub struct EuvListProps {`
 
 ### `component::loading::view::fn`
 
@@ -561,10 +1062,35 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `fn` **`euv_markdown`** — `pub fn euv_markdown(node: VirtualNode<EuvMarkdownProps>) -> VirtualNode {...}`
 - `fn` **`euv_markdown_blocks`** — `pub fn euv_markdown_blocks(blocks: &'static [EuvMdBlock]) -> VirtualNode {...}`
+- `fn` **`mark_image_loaded`** — `pub(crate) fn mark_image_loaded() -> Option<Rc<dyn Fn(Event)>> {...}`
 
 ### `component::markdown::view::struct`
 
 - `struct` **`EuvMarkdownProps`** — `pub struct EuvMarkdownProps {`
+
+### `component::mentions::view::fn`
+
+- `fn` **`euv_mentions`** — `pub fn euv_mentions(node: VirtualNode<EuvMentionsProps>) -> VirtualNode {...}`
+- `fn` **`mentions_trigger`** — `pub fn mentions_trigger(text: &str) -> Option<&str> {...}`
+- `fn` **`mentions_matches`** — `pub fn mentions_matches(item: &EuvMentionItem, query: &str) -> bool {...}`
+- `fn` **`mentions_filter`** — `pub fn mentions_filter(items: &[EuvMentionItem], query: &str) -> Vec<EuvMentionItem> {...}`
+- `fn` **`mentions_apply`** — `pub fn mentions_apply(text: &str, label: &str) -> String {...}`
+- `fn` **`on_mentions_select`** — `pub fn on_mentions_select<E: 'static>( value: Signal<String>, open: Signal<bool>, item_value: &'static str, item_label: &'static str, on_select: Option<Rc<dyn Fn(&'static str)>>, ) -> Option<Rc<dyn Fn(E)>> {...}`
+
+### `component::mentions::view::struct`
+
+- `struct` **`EuvMentionItem`** — `pub struct EuvMentionItem {`
+- `struct` **`EuvMentionsProps`** — `pub struct EuvMentionsProps {`
+
+### `component::message::view::fn`
+
+- `fn` **`euv_message`** — `pub fn euv_message(node: VirtualNode<EuvMessageProps>) -> VirtualNode {...}`
+- `fn` **`message_callback_handler`** — `pub fn message_callback_handler<E: 'static>( callback: Option<Rc<dyn Fn()>>, ) -> Option<Rc<dyn Fn(E)>> {...}`
+
+### `component::message::view::struct`
+
+- `struct` **`EuvMessageItem`** — `pub struct EuvMessageItem {`
+- `struct` **`EuvMessageProps`** — `pub struct EuvMessageProps {`
 
 ### `component::modal::view::fn`
 
@@ -604,6 +1130,26 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `struct` **`EuvNavbarProps`** — `pub struct EuvNavbarProps {`
 - `struct` **`EuvNavbarLinkProps`** — `pub struct EuvNavbarLinkProps {`
 
+### `component::notification::view::fn`
+
+- `fn` **`euv_notification`** — `pub fn euv_notification(node: VirtualNode<EuvNotificationProps>) -> VirtualNode {...}`
+- `fn` **`notification_callback_handler`** — `pub fn notification_callback_handler<E: 'static>( callback: Option<Rc<dyn Fn()>>, ) -> Option<Rc<dyn Fn(E)>> {...}`
+
+### `component::notification::view::struct`
+
+- `struct` **`EuvNotificationItem`** — `pub struct EuvNotificationItem {`
+- `struct` **`EuvNotificationProps`** — `pub struct EuvNotificationProps {`
+
+### `component::number_input::view::fn`
+
+- `fn` **`stepped_value`** — `pub fn stepped_value(current: i64, step: i64, min: Option<i64>, max: Option<i64>) -> Option<i64> {...}`
+- `fn` **`stepper_disabled`** — `pub fn stepper_disabled(current: i64, step: i64, min: Option<i64>, max: Option<i64>) -> bool {...}`
+- `fn` **`euv_number_input`** — `pub fn euv_number_input(node: VirtualNode<EuvNumberInputProps>) -> VirtualNode {...}`
+
+### `component::number_input::view::struct`
+
+- `struct` **`EuvNumberInputProps`** — `pub struct EuvNumberInputProps {`
+
 ### `component::pagination::view::fn`
 
 - `fn` **`euv_pagination`** — `pub fn euv_pagination(node: VirtualNode<EuvPaginationProps>) -> VirtualNode {...}`
@@ -612,6 +1158,74 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `struct` **`EuvPaginationItem`** — `pub struct EuvPaginationItem {`
 - `struct` **`EuvPaginationProps`** — `pub struct EuvPaginationProps {`
+
+### `component::panel::view::enum`
+
+- `enum` **`EuvPanelVariant`** — `pub enum EuvPanelVariant {`
+
+### `component::panel::view::fn`
+
+- `fn` **`euv_panel`** — `pub fn euv_panel(node: VirtualNode<EuvPanelProps>) -> VirtualNode {...}`
+
+### `component::panel::view::struct`
+
+- `struct` **`EuvPanelProps`** — `pub struct EuvPanelProps {`
+
+### `component::popconfirm::view::fn`
+
+- `fn` **`euv_popconfirm`** — `pub fn euv_popconfirm(node: VirtualNode<EuvPopconfirmProps>) -> VirtualNode {...}`
+- `fn` **`popconfirm_toggle_handler`** — `pub fn popconfirm_toggle_handler<E: 'static>(open: Signal<bool>) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`popconfirm_ok_handler`** — `pub fn popconfirm_ok_handler<E: 'static>( on_ok: Option<Rc<dyn Fn()>>, open: Signal<bool>, ) -> Rc<dyn Fn(E)> {...}`
+- `fn` **`popconfirm_cancel_handler`** — `pub fn popconfirm_cancel_handler<E: 'static>( on_cancel: Option<Rc<dyn Fn()>>, open: Signal<bool>, ) -> Rc<dyn Fn(E)> {...}`
+
+### `component::popconfirm::view::struct`
+
+- `struct` **`EuvPopconfirmProps`** — `pub struct EuvPopconfirmProps {`
+
+### `component::popover::view::fn`
+
+- `fn` **`euv_popover`** — `pub fn euv_popover(node: VirtualNode<EuvPopoverProps>) -> VirtualNode {...}`
+- `fn` **`on_popover_toggle`** — `pub fn on_popover_toggle(open: Signal<bool>) -> Option<Rc<dyn Fn(Event)>> {...}`
+
+### `component::popover::view::struct`
+
+- `struct` **`EuvPopoverProps`** — `pub struct EuvPopoverProps {`
+
+### `component::progress::view::fn`
+
+- `fn` **`euv_progress`** — `pub fn euv_progress(node: VirtualNode<EuvProgressProps>) -> VirtualNode {...}`
+- `fn` **`progress_percent_clamp`** — `pub fn progress_percent_clamp(percent: f64) -> f64 {...}`
+
+### `component::progress::view::struct`
+
+- `struct` **`EuvProgressProps`** — `pub struct EuvProgressProps {`
+
+### `component::radio::view::fn`
+
+- `fn` **`euv_radio`** — `pub fn euv_radio(node: VirtualNode<EuvRadioGroupProps>) -> VirtualNode {...}`
+- `fn` **`on_radio_change`** — `pub fn on_radio_change( signal: Signal<String>, option_value: &'static str, ) -> Option<Rc<dyn Fn(Event)>> {...}`
+
+### `component::radio::view::struct`
+
+- `struct` **`EuvRadioOption`** — `pub struct EuvRadioOption {`
+- `struct` **`EuvRadioGroupProps`** — `pub struct EuvRadioGroupProps {`
+
+### `component::rating::view::enum`
+
+- `enum` **`EuvRatingSize`** — `pub enum EuvRatingSize {`
+
+### `component::rating::view::fn`
+
+- `fn` **`rating_fill_percent`** — `pub fn rating_fill_percent(value: f64, max: f64) -> f64 {...}`
+- `fn` **`euv_rating`** — `pub fn euv_rating(node: VirtualNode<EuvRatingProps>) -> VirtualNode {...}`
+
+### `component::rating::view::impl`
+
+- `fn` **`px`** — `pub fn px(&self) -> i32 {...}`
+
+### `component::rating::view::struct`
+
+- `struct` **`EuvRatingProps`** — `pub struct EuvRatingProps {`
 
 ### `component::result::view::fn`
 
@@ -628,6 +1242,7 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `fn` **`use_overlay_history`** — `pub fn use_overlay_history(drawer_open: Signal<bool>, mobile_signal: Signal<bool>) {...}`
 - `fn` **`use_scroll_drawer_to_active`** — `pub fn use_scroll_drawer_to_active(drawer_open: Signal<bool>) {...}`
 - `fn` **`register_popstate_guard`** — `pub fn register_popstate_guard(guard: Rc<dyn Fn() -> bool>) -> usize {...}`
+- `fn` **`unregister_popstate_guard`** — `pub fn unregister_popstate_guard(guard_id: usize) -> bool {...}`
 - `fn` **`overlay_push_state`** — `pub fn overlay_push_state() {...}`
 - `fn` **`overlay_back`** — `pub fn overlay_back(navigate_target: Option<String>) {...}`
 - `fn` **`overlay_stack_push`** — `pub(crate) fn overlay_stack_push(closer: Rc<dyn Fn()>) {...}`
@@ -664,6 +1279,24 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `type` **`PopstateGuardEntry`** — `pub(crate) type PopstateGuardEntry = (usize, PopstateGuard);`
 - `type` **`PopstateGuardList`** — `pub(crate) type PopstateGuardList = RefCell<Vec<PopstateGuardEntry>>;`
 
+### `component::router::select::fn`
+
+- `fn` **`normalize_path`** — `pub fn normalize_path(path: &str) -> String {...}`
+- `fn` **`route_matches`** — `pub fn route_matches(route_path: &str, request_path: &str) -> bool {...}`
+- `fn` **`find_active_route`** — `pub fn find_active_route<'a>( path: &str, routes: &'a [NestedRouteConfig], ) -> Option<&'a NestedRouteConfig> {...}`
+- `fn` **`route_chain`** — `pub fn route_chain<'a>(path: &str, routes: &'a [NestedRouteConfig]) -> Vec<&'a NestedRouteConfig> {...}`
+- `fn` **`build_chain`** — `pub(crate) fn build_chain<'a>( path: &str, routes: &'a [NestedRouteConfig], chain: &mut Vec<&'a NestedRouteConfig>, ) -> bool {...}`
+
+### `component::router::select::impl`
+
+- `fn` **`new`** — `pub fn new<P, F>(path: P, component: F, children: Vec<NestedRouteConfig>) -> Self where P: Into<String>, F: Fn() -> VirtualNode + 'static, {...}`
+- `fn` **`component`** — `pub fn component(&self) -> Rc<dyn Fn() -> VirtualNode> {...}`
+- `fn` **`children`** — `pub fn children(&self) -> &[NestedRouteConfig] {...}`
+
+### `component::router::select::struct`
+
+- `struct` **`NestedRouteConfig`** — `pub struct NestedRouteConfig {`
+
 ### `component::router::view::fn`
 
 - `fn` **`euv_routes`** — `pub fn euv_routes(node: VirtualNode<EuvRoutesProps>) -> VirtualNode {...}`
@@ -683,8 +1316,32 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `struct` **`EuvRouteConfig`** — `pub struct EuvRouteConfig {`
 - `struct` **`EuvRoutesProps`** — `pub struct EuvRoutesProps {`
 
+### `component::segmented::view::fn`
+
+- `fn` **`euv_segmented`** — `pub fn euv_segmented(node: VirtualNode<EuvSegmentedProps>) -> VirtualNode {...}`
+
+### `component::segmented::view::struct`
+
+- `struct` **`EuvSegmentedOption`** — `pub struct EuvSegmentedOption {`
+- `struct` **`EuvSegmentedProps`** — `pub struct EuvSegmentedProps {`
+
+### `component::select::view::enum`
+
+- `enum` **`SelectPanelEntry`** — `pub(crate) enum SelectPanelEntry {`
+
+### `component::select::view::fn`
+
+- `fn` **`euv_select`** — `pub fn euv_select(node: VirtualNode<EuvSelectProps>) -> VirtualNode {...}`
+- `fn` **`use_euv_select_open`** — `pub fn use_euv_select_open() -> Signal<bool> {...}`
+
+### `component::select::view::struct`
+
+- `struct` **`EuvSelectOption`** — `pub struct EuvSelectOption {`
+- `struct` **`EuvSelectProps`** — `pub struct EuvSelectProps {`
+
 ### `component::sidebar::view::fn`
 
+- `fn` **`first_navigable_route`** — `pub fn first_navigable_route(items: &[EuvSidebarItem]) -> Option<&'static str> {...}`
 - `fn` **`euv_sidebar`** — `pub fn euv_sidebar(node: VirtualNode<EuvSidebarProps>) -> VirtualNode {...}`
 - `fn` **`euv_sidebar_item`** — `pub fn euv_sidebar_item(node: VirtualNode<EuvSidebarItemProps>) -> VirtualNode {...}`
 
@@ -693,6 +1350,110 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `struct` **`EuvSidebarItem`** — `pub struct EuvSidebarItem {`
 - `struct` **`EuvSidebarProps`** — `pub struct EuvSidebarProps {`
 - `struct` **`EuvSidebarItemProps`** — `pub struct EuvSidebarItemProps {`
+
+### `component::skeleton::view::fn`
+
+- `fn` **`skeleton_line_count`** — `pub fn skeleton_line_count(count: usize) -> usize {...}`
+- `fn` **`euv_skeleton`** — `pub fn euv_skeleton(node: VirtualNode<EuvSkeletonProps>) -> VirtualNode {...}`
+
+### `component::skeleton::view::struct`
+
+- `struct` **`EuvSkeletonProps`** — `pub struct EuvSkeletonProps {`
+
+### `component::slider::view::fn`
+
+- `fn` **`euv_slider`** — `pub fn euv_slider(node: VirtualNode<EuvSliderProps>) -> VirtualNode {...}`
+
+### `component::slider::view::impl`
+
+- `fn` **`percent`** — `pub fn percent(value: f64, min: f64, max: f64) -> f64 {...}`
+- `fn` **`on_slider_input`** — `pub fn on_slider_input(signal: Signal<f64>, min: f64, max: f64) -> Option<Rc<dyn Fn(Event)>> {...}`
+
+### `component::slider::view::struct`
+
+- `struct` **`EuvSliderProps`** — `pub struct EuvSliderProps {`
+- `struct` **`EuvSliderHelpers`** — `pub struct EuvSliderHelpers;`
+
+### `component::space::view::enum`
+
+- `enum` **`EuvSpaceSize`** — `pub enum EuvSpaceSize {`
+
+### `component::space::view::fn`
+
+- `fn` **`euv_space`** — `pub fn euv_space(node: VirtualNode<EuvSpaceProps>) -> VirtualNode {...}`
+
+### `component::space::view::impl`
+
+- `fn` **`token`** — `pub fn token(&self) -> &'static str {...}`
+
+### `component::space::view::struct`
+
+- `struct` **`EuvSpaceProps`** — `pub struct EuvSpaceProps {`
+
+### `component::splitter::view::fn`
+
+- `fn` **`euv_splitter`** — `pub fn euv_splitter(node: VirtualNode<EuvSplitterProps>) -> VirtualNode {...}`
+
+### `component::splitter::view::struct`
+
+- `struct` **`EuvSplitterProps`** — `pub struct EuvSplitterProps {`
+- `struct` **`DragSession`** — `pub(crate) struct DragSession {`
+
+### `component::stat::view::fn`
+
+- `fn` **`euv_stat`** — `pub fn euv_stat(node: VirtualNode<EuvStatProps>) -> VirtualNode {...}`
+
+### `component::stat::view::struct`
+
+- `struct` **`EuvStatProps`** — `pub struct EuvStatProps {`
+
+### `component::steps::view::fn`
+
+- `fn` **`euv_steps`** — `pub fn euv_steps(node: VirtualNode<EuvStepsProps>) -> VirtualNode {...}`
+
+### `component::steps::view::struct`
+
+- `struct` **`EuvStep`** — `pub struct EuvStep {`
+- `struct` **`EuvStepsProps`** — `pub struct EuvStepsProps {`
+
+### `component::switch::view::fn`
+
+- `fn` **`euv_switch`** — `pub fn euv_switch(node: VirtualNode<EuvSwitchProps>) -> VirtualNode {...}`
+- `fn` **`use_euv_switch_state`** — `pub fn use_euv_switch_state(checked: Signal<bool>) -> EuvSwitchState {...}`
+
+### `component::switch::view::impl`
+
+- `fn` **`new`** — `pub fn new(checked: Signal<bool>) -> Self {...}`
+- `fn` **`toggle`** — `pub fn toggle(&self) {...}`
+- `fn` **`on_toggle`** — `pub fn on_toggle(&self, disabled: Signal<bool>) -> Option<Rc<dyn Fn(Event)>> {...}`
+
+### `component::switch::view::struct`
+
+- `struct` **`EuvSwitchProps`** — `pub struct EuvSwitchProps {`
+- `struct` **`EuvSwitchState`** — `pub struct EuvSwitchState {`
+
+### `component::table::view::enum`
+
+- `enum` **`EuvTableAlign`** — `pub enum EuvTableAlign {`
+
+### `component::table::view::fn`
+
+- `fn` **`euv_table`** — `pub fn euv_table(node: VirtualNode<EuvTableProps>) -> VirtualNode {...}`
+
+### `component::table::view::struct`
+
+- `struct` **`EuvTableColumn`** — `pub struct EuvTableColumn {`
+- `struct` **`EuvTableRow`** — `pub struct EuvTableRow {`
+- `struct` **`EuvTableProps`** — `pub struct EuvTableProps {`
+
+### `component::tabs::view::fn`
+
+- `fn` **`euv_tabs`** — `pub fn euv_tabs(node: VirtualNode<EuvTabsProps>) -> VirtualNode {...}`
+
+### `component::tabs::view::struct`
+
+- `struct` **`EuvTabItem`** — `pub struct EuvTabItem {`
+- `struct` **`EuvTabsProps`** — `pub struct EuvTabsProps {`
 
 ### `component::tag::view::enum`
 
@@ -719,6 +1480,36 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 
 - `struct` **`ThemeState`** — `pub struct ThemeState {`
 
+### `component::time_picker::view::fn`
+
+- `fn` **`parse_time`** — `pub fn parse_time(text: &str) -> Option<(u32, u32)> {...}`
+- `fn` **`format_time`** — `pub fn format_time(hour: u32, minute: u32) -> String {...}`
+- `fn` **`clamp_hour_range`** — `pub fn clamp_hour_range(min_hour: u32, max_hour: u32) -> (u32, u32) {...}`
+- `fn` **`hour_values`** — `pub fn hour_values(min_hour: u32, max_hour: u32) -> Vec<u32> {...}`
+- `fn` **`minute_values`** — `pub fn minute_values(minute_step: u32) -> Vec<u32> {...}`
+- `fn` **`time_with_hour`** — `pub fn time_with_hour(current: &str, hour: u32) -> String {...}`
+- `fn` **`time_with_minute`** — `pub fn time_with_minute(current: &str, minute: u32, fallback_hour: u32) -> String {...}`
+- `fn` **`current_time`** — `pub fn current_time() -> Option<(u32, u32)> {...}`
+- `fn` **`time_picker_toggle_handler`** — `pub fn time_picker_toggle_handler<E: 'static>(open: Signal<bool>) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`time_picker_pick_hour_handler`** — `pub fn time_picker_pick_hour_handler<E: 'static>( value: Signal<String>, open: Signal<bool>, on_change: Option<Rc<dyn Fn(&'static str)>>, hour: u32, ) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`time_picker_pick_minute_handler`** — `pub fn time_picker_pick_minute_handler<E: 'static>( value: Signal<String>, open: Signal<bool>, on_change: Option<Rc<dyn Fn(&'static str)>>, minute: u32, fallback_hour: u32, ) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`time_picker_now_handler`** — `pub fn time_picker_now_handler<E: 'static>( value: Signal<String>, open: Signal<bool>, on_change: Option<Rc<dyn Fn(&'static str)>>, ) -> Rc<dyn Fn(E)> {...}`
+- `fn` **`time_picker_clear_handler`** — `pub fn time_picker_clear_handler<E: 'static>( value: Signal<String>, open: Signal<bool>, on_change: Option<Rc<dyn Fn(&'static str)>>, ) -> Rc<dyn Fn(E)> {...}`
+- `fn` **`euv_time_picker`** — `pub fn euv_time_picker(node: VirtualNode<EuvTimePickerProps>) -> VirtualNode {...}`
+
+### `component::time_picker::view::struct`
+
+- `struct` **`EuvTimePickerProps`** — `pub struct EuvTimePickerProps {`
+
+### `component::timeline::view::fn`
+
+- `fn` **`euv_timeline`** — `pub fn euv_timeline(node: VirtualNode<EuvTimelineProps>) -> VirtualNode {...}`
+
+### `component::timeline::view::struct`
+
+- `struct` **`EuvTimelineItem`** — `pub struct EuvTimelineItem {`
+- `struct` **`EuvTimelineProps`** — `pub struct EuvTimelineProps {`
+
 ### `component::toc::view::fn`
 
 - `fn` **`euv_toc`** — `pub fn euv_toc(node: VirtualNode<EuvTocProps>) -> VirtualNode {...}`
@@ -728,16 +1519,121 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `struct` **`EuvTocItem`** — `pub struct EuvTocItem {`
 - `struct` **`EuvTocProps`** — `pub struct EuvTocProps {`
 
+### `component::tooltip::view::enum`
+
+- `enum` **`EuvTooltipPlacement`** — `pub enum EuvTooltipPlacement {`
+
+### `component::tooltip::view::fn`
+
+- `fn` **`euv_tooltip`** — `pub fn euv_tooltip(node: VirtualNode<EuvTooltipProps>) -> VirtualNode {...}`
+
+### `component::tooltip::view::struct`
+
+- `struct` **`EuvTooltipProps`** — `pub struct EuvTooltipProps {`
+
+### `component::touch::hook::enum`
+
+- `enum` **`EuvGesture`** — `pub enum EuvGesture {`
+
+### `component::touch::hook::fn`
+
+- `fn` **`now_millis`** — `pub(crate) fn now_millis() -> f64 {...}`
+
 ### `component::touch::hook::impl`
 
 - `fn` **`extract_all`** — `pub fn extract_all(event: &Event) -> Vec<NativeTouchPoint> {...}`
 - `fn` **`extract_changed`** — `pub fn extract_changed(event: &Event) -> Vec<NativeTouchPoint> {...}`
 - `fn` **`extract_all`** — `pub fn extract_all(event: &Event) -> Vec<NativeTouchPointF64> {...}`
+- `fn` **`new`** — `pub fn new() -> EuvGestureRecognizer {...}`
+- `fn` **`with_config`** — `pub fn with_config(config: EuvGestureConfig) -> EuvGestureRecognizer {...}`
+- `fn` **`use_gesture`** — `pub fn use_gesture(self) -> EuvGestureState {...}`
+- `fn` **`classify`** — `pub fn classify( &self, dx: f64, dy: f64, elapsed_millis: f64, travel: f64, ) -> Option<EuvGesture> {...}`
+- `fn` **`pinch_from`** — `pub fn pinch_from(&self, points: &[NativeTouchPoint], start_distance: f64) -> Option<EuvPinch> {...}`
+- `fn` **`pinch_is_significant`** — `pub fn pinch_is_significant(&self, distance: f64, start_distance: f64) -> bool {...}`
+- `fn` **`drag_from`** — `pub fn drag_from( &self, point: &GesturePoint, start_x: f64, start_y: f64, travel: f64, ) -> EuvDrag {...}`
+- `fn` **`name`** — `pub fn name(self) -> &'static str {...}`
+- `fn` **`begin`** — `pub fn begin(&mut self, points: &[NativeTouchPoint]) {...}`
+- `fn` **`advance`** — `pub fn advance(&mut self, points: &[NativeTouchPoint]) {...}`
+- `fn` **`primary`** — `pub fn primary(&self) -> Option<GesturePoint> {...}`
+- `fn` **`finish`** — `pub fn finish(&mut self, config: &EuvGestureConfig) -> Option<EuvGesture> {...}`
+- `fn` **`reset`** — `pub fn reset(&mut self) {...}`
 
 ### `component::touch::hook::struct`
 
 - `struct` **`NativeTouchPoint`** — `pub struct NativeTouchPoint {`
 - `struct` **`NativeTouchPointF64`** — `pub struct NativeTouchPointF64 {`
+- `struct` **`EuvPinch`** — `pub struct EuvPinch {`
+- `struct` **`EuvDrag`** — `pub struct EuvDrag {`
+- `struct` **`EuvGestureConfig`** — `pub struct EuvGestureConfig {`
+- `struct` **`EuvGestureState`** — `pub struct EuvGestureState {`
+- `struct` **`EuvGestureRecognizer`** — `pub struct EuvGestureRecognizer {`
+- `struct` **`GestureProgress`** — `pub struct GestureProgress {`
+- `struct` **`GesturePoint`** — `pub struct GesturePoint {`
+
+### `component::transfer::view::fn`
+
+- `fn` **`euv_transfer`** — `pub fn euv_transfer(node: VirtualNode<EuvTransferProps>) -> VirtualNode {...}`
+- `fn` **`transfer_is_marked`** — `pub fn transfer_is_marked(marked: &[String], value: &str) -> bool {...}`
+- `fn` **`transfer_toggle_value`** — `pub fn transfer_toggle_value(selected: Signal<Vec<String>>, value: &'static str) {...}`
+- `fn` **`transfer_move_to_target`** — `pub fn transfer_move_to_target<E: 'static>( selected: Signal<Vec<String>>, source_values: Vec<&'static str>, on_move: Option<Rc<dyn Fn(&'static str)>>, ) -> Rc<dyn Fn(E)> {...}`
+- `fn` **`transfer_move_to_source`** — `pub fn transfer_move_to_source<E: 'static>( selected: Signal<Vec<String>>, target_values: Vec<&'static str>, on_move: Option<Rc<dyn Fn(&'static str)>>, ) -> Rc<dyn Fn(E)> {...}`
+- `fn` **`transfer_report_moves`** — `pub fn transfer_report_moves( selected: Signal<Vec<String>>, values: &[&'static str], on_move: &Option<Rc<dyn Fn(&'static str)>>, ) {...}`
+
+### `component::transfer::view::struct`
+
+- `struct` **`EuvTransferItem`** — `pub struct EuvTransferItem {`
+- `struct` **`EuvTransferProps`** — `pub struct EuvTransferProps {`
+
+### `component::tree::view::fn`
+
+- `fn` **`euv_tree`** — `pub fn euv_tree(node: VirtualNode<EuvTreeProps>) -> VirtualNode {...}`
+- `fn` **`use_euv_tree_expanded`** — `pub fn use_euv_tree_expanded(nodes: &[EuvTreeNode], default_expanded: bool) -> Signal<Vec<String>> {...}`
+- `fn` **`select_tree_node`** — `pub fn select_tree_node( selected: Signal<String>, on_select: Option<Rc<dyn Fn(&'static str)>>, value: &'static str, ) {...}`
+- `fn` **`toggle_expanded_value`** — `pub fn toggle_expanded_value(values: &mut Vec<String>, value: &str) {...}`
+
+### `component::tree::view::struct`
+
+- `struct` **`EuvTreeNode`** — `pub struct EuvTreeNode {`
+- `struct` **`EuvTreeProps`** — `pub struct EuvTreeProps {`
+
+### `component::tree_select::view::fn`
+
+- `fn` **`euv_tree_select`** — `pub fn euv_tree_select(node: VirtualNode<EuvTreeSelectProps>) -> VirtualNode {...}`
+- `fn` **`tree_select_find_label`** — `pub fn tree_select_find_label(nodes: &[EuvTreeNode], value: &str) -> Option<&'static str> {...}`
+- `fn` **`tree_select_toggle_handler`** — `pub fn tree_select_toggle_handler<E: 'static>(open: Signal<bool>) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`tree_select_pick_node`** — `pub fn tree_select_pick_node( value: Signal<String>, on_select: Option<Rc<dyn Fn(&'static str)>>, open: Signal<bool>, node_value: &'static str, ) {...}`
+
+### `component::tree_select::view::struct`
+
+- `struct` **`EuvTreeSelectProps`** — `pub struct EuvTreeSelectProps {`
+
+### `component::typography::view::enum`
+
+- `enum` **`EuvTextVariant`** — `pub enum EuvTextVariant {`
+
+### `component::typography::view::fn`
+
+- `fn` **`euv_text`** — `pub fn euv_text(node: VirtualNode<EuvTextProps>) -> VirtualNode {...}`
+
+### `component::typography::view::struct`
+
+- `struct` **`EuvTextProps`** — `pub struct EuvTextProps {`
+
+### `component::upload::view::enum`
+
+- `enum` **`EuvUploadStatus`** — `pub enum EuvUploadStatus {`
+
+### `component::upload::view::fn`
+
+- `fn` **`on_upload_files_change`** — `pub fn on_upload_files_change( on_files: Option<Rc<dyn Fn(&'static str)>>, ) -> Option<Rc<dyn Fn(Event)>> {...}`
+- `fn` **`on_upload_drag_over`** — `pub fn on_upload_drag_over(drag_active: Signal<bool>) -> Option<Rc<dyn Fn(Event)>> {...}`
+- `fn` **`on_upload_drag_leave`** — `pub fn on_upload_drag_leave(drag_active: Signal<bool>) -> Option<Rc<dyn Fn(Event)>> {...}`
+- `fn` **`euv_upload`** — `pub fn euv_upload(node: VirtualNode<EuvUploadProps>) -> VirtualNode {...}`
+
+### `component::upload::view::struct`
+
+- `struct` **`EuvUploadFile`** — `pub struct EuvUploadFile {`
+- `struct` **`EuvUploadProps`** — `pub struct EuvUploadProps {`
 
 ### `component::vconsole::hook::enum`
 
@@ -824,3 +1720,11 @@ Re-exported at crate root as `euv::euv_button`, `euv::use_async` 等 via `ui/src
 - `type` **`VirtualListRangeHandler`** — `pub type VirtualListRangeHandler = Rc<dyn Fn((usize, usize))>;`
 - `type` **`VirtualListConfig`** — `pub type VirtualListConfig = EuvVirtualListConfig;`
 - `type` **`VirtualListProps`** — `pub type VirtualListProps = EuvVirtualListProps;`
+
+### `component::watermark::view::fn`
+
+- `fn` **`euv_watermark`** — `pub fn euv_watermark(node: VirtualNode<EuvWatermarkProps>) -> VirtualNode {...}`
+
+### `component::watermark::view::struct`
+
+- `struct` **`EuvWatermarkProps`** — `pub struct EuvWatermarkProps {`

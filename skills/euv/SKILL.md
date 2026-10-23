@@ -39,6 +39,7 @@ Shortest path · Load by task · Delivery constraints
 | Signal, VirtualNode, events, hooks, node references | [Core API](references/api-core.md) |
 | UI components, router, theme, i18n | [UI API](references/api-ui.md) |
 | Game/scene/physics and engine abstractions | [Engine API](references/api-engine.md) |
+| Charting: option model, display list, chart backends | [Chart API](references/api-chart.md) |
 | WebGPU/WebGL renderer contracts and readback | [Renderer workflow](euv-engine-renderer-api/SKILL.md) |
 | euv UI layout, class registry and visual verification | [UI standards](../euv-ui-standards/SKILL.md) |
 | Symptom-first diagnosis | [Pitfalls](references/pitfalls.md) |
@@ -47,6 +48,35 @@ Reference pages are cached documentation, **not authority over the selected sour
 or compiler**. Verify uncertain signatures and source paths before use; generated
 lombok accessors may not appear in `.rs` text. Load a single topical tutorial from
 `references/` when the signature alone is insufficient.
+
+## Workspace shape
+
+`cargo metadata` is authoritative for membership and paths; the workspace currently
+holds nine packages: `euv` (root), `euv-core`, `euv-macros`, `euv-ui`, `euv-engine`,
+`euv-cli`, `euv-docs`, `euv-example`, and `euv-chart`.
+
+`euv-chart` is the newest crate: an ECharts-compatible option model, a display
+list built from it, and three interchangeable backends (WebGPU, WebGL2, Canvas2D)
+behind one API. It depends on `euv-core` for `Signal` and on `euv-engine` for
+`Tween`/`Easing`; it does **not** re-export through the `euv` root crate, so
+`use euv::*` does not reach chart types. Read
+[references/api-chart.md](references/api-chart.md) before using it.
+
+Two facts about the chart crate that source reading will not tell you:
+
+- **Check the registry before pinning a version.** The repository's version is
+  not the published version. CI syncs member and dependency versions and then
+  publishes the workspace members one crate at a time, so a crate added to the
+  workspace is not installable by version until its own publish step has run,
+  and the members can land on different versions for a while. Resolve what a
+  consumer can actually install from the registry, not from `Cargo.toml`:
+  `cargo add euv-chart@<version>`, or
+  `curl -s https://crates.io/api/v1/crates/euv-chart`.
+- **`euv-chart` is published and builds from the registry.** As of
+  2026-10-23 it is on crates.io at `0.32.3` alongside the rest of the
+  workspace, and `cargo add euv-chart` + `cargo build` resolves and compiles
+  against the published `euv`, `euv-core` and `euv-engine`. If a consumer
+  cannot find it, their lockfile or index is stale — not the crate.
 
 ## Delivery constraints
 

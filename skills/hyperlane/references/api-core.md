@@ -1,8 +1,12 @@
-# hyperlane-core 完整 pub API
+# hyperlane-core complete pub API
 
 Source: `core/src/` — auto-extracted from `pub` declarations.
 
 Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
+
+### `config::enum`
+
+- `enum` **`ServerProtocol`** — `pub enum ServerProtocol {`
 
 ### `config::impl`
 
@@ -11,6 +15,7 @@ Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 ### `config::struct`
 
 - `struct` **`ServerConfig`** — `pub struct ServerConfig {`
+- `struct` **`TlsConfig`** — `pub struct TlsConfig {`
 
 ### `context::impl`
 

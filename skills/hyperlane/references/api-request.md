@@ -1,8 +1,8 @@
-# http-request 完整 pub API(客户端)
+# http-request complete pub API (client)
 
 Source: `request/src/` — auto-extracted from `pub` declarations.
 
-Crate name: `http-request` (目录仍叫 `request/`).
+Crate name: `http-request` (the directory is still called `request/`).
 
 ### `common::enum`
 

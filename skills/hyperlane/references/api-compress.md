@@ -1,8 +1,8 @@
-# http-compress 完整 pub API
+# http-compress complete pub API
 
 Source: `compress/src/` — auto-extracted from `pub` declarations.
 
-Crate name: `http-compress`. 提供 Brotli / Deflate / Gzip 编解码。
+Crate name: `http-compress`. Provides Brotli / Deflate / Gzip codecs.
 
 ### `brotli::fn`
 

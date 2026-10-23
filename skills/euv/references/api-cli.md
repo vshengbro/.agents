@@ -1,4 +1,4 @@
-# euv-cli 完整 pub API
+# euv-cli full pub API
 
 Source: `cli/src/` — auto-extracted from `pub` declarations.
 
@@ -8,6 +8,7 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 
 ### `build::enum`
 
+- `enum` **`ExportForm`** — `pub(crate) enum ExportForm<'a> {`
 - `enum` **`Action`** — `pub enum Action {`
 - `enum` **`BuildMode`** — `pub enum BuildMode {`
 - `enum` **`Mode`** — `pub enum Mode {`
@@ -26,23 +27,18 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 - `fn` **`resolve_import_path`** — `pub fn resolve_import_path(args: &ModeArgs) -> String {...}`
 - `fn` **`resolve_out_dir`** — `pub fn resolve_out_dir(args: &ModeArgs) -> PathBuf {...}`
 - `fn` **`run_build_only_pipeline`** — `pub async fn run_build_only_pipeline(args: &ModeArgs) -> Result<(), EuvError> {...}`
+- `fn` **`finalize_html_output`** — `pub(crate) async fn finalize_html_output( args: &ModeArgs, is_dev_server: bool, ) -> Result<String, EuvError> {...}`
 - `fn` **`clean_out_dir`** — `pub async fn clean_out_dir(out_dir: &Path) {...}`
 - `fn` **`run_build_pipeline`** — `pub async fn run_build_pipeline( args: &ModeArgs, reload_tx: Option<&broadcast::Sender<ReloadEvent>>, ) -> Result<String, EuvError> {...}`
 - `fn` **`watch_and_build`** — `pub(crate) async fn watch_and_build(state: Arc<AppState>) -> Result<(), EuvError> {...}`
 - `fn` **`build_wasm`** — `pub async fn build_wasm(args: &ModeArgs) -> Result<(), EuvError> {...}`
 - `fn` **`print_banner`** — `pub fn print_banner(action: Action) {...}`
 - `fn` **`print_server_urls`** — `pub(crate) fn print_server_urls(config: &ServerUrlConfig) {...}`
-- `fn` **`run_hyperlane_fmt`** — `pub async fn run_hyperlane_fmt() -> Result<(), EuvError> {...}`
-
-### `build::inline`
-
 - `fn` **`build_inline_bridge`** — `pub(crate) async fn build_inline_bridge( pkg_dir: &Path, js_name: &str, wasm_url: &str, ) -> Result<String, EuvError> {...}`
-- `fn` **`build_module_fallback_bridge`** — `pub(crate) fn build_module_fallback_bridge(import_path: &str) -> String {...}`
-- `fn` **`inline_bridge_disabled`** — `pub(crate) fn inline_bridge_disabled() -> bool {...}`
-- `fn` **`extract_exported_function_names`** — `pub fn extract_exported_function_names(source: &str) -> Vec<String> {...}`
-- `fn` **`is_namespace_import`** — `pub fn is_namespace_import(rest: &str) -> bool {...}`
-- `fn` **`extract_namespace_alias`** — `pub fn extract_namespace_alias(rest: &str) -> Option<&str> {...}`
-- `fn` **`extract_import_spec`** — `pub fn extract_import_spec(rest: &str) -> Option<&str> {...}`
+- `fn` **`parse_import_clause`** — `pub fn parse_import_clause(rest: &str) -> Result<ImportClause<'_>, EuvError> {...}`
+- `fn` **`extract_exported_names`** — `pub fn extract_exported_names(source: &str) -> Vec<String> {...}`
+- `fn` **`encode_js_string`** — `pub(crate) fn encode_js_string(value: &str) -> String {...}`
+- `fn` **`remove_generated_js`** — `pub(crate) async fn remove_generated_js(pkg_dir: &Path) -> Result<Vec<PathBuf>, EuvError> {...}`
 
 ### `build::struct`
 
@@ -50,6 +46,8 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 - `struct` **`ModeArgs`** — `pub struct ModeArgs {`
 - `struct` **`FmtArgs`** — `pub struct FmtArgs {`
 - `struct` **`ServerUrlConfig`** — `pub(crate) struct ServerUrlConfig {`
+- `struct` **`ImportClause`** — `pub struct ImportClause<'a> {`
+- `struct` **`NamespaceImport`** — `pub(crate) struct NamespaceImport {`
 
 ### `error::enum`
 
@@ -93,7 +91,7 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 
 ### `logger::static`
 
-- `static` **`LOGGER`** — `pub static LOGGER: Logger = Logger;`
+- `static` **`LOGGER`** — `pub(crate) static LOGGER: Logger = Logger;`
 
 ### `logger::struct`
 
@@ -109,6 +107,7 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 
 - `fn` **`set_global_state`** — `pub(crate) fn set_global_state(state: Arc<AppState>) -> Result<(), EuvError> {...}`
 - `fn` **`get_global_state`** — `pub(crate) fn get_global_state() -> Option<Arc<AppState>> {...}`
+- `fn` **`normalize_bootstrap`** — `pub(crate) fn normalize_bootstrap(template: &str) -> Result<String, EuvError> {...}`
 - `fn` **`generate_html`** — `pub(crate) async fn generate_html(config: &HtmlConfig) -> Result<String, EuvError> {...}`
 - `fn` **`resolve_www_dir`** — `pub async fn resolve_www_dir(www_dir: &Path) -> PathBuf {...}`
 - `fn` **`resolve_pkg_dir`** — `pub fn resolve_pkg_dir(args: &ModeArgs) -> PathBuf {...}`

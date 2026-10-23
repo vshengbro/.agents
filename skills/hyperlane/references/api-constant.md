@@ -1,10 +1,10 @@
-# http-constant 完整 pub API
+# http-constant complete pub API
 
-Source: `constant/src/` — HTTP 常量集合(BODY / COMMON / HEADER / METHOD / STATUS / VERSION / PATH / QUERY 等)。
+Source: `constant/src/` — the HTTP constant sets (BODY / COMMON / HEADER / METHOD / STATUS / VERSION / PATH / QUERY and more).
 
-Crate name: `http-constant`. **全部都是 `pub use` re-export** — 真正的常量定义在 `constant/src/<name>.rs`,每个文件一个常量数组。
+Crate name: `http-constant`. **Everything is a `pub use` re-export** — the constants themselves live in `constant/src/<name>.rs`, one constant array per file.
 
-## 模块清单
+## Module list
 
 - `body/mod` — re-export
 - `common/mod` — re-export
@@ -21,7 +21,7 @@ Crate name: `http-constant`. **全部都是 `pub use` re-export** — 真正的�
 - `query/mod` — re-export
 - `session/mod` — re-export
 
-## 用法
+## Usage
 
 ```rust
 use hyperlane::http_constant::{

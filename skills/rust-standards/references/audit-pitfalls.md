@@ -3031,7 +3031,7 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 
 ### 坑 3:git-ignored 目录必须排除,否则数字是幻觉
 
-`ctares/crate-cli/tmp/` 有 25 个 scratch crate(被 `/tmp/` 规则 ignore),它们的 `src/` 布局违规无论修不修都不可能进任何 commit。verifier 用**一次批量** `git check-ignore --stdin` 过滤目录(与 `verify_hardcoded_strings.py` / `verify_doc_comment_format.py` 的 `_drop_git_ignored()` 同策略),并且同时剔除被忽略目录的**子目录**(父目录被 ignore 时子目录的相对路径也可能不在输出里)。
+`ctares/crate-cli/tmp/` 有 26 个 scratch crate(被 `/tmp/` 规则 ignore;2026-10-23 re-measure — the count drifts as crate-cli's integration tests generate more fixtures, so re-read it rather than trusting any fixed number),它们的 `src/` 布局违规无论修不修都不可能进任何 commit。verifier 用**一次批量** `git check-ignore --stdin` 过滤目录(与 `verify_hardcoded_strings.py` / `verify_doc_comment_format.py` 的 `_drop_git_ignored()` 同策略),并且同时剔除被忽略目录的**子目录**(父目录被 ignore 时子目录的相对路径也可能不在输出里)。
 
 ### 与 pre-commit hook 的关系
 
@@ -3053,7 +3053,7 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 
 - **标准修法本身引入 clippy 警告。** 修法是 `const.rs` → `const/{const.rs, mod.rs}`,新 `mod.rs` 里必须 `mod r#const;` —— 模块名与目录同名 = `module_inception`(默认 `warn`)。实测 euv **+2**、ctares **+5**,而两仓 master 都是 **0 warning** 基线。
 - **规范凭空发明了代码库没有的模式。** `X/X.rs` 在 euv 和 ctares 的 master 里**一个都不存在**。首版把它当"标准形态"写进文档,实际上是无中生有。
-- **豁免名单漏了一整类合法文件。** ctares 有 **24 个 `macro.rs`** 与子目录同级(`clonelicious/src/`、`future-fn/src/`、`std-macro-extensions/src/*/`),全是 §1.3a 意义上的合法叶子,首版全报违规。
+- **豁免名单漏了一整类合法文件。** ctares 有 **23 个 `macro.rs`** 与子目录同级(`clonelicious/src/`、`future-fn/src/`、`std-macro-extensions/src/*/`),全是 §1.3a 意义上的合法叶子,首版全报违规。(2026-10-23 re-measure: 23, not the 24 recorded earlier — SKILL.md already carries this correction.)
 
 ### 更糟的一层:`rust_pre_commit.py` Phase 4 是坏的,所以没人会发现
 
@@ -3076,7 +3076,7 @@ if rc == 0:
 ### 收窄后的三仓数据
 
 ```
-ctares   0 violation  (24 个 macro.rs 豁免, const/enum 关键字豁免)
+ctares   0 violation  (23 个 macro.rs 豁免, const/enum 关键字豁免)
 hyperlane 0 violation
 euv      2 violation  (cli/tests/inline.rs, macros/tests/html_static_style.rs —— 真孤儿)
 ```
@@ -3434,3 +3434,35 @@ Two attributes in a row is not exotic: `#[prologue_macros(...)]` plus
 `#[instrument_trace]` is the once-drop route-handler shape, and a fn
 carrying both was what the audit flagged. The regression case lives in
 `self_test_doc_comment_audit.py` (`multi_attribute_doc_block_survives`).
+
+## §103 `crate fmt` 的作用域是 cwd 的 package,不是整个 workspace(2026-10-23 实测)
+
+旧文案写 "`crate fmt` 默认等于 `cargo fmt --all`,覆盖 workspace 全 member"。实测不成立,
+且失败方向是**静默漏改** —— 命令 exit 0、workspace 里另一个 crate 仍然是脏的。
+
+`crate fmt` 只是把 `cargo fmt` 原样 spawn 出去
+(`crate-cli/src/fmt/fn.rs` `execute_fmt`:`Command::new(CARGO).arg(CARGO_FMT)`),
+**`--all` 从未被传入**。所以作用域 = cwd 所在的那个 package:
+
+- 在 workspace root 跑 → cargo 的 workspace 解析让所有 member 一起被格式化
+  (ctares 实测:`udp/` 与 `stripe-pay-core/` 同时被改)。
+- 在成员子目录跑 → 只覆盖那个成员(ctares 实测:`cd udp/ && crate fmt` 之后
+  `stripe-pay-core/` 原样未动)。
+
+**教训**:凡是说"这条命令覆盖全 workspace"的,先确认它**真的传了** `--all` / `--workspace`。
+"在根目录跑就等于全仓"是 cargo 的行为,不是工具的保证。
+
+同一处复核还纠正了另外三点,都已写进 SKILL.md §13:
+
+1. `crate fmt` 在 `cargo fmt` **之前**先跑 `format_derive_attributes`,
+   把 `#[derive(...)]` 内的 trait 按**小写字母序**重排(`sort_derive_in_line`)。
+   plain `cargo fmt` 不做这件事(`#[derive(Setter, Getter, Clone)]` 原样不动)。
+   该 pass 只扫 `src/` 树(`find_rust_files`),**`tests/` 目录不参与**。
+2. `cargo clippy --fix` 在 `cargo fmt` **之后**跑(`execute_clippy_fix`),
+   旧文案写的 "它先跑 cargo clippy --fix" 顺序反了 —— clippy 看到的是**格式化后**的代码。
+3. `crate fmt --check` 只 spawn `cargo fmt --check`,**两个额外 pass 都被 `if !args.check` 跳过**,
+   所以它**查不到 derive 排序**:"`crate fmt --check` exit 0" 不等于 derive 顺序合规。
+
+附带一条:`cargo clippy --fix` 失败会让 `crate fmt` **退出码 = 1**(报
+`cargo clippy --fix failed`)。所以 "crate fmt 跑挂了" 有时是**编译错误**而不是格式问题 ——
+看到非零退出码先读日志里的 `cargo clippy --fix failed`,不要只当格式问题去反复 fmt。

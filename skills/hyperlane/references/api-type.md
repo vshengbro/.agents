@@ -1,8 +1,8 @@
-# http-type 完整 pub API
+# http-type complete pub API
 
 Source: `type/src/` — auto-extracted from `pub` declarations.
 
-Crate name: `http-type` (目录仍叫 `type/`);use as `hyperlane::http_type::*` 或 `http_type::*`。
+Crate name: `http-type` (the directory is still called `type/`); use as `hyperlane::http_type::*` or `http_type::*`.
 
 ### `any::trait`
 
@@ -64,6 +64,38 @@ Crate name: `http-type` (目录仍叫 `type/`);use as `hyperlane::http_type::*` 
 ### `box_rwlock::type`
 
 - `type` **`BoxRwLock`** — `pub type BoxRwLock<T> = Box<RwLock<T>>;`
+
+### `body::impl`
+
+- `fn` **`get_boundary`** — `pub fn get_boundary<C>(content_type: C) -> Option<MultipartFormDataBoundary> where C: AsRef<str>, {...}`
+- `fn` **`is_form_data`** — `pub fn is_form_data<C>(content_type: C) -> bool where C: AsRef<str>, {...}`
+- `fn` **`parse`** — `pub fn parse<B>(body: B, boundary: &str) -> Option<MultipartFormDataParts> where B: AsRef<[u8]>, {...}`
+- `fn` **`try_get_part`** — `pub fn try_get_part<K>(parts: &[BodyPart], name: K) -> Option<&BodyPart> where K: AsRef<str>, {...}`
+- `fn` **`try_get_part_text`** — `pub fn try_get_part_text<K>(parts: &[BodyPart], name: K) -> Option<BodyFormValue> where K: AsRef<str>, {...}`
+- `fn` **`parse_url_encoded`** — `pub fn parse_url_encoded<B>(body: B) -> BodyForm where B: AsRef<[u8]>, {...}`
+
+### `body::struct`
+
+- `struct` **`BodyPart`** — `pub struct BodyPart {`
+- `struct` **`MultipartFormData`** — `pub struct MultipartFormData;`
+
+### `body::type`
+
+- `type` **`MultipartFormDataBoundary`** — `pub type MultipartFormDataBoundary = String;`
+- `type` **`MultipartFormDataParts`** — `pub type MultipartFormDataParts = Vec<BodyPart>;`
+- `type` **`MultipartFormDataSegments`** — `pub type MultipartFormDataSegments<'a> = Vec<&'a [u8]>;`
+- `type` **`BodyPartName`** — `pub type BodyPartName = String;`
+- `type` **`BodyPartFileName`** — `pub type BodyPartFileName = String;`
+- `type` **`BodyPartContentType`** — `pub type BodyPartContentType = String;`
+- `type` **`BodyPartHeaderKey`** — `pub type BodyPartHeaderKey = String;`
+- `type` **`BodyPartHeaderValue`** — `pub type BodyPartHeaderValue = String;`
+- `type` **`BodyPartHeaders`** — `pub type BodyPartHeaders = HashMapXxHash3_64<BodyPartHeaderKey, BodyPartHeaderValue>;`
+- `type` **`BodyPartData`** — `pub type BodyPartData = Vec<u8>;`
+- `type` **`BodyForm`** — `pub type BodyForm = HashMapXxHash3_64<BodyFormKey, BodyFormValue>;`
+- `type` **`BodyFormKey`** — `pub type BodyFormKey = String;`
+- `type` **`BodyFormValue`** — `pub type BodyFormValue = String;`
+- `type` **`RequestContentType`** — `pub type RequestContentType = String;`
+- `type` **`RequestContentTypeParameter`** — `pub type RequestContentTypeParameter = String;`
 
 ### `content_type::enum`
 
@@ -386,6 +418,10 @@ Crate name: `http-type` (目录仍叫 `type/`);use as `hyperlane::http_type::*` 
 - `type` **`ArcStream`** — `pub type ArcStream = Arc<TcpStream>;`
 - `type` **`SocketHost`** — `pub type SocketHost = IpAddr;`
 - `type` **`SocketPort`** — `pub type SocketPort = u16;`
+
+### `stream::trait`
+
+- `trait` **`Transport`** — `pub trait Transport: AsyncRead + AsyncWrite + Debug + Unpin + Send + Sync {`
 
 ### `task::impl`
 

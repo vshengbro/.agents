@@ -89,8 +89,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "1fc91cddd6aad8d75c4d18e2996edc1be3cfe119"
+      "updatedAt": "2026-10-23T16:12:33.454Z",
+      "skillFolderHash": "9bcb7f56778a53ec3d2f55c01f54b0f73c8a30f2"
     },
     "euv-engine-renderer-api": {
       "source": "local",
@@ -169,8 +169,8 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "308fd9e8958b9a55614b226335fa88eb94d30742"
+      "updatedAt": "2026-10-23T16:12:33.454Z",
+      "skillFolderHash": "478ea7843959c570bf0c5e1976bd73f769aa4b09"
     },
     "hyperlane-upload": {
       "source": "local",
@@ -185,8 +185,8 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "175aa59a316d9664e093929967d405a8fdfb746f"
+      "updatedAt": "2026-10-23T16:12:33.454Z",
+      "skillFolderHash": "0865b3b3404f8352722b2d2391e6037bedfed36e"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",

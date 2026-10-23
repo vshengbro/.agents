@@ -1,10 +1,10 @@
-# hyperlane-macros 完整 proc_macro 签名(77 个)
+# hyperlane-macros complete proc_macro signatures (78)
 
 Source: `macros/src/lib.rs`。
 
-## 完整列表
+## Full list
 
-| proc_macro | 类型 | 签名 |
+| proc_macro | kind | signature |
 |---|---|---|
 | `try_get_websocket_request` | `#[proc_macro_attribute]` | `pub fn try_get_websocket_request(attr: TokenStream, item: TokenStream)` |
 | `try_get_http_request` | `#[proc_macro_attribute]` | `pub fn try_get_http_request(attr: TokenStream, item: TokenStream)` |
@@ -82,4 +82,5 @@ Source: `macros/src/lib.rs`。
 | `send` | `#[proc_macro_attribute]` | `pub fn send(attr: TokenStream, item: TokenStream)` |
 | `try_flush` | `#[proc_macro_attribute]` | `pub fn try_flush(_attr: TokenStream, item: TokenStream)` |
 | `flush` | `#[proc_macro_attribute]` | `pub fn flush(_attr: TokenStream, item: TokenStream)` |
+| `import` | `#[proc_macro_attribute]` | `pub fn import(attr: TokenStream, item: TokenStream)` |
 | `context` | `#[proc_macro]` | `pub fn context(input: TokenStream)` |
