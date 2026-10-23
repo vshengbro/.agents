@@ -16,9 +16,15 @@ root lockfile.
 
 | crate | what it is |
 |---|---|
-| `bench-server` | the server under test, written against the public API only |
-| `bench-loadgen` | a closed-loop keep-alive HTTP/1.1 client |
+| `bench-server` | the server under test, written against the public API only, speaking the protocol the row names |
+| `bench-loadgen` | a closed-loop client that speaks every protocol of the matrix, natively |
 | `bench-control` | a minimal server with no framework, one read and one write per request |
+
+The control speaks the same protocol as the row it references. A control that
+spoke HTTP/1.1 could not say what the machine allowed for HTTP/3, so the
+control would be an incomparable number in every row but one. The control has
+no dependency on the framework at all, which is what keeps it an independent
+reference.
 
 `bench-server` depends on the framework through the **path** `../../`, so it
 measures the working tree, not a published release.
@@ -52,14 +58,60 @@ containers it started on exit through a trap. It never removes the network, so
 clean that up yourself when the task ends.
 
 To measure a change against the committed state, build a second context from
-the merge-base and copy the harness into it:
+the merge-base. The runner copies the harness into that context itself, so
+the two images differ only in the library under test:
 
 ```sh
 mkdir -p /tmp/hyperlane-perf-baseline
 git archive "$(git merge-base origin/master HEAD)" | tar -x -C /tmp/hyperlane-perf-baseline
-cp -R bench /tmp/hyperlane-perf-baseline/
 ./run-perf.sh build baseline /tmp/hyperlane-perf-baseline
 ```
+
+The build is `--locked`: the lock is authoritative, and the runner rewrites
+the workspace members of each context's lock before the build, because the
+baseline's source carries a different version than the candidate's. Only the
+workspace members move; every third-party pin stays exactly as it was. A
+build that cannot honour the lock must fail rather than resolve again: a
+fallback would let the two arms drift apart without anything reporting it.
+
+### The certificate material
+
+The TLS rows need a chain. The material is **generated**, not committed: a
+private key in a repository is a private key in every clone of that
+repository.
+
+```sh
+./scripts/generate-certs.sh certs
+```
+
+The generator makes a certificate authority and one leaf certificate. The
+clients verify the chain against the authority explicitly: the authority is
+the trust anchor, and the leaf is the end entity.
+
+## The matrix
+
+The measurement is a grid, not a single row. The protocol axis is the wire
+protocol the server speaks, and the connection axis is whether a connection
+carries many requests or exactly one.
+
+| | `keepalive` | `short` |
+|---|---|---|
+| `h1` | HTTP/1.1 over a plain socket | one connection per request |
+| `h1-tls` | HTTP/1.1 over TLS | one connection per request |
+| `h2c` | HTTP/2 with prior knowledge | one connection per request |
+| `h2-tls` | HTTP/2 over TLS | one connection per request |
+| `h3` | HTTP/3 over QUIC | one connection per request |
+
+The connection axis is not a dial on the same code path. A short connection
+exercises the accept loop, the per-connection handshake and the disconnect
+cleanup once per request, and it spends one ephemeral port per request as
+well, so the generator caps its connection rate: without the cap the kernel
+runs out of ports and the run fails with `EADDRNOTAVAIL`, which reads as a
+server defect and is not one.
+
+Every protocol is driven by its own client library. `curl` cannot speak
+HTTP/2 without TLS, cannot speak HTTP/2 in cleartext, and cannot speak
+HTTP/3 at all, so the harness uses `h2`, `h3` and `quinn` directly.
 
 ## The knobs
 
@@ -67,7 +119,12 @@ Every knob is an environment variable.
 
 | variable | default | meaning |
 |---|---|---|
-| `PERF_CONNECTIONS` | `64 256` | the concurrency levels to measure |
+| `PERF_PROTOCOLS` | `h1 h1-tls h2c h2-tls h3` | the protocol rows to measure |
+| `PERF_MODES` | `keepalive short` | the connection rows to measure |
+| `PERF_CONNECTIONS` | `64 256` | the concurrency levels of the keep-alive rows |
+| `PERF_CONNECTIONS_SHORT` | `16 64` | the concurrency levels of the short rows |
+| `PERF_RATE_SHORT` | `200` | the connection rate cap of the short rows, per second |
+| `PERF_COOLDOWN_SHORT` | `20` | the pause between two short rows, in seconds |
 | `PERF_DURATION` | `12` | the length of a measured window, in seconds |
 | `PERF_WARMUP` | `4` | the length of the warm-up window, in seconds |
 | `PERF_REPEATS` | `3` | how many times a level is measured |
@@ -118,9 +175,18 @@ Each run prints one JSON object with `connections`, `duration_s`, `requests`,
 `mean_us`. The `bench` sub-command wraps it into a row of
 `{"variant", "connections", "repeat", "result"}` and appends it to `raw.jsonl`.
 
-The load generator takes `--addr`, `--connections`, `--duration` and
-`--warmup`. Its defaults are 64 connections, a 10 second window and a 3 second
-warm-up.
+The load generator takes `--addr`, `--connections`, `--duration`, `--warmup`,
+`--protocol`, `--mode` and `--ca`. Its defaults are 64 connections, a 10
+second window and a 3 second warm-up.
+
+### The order of the arms
+
+The runner alternates which arm goes first across the repeats. The first arm
+starts its server and its load generator first, so it measures a slightly
+different machine state than the second; measuring one arm first in every
+repeat puts that bias on the same arm in every pair. A path that no change
+touched cannot have regressed, so when the untouched rows come out
+consistently negative, the bias is in the harness and not in the code.
 
 ## In the pipeline
 
