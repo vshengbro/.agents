@@ -50,6 +50,49 @@ reports a success it did not earn. `xfeed.py` retries an error page
 before giving up; when the retries are exhausted, report the failure —
 not a target count of zero.
 
+## The refusal that is not the error page
+
+A third state looks like the error page and is not it: **the document
+request is refused and the page renders EMPTY.** Measured 2026-10-23:
+after a run of permalink navigations on one tab — 55 in one run, 64 in
+another — every later request for an HTML document on that origin came
+back **403 with a zero-length body**, and the DOM reported
+`readyState: "complete"` with `document.body.innerText` empty,
+`document.title` empty and `document.documentElement.outerHTML.length`
+of 39.
+
+So the article count is zero — the same reading as the error page — but
+there is no error page, no sidebar, no footer, and **the usual remedies
+change nothing**. Measured, none of these restored access: a **new tab**
+on the same browser, the **same tab re-navigated**, a **browser restart**
+(`xbrowser.py down && xbrowser.py up`), and **clearing cookies plus site
+data** for the origin. The same browser served `example.com` and
+`x.com/robots.txt` normally throughout, so this is neither the network,
+the proxy, nor the session.
+
+**Tell the two apart by asking for the status, not by counting articles.**
+`document.querySelectorAll('article').length` is zero in both cases. The
+status is in the navigation entry:
+
+```js
+performance.getEntriesByType('navigation')[0].responseStatus  // 403
+```
+
+At the CDP level the same fact arrives on `Network.responseReceived` —
+filter on `params.type == "Document"`, **not** on the mime type, because
+the refusal is served as `text/plain` and a `text/html` filter matches
+nothing.
+
+**The recovery is TIME, and it needs no action.** Measured: the same
+browser answered 403 for every document, then answered 200 with the
+full timeline again later, with nothing done to it in between — no
+restart, no cookie change, no new tab. So a run that retries through a
+refusal spends its budget and still fails, while the site recovers on
+its own; the useful move is to stop, report that the site refused the
+requests, and let the next run find the site healthy. Because the
+refusal arrived after a run of permalink reads both times it was
+measured, pace the reads rather than treating a long read loop as free.
+
 ## Pacing
 
 One account answering dozens of posts inside an hour trips the same
