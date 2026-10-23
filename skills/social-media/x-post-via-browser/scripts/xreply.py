@@ -53,6 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import xconfig                                            # noqa: E402
 import xcandidates                                        # noqa: E402
 import xlength                                            # noqa: E402
+import xlike_state                                        # noqa: E402
 import xstate                                             # noqa: E402
 from xcdp import Browser, sub                             # noqa: E402
 
@@ -77,32 +78,6 @@ HANDLE = """(() => {
     if (m) return m[1];
   }
   return '';
-})()"""
-
-# The article carrying the parent status id, with its like button state.
-PROBE_ARTICLE = """(() => {
-  const arts = [...document.querySelectorAll('article')];
-  const art = arts.find(a => a.querySelector("a[href*='/status/" + __SID__ + "']"));
-  if (!art) return JSON.stringify({err: 'no-article', nArts: arts.length});
-  const like = art.querySelector("[data-testid='like']");
-  const unlike = art.querySelector("[data-testid='unlike']");
-  const reply = art.querySelector("[data-testid='reply']");
-  return JSON.stringify({
-    found: true, nArts: arts.length,
-    like: !!like, unlike: !!unlike, hasReply: !!reply,
-    likeAria: like ? like.getAttribute('aria-label') : null,
-    unlikeAria: unlike ? unlike.getAttribute('aria-label') : null
-  });
-})()"""
-
-LIKE_CLICK = """(() => {
-  const arts = [...document.querySelectorAll('article')];
-  const art = arts.find(a => a.querySelector("a[href*='/status/" + __SID__ + "']"));
-  if (!art) return 'NO_ARTICLE';
-  const b = art.querySelector("[data-testid='like']");
-  if (!b) return 'NO_LIKE_BUTTON';
-  b.click();
-  return 'CLICKED';
 })()"""
 
 REPLY_CLICK = """(() => {
@@ -683,26 +658,33 @@ async def run(index: int, sid: str, who: str, copy: str, repo: str | None,
             print("ACCOUNT:", handle)
 
             # ---- 1. the like, first and idempotently
-            pre = await b.ev(sess, sub(PROBE_ARTICLE, SID=sid))
-            if not isinstance(pre, str):
-                print("REJECTED: probe failed: %s" % str(pre)[:200])
+            pre = await xlike_state.read_state(b, sess, sid)
+            if pre.get("probe_failed"):
+                print("REJECTED: probe failed: %s" % pre.get("probe_failed"))
                 return 3
-            pd = json.loads(pre)
+            pd = pre
             if pd.get("err"):
                 print("REJECTED: target not on page (%s)" % pd.get("err"))
                 return 3
             if pd.get("unlike"):
                 print("LIKE: ALREADY_LIKED")
             else:
-                clicked = await b.ev(sess, sub(LIKE_CLICK, SID=sid))
-                await asyncio.sleep(3.0)
-                post = await b.ev(sess, sub(PROBE_ARTICLE, SID=sid))
-                pdd = json.loads(post) if isinstance(post, str) else {}
-                if pdd.get("unlike"):
-                    print("LIKE: LIKED")
-                else:
+                clicked = await b.ev(sess, sub(xlike_state.LIKE_CLICK, SID=sid))
+                if clicked == "ALREADY_LIKED":
+                    print("LIKE: ALREADY_LIKED")
+                elif clicked != "CLICKED":
                     print("REJECTED: like did not confirm (%s)" % clicked)
                     return 4
+                else:
+                    # The proof is POLLED, not read once: the swap is
+                    # rendered by the site when its own request lands, and
+                    # a single early read sees the pre-click state.
+                    state = await xlike_state.confirm_like(b, sess, sid)
+                    if state.get("unlike"):
+                        print("LIKE: LIKED")
+                    else:
+                        print("REJECTED: like did not confirm (%s)" % clicked)
+                        return 4
 
             # ---- 2. the composer
             rc = await b.ev(sess, sub(REPLY_CLICK, SID=sid))

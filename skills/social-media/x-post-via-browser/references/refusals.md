@@ -21,9 +21,24 @@ reason, and move to the next candidate.
 | `the link landed without a card` | the post is up with a t.co but no card wrapper | The card is the proof that the address survived publication. Report it; do not send a replacement. |
 | `the link does not point at the address that was sent` | the post is up and its link resolves to a different place | The redirect names the place, and it names the wrong one. A public defect. Report it; do not send a replacement. |
 | `another engagement run holds the lock` | a correct skip | Report and stop entirely. Do not wait it out inside the run. |
+| `like did not confirm` | the like button never swapped inside the poll budget, so the like is unproven | **Nothing was sent** — the reply is not sent on an unliked post. The like may still have landed, because the proof is a read and a read can be early. Re-read the button state (never click again); a re-read can toggle nothing off. Report it. |
+| `NOT_CONFIRMED` | `xlike.py` could not prove the like either | The same rule, on the like script alone. The like button is read before it is clicked, so this verdict is safe to retry: a retry re-reads the state and reports `ALREADY_LIKED` when the first click did land. Report it; never click again to "make sure". |
 | `weighted length N over X's M` | the copy is longer than X will accept, counted the way X counts | Nothing was sent. Shorten the copy. The count is not `len()`: a CJK character weighs 2 and an address weighs 23, so a Chinese reply of 186 characters is 372 and is refused. |
 
 ## The refusals that exist because of a measurement
+
+**THE LIKE'S PROOF IS POLLED, BECAUSE THE SWAP IS RENDERED BY THE SITE.**
+The button swaps when X's own like request lands, and a read taken a fixed
+three seconds after the click can still see the PRE-click state. Measured
+on 2026-10-24, in one run of fifty-three replies: eight likes landed and
+were reported as unconfirmed — all eight parents were in the account's own
+liked list afterwards. The like had landed; the proof was early.
+
+So the state is polled until the swap shows. The poll only READS: it never
+clicks again, so it cannot toggle a like off, and it never touches the send
+path — a like confirmation may be retried, a send may not.
+`xlike_state_test.py` pins the poll, and the poll's budget is a refusal,
+not a licence to send.
 
 **A REFUSAL TABLE DRIFTS FROM THE CODE THAT PRINTS IT.** The verdict
 strings here are the API: a run reads them to decide what to do next, so

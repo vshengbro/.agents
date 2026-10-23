@@ -13,46 +13,31 @@ That makes the operation idempotent: a post that is already liked reports
 ALREADY_LIKED and is not clicked again, so a retry after an interrupted run
 cannot toggle a like off.
 
+THE READ AFTER THE CLICK IS POLLED, NOT TAKEN ONCE
+
+X renders the swap when its own request lands, and a single read three
+seconds after the click can still see the PRE-click state -- so a like that
+had landed was reported as unconfirmed. The proof is therefore POLLED until
+the swap shows, and the poll only READS: it never clicks again, so it can
+neither toggle a like off nor post anything.
+
+The state, the click and the poll live in `xlike_state.py`, so this script
+and `xreply.py` cannot drift apart on what a like means.
+
 Usage:
     xlike.py --candidates cand.json --index 3
 """
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import xconfig                                            # noqa: E402
 import xcandidates                                        # noqa: E402
+import xlike_state                                        # noqa: E402
 from xcdp import Browser, sub                             # noqa: E402
-
-# The article carrying this status id, with its like button state.
-PROBE = """(() => {
-  const arts = [...document.querySelectorAll('article')];
-  const art = arts.find(a => a.querySelector("a[href*='/status/" + __SID__ + "']"));
-  if (!art) return JSON.stringify({err: 'no-article', nArts: arts.length});
-  const like = art.querySelector("[data-testid='like']");
-  const unlike = art.querySelector("[data-testid='unlike']");
-  return JSON.stringify({
-    found: true, nArts: arts.length,
-    like: !!like, unlike: !!unlike,
-    likeAria: like ? like.getAttribute('aria-label') : null,
-    unlikeAria: unlike ? like ? null : (unlike.getAttribute('aria-label') || null) : null
-  });
-})()"""
-
-CLICK = """(() => {
-  const arts = [...document.querySelectorAll('article')];
-  const art = arts.find(a => a.querySelector("a[href*='/status/" + __SID__ + "']"));
-  if (!art) return 'NO_ARTICLE';
-  const b = art.querySelector("[data-testid='like']");
-  if (!b) return 'NO_LIKE_BUTTON';
-  if (art.querySelector("[data-testid='unlike']")) return 'ALREADY_LIKED';
-  b.click();
-  return 'CLICKED';
-})()"""
 
 
 async def like(sid: str, url: str | None = None) -> str:
@@ -69,30 +54,29 @@ async def like(sid: str, url: str | None = None) -> str:
         try:
             await b.wait_for(sess, "document.querySelectorAll('article').length > 0",
                              timeout=40)
-            pre = await b.ev(sess, sub(PROBE, SID=sid))
-            if not isinstance(pre, str):
-                return "NOT_CONFIRMED (probe failed: %s)" % str(pre)[:200]
-            pd = json.loads(pre)
+            pre = await xlike_state.read_state(b, sess, sid)
+            if pre.get("probe_failed"):
+                return "NOT_CONFIRMED (probe failed: %s)" % pre.get("probe_failed")
+            pd = pre
             if pd.get("err"):
                 return "TARGET_NOT_ON_PAGE (%s)" % pd.get("err")
             if pd.get("unlike"):
                 return "ALREADY_LIKED"
             if not pd.get("like"):
                 return "NO_LIKE_BUTTON"
-            clicked = await b.ev(sess, sub(CLICK, SID=sid))
+            clicked = await b.ev(sess, sub(xlike_state.LIKE_CLICK, SID=sid))
             if clicked == "ALREADY_LIKED":
                 return "ALREADY_LIKED"
             if clicked != "CLICKED":
                 return "NOT_CONFIRMED (%s)" % clicked
-            await asyncio.sleep(3.0)
-            post = await b.ev(sess, sub(PROBE, SID=sid))
-            if not isinstance(post, str):
-                return "NOT_CONFIRMED (probe failed after the click)"
-            pd = json.loads(post)
-            if pd.get("unlike"):
+            # The proof is POLLED, not read once: the swap is rendered by
+            # the site when its own request lands, and a single early read
+            # sees the pre-click state.
+            state = await xlike_state.confirm_like(b, sess, sid)
+            if state.get("unlike"):
                 return "LIKED"
             return "NOT_CONFIRMED (state=%s)" % (
-                "unlike" if pd.get("unlike") else "like")
+                "unlike" if state.get("unlike") else "like")
         finally:
             await b.close_tab(tid)
 

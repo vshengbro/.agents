@@ -80,6 +80,7 @@ runnable check — run it after touching any refusal message.
 | `xfeed.py --out FILE --count N` | the candidates, into a file; already-answered ones filtered out |
 | `xread.py --candidates FILE --index N` | a candidate's FULL text, from its permalink |
 | `xlike.py --candidates FILE --index N` | like one post, proven by the button swap |
+| `xlike_state.py` | the like button's state, the click, and the polled proof of the swap; `xlike_state_test.py` pins the poll — run it after touching either |
 | `xreply.py --candidates FILE --index N --copy FILE [--repo URL\|--allow-no-repo]` | like, answer and verify one post |
 | `xpost.py --copy FILE --repo URL [--dry-run]` | publish one standalone post and verify its address |
 | `xtrending.py --limit N` | today's trending list, read live, with ownership from live git remotes |
