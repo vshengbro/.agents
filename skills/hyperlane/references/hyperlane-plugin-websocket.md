@@ -40,7 +40,7 @@ cargo add hyperlane-plugin-websocket
 
 ## 许可证
 
-本项目使用 MIT 协议，详情请参见 [LICENSE](LICENSE) 文件。
+本项目使用 MIT 协议，详情请参见 [LICENSE](https://ltpp.vip/zh/hyperlane-plugin-websocket/LICENSE.html) 文件。
 
 ## 贡献
 

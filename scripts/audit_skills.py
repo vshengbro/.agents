@@ -58,6 +58,13 @@ MAX_DESCRIPTION = 240
 MAX_ENTRY_LINES = 160
 MAX_DESCRIPTION_WORDS = 60  # a "keyword dump" reads far denser than a trigger
 
+# The Rust subtree is frozen by design (see scripts/README.md and
+# `update_skill_lock.py --preserve-prefix`): it is the reference copy of the
+# Rust standard and stays long-form on purpose, so the entry-point budget
+# does not apply to it. It is protected by default; `--protected-prefix`
+# adds further prefixes on top.
+DEFAULT_PROTECTED_PREFIXES = ("skills/rust-standards/",)
+
 # Relative links carrying any of these are documentation placeholders, not
 # claims about a real file. They are reported in `skipped` — never dropped
 # silently — so a reviewer can disagree with the classification.
@@ -341,12 +348,26 @@ def check_links(path: Path, rel: str, rep: Report, skills_root: Path) -> None:
 
 def audit_protected(skills_dir: Path, prefixes: tuple[str, ...],
                     baseline: dict | None, rep: Report) -> dict:
-    """Exact set + sha256 comparison against the baseline for protected files."""
+    """Exact set + sha256 comparison against the baseline for protected files.
+
+    Without a baseline there is no reference set to compare against, so the
+    fingerprint check is skipped: an empty expected set would otherwise mark
+    every file in the protected tree as newly added.
+    """
     result: dict = {"prefixes": list(prefixes), "baseline_files": 0, "on_disk": 0,
-                    "added": [], "deleted": [], "modified": [], "ok": True}
+                    "added": [], "deleted": [], "modified": [], "ok": True,
+                    "compared": False}
     if not prefixes:
         return result
     base_files = (baseline or {}).get("files", {})
+    if not base_files:
+        # No baseline: report the on-disk count only, and compare nothing.
+        for pfx in prefixes:
+            root = skills_dir.parent / pfx.rstrip("/")
+            if not root.exists():
+                continue
+            result["on_disk"] += sum(1 for p in root.rglob("*") if p.is_file())
+        return result
     expected = {k: v for k, v in base_files.items() if under(k, prefixes)}
 
     actual: dict[str, Path] = {}
@@ -360,6 +381,7 @@ def audit_protected(skills_dir: Path, prefixes: tuple[str, ...],
 
     result["baseline_files"] = len(expected)
     result["on_disk"] = len(actual)
+    result["compared"] = True
     for rel in sorted(set(expected) - set(actual)):
         result["deleted"].append(rel)
     for rel in sorted(set(actual) - set(expected)):
@@ -501,7 +523,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="repository root (default: parent of this script)")
     ap.add_argument("--baseline", help="baseline JSON with `files` (sha256) and `skills`")
     ap.add_argument("--protected-prefix", action="append", default=[],
-                    help="subtree frozen against the baseline (repeatable)")
+                    help="subtree frozen against the baseline, on top of the "
+                         f"default {list(DEFAULT_PROTECTED_PREFIXES)} (repeatable)")
     ap.add_argument("--route-cases", help="JSON fixture of expected primary-skill selections")
     ap.add_argument("--route-results", help="independent JSON selections; required with --route-cases")
     ap.add_argument("--max-entry-lines", type=int, default=MAX_ENTRY_LINES,
@@ -523,7 +546,9 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, json.JSONDecodeError) as exc:
             print(f"ERROR: baseline {args.baseline}: {exc}", file=sys.stderr)
             return 2
-    prefixes = tuple(p if p.endswith("/") else p + "/" for p in args.protected_prefix)
+    prefixes = tuple(sorted(
+        {p if p.endswith("/") else p + "/" for p in
+         (*DEFAULT_PROTECTED_PREFIXES, *args.protected_prefix)}))
 
     rep = Report()
     skill_dirs = iter_skill_dirs(skills_dir)
@@ -727,9 +752,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"added ({len(added)}): {', '.join(Path(p).parent.name for p in added)}")
         pf = fingerprint
         if prefixes:
-            state = "OK" if pf["ok"] else "DRIFT"
-            print(f"protected fingerprint: {state} "
-                  f"(baseline {pf['baseline_files']}, on disk {pf['on_disk']})")
+            if not pf.get("compared"):
+                print(f"protected fingerprint: not compared "
+                      f"(no baseline; {pf['on_disk']} file(s) on disk)")
+            else:
+                state = "OK" if pf["ok"] else "DRIFT"
+                print(f"protected fingerprint: {state} "
+                      f"(baseline {pf['baseline_files']}, on disk {pf['on_disk']})")
         for w in rep.warnings:
             print(f"WARN  {w['check']} {w['path']}: {w['detail']}")
         for f in rep.failures:

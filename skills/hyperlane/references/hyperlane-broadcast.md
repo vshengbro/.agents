@@ -40,7 +40,7 @@ cargo add hyperlane-broadcast
 
 ## 开源协议
 
-本项目采用 [MIT 许可证](LICENSE)。
+本项目采用 [MIT 许可证](https://ltpp.vip/zh/hyperlane-broadcast/LICENSE.html)。
 
 ## 贡献指南
 

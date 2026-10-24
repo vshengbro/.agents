@@ -237,6 +237,6 @@ html! {
 
 > [!tip]
 >
-> 上述方法返回 `Option<Rc<dyn Fn(Event)>>`，可直接用于 `html!` 事件属性和组件 Props 的回调字段。`on_input_value` 和 `on_change_value` 自动识别 `HtmlInputElement`、`HtmlTextAreaElement`、`HtmlSelectElement` 三种表单元素，无需为不同元素类型编写不同的处理器。`on_focus_scroll_into_view` / `on_blur_restore_height` 自动处理移动端虚拟键盘遮挡问题。`euv_field` / `euv_input` 组件内部已自动集成这两个聚焦/失焦处理器。完整 API 参见 [输入与布局 Hook](../ui/hooks.md)。
+> 上述方法返回 `Option<Rc<dyn Fn(Event)>>`，可直接用于 `html!` 事件属性和组件 Props 的回调字段。`on_input_value` 和 `on_change_value` 自动识别 `HtmlInputElement`、`HtmlTextAreaElement`、`HtmlSelectElement` 三种表单元素，无需为不同元素类型编写不同的处理器。`on_focus_scroll_into_view` / `on_blur_restore_height` 自动处理移动端虚拟键盘遮挡问题。`euv_field` / `euv_input` 组件内部已自动集成这两个聚焦/失焦处理器。完整 API 参见 [输入与布局 Hook](https://ltpp.vip/zh/euv/ui/hooks.html)。
 
 <Bottom />

@@ -331,7 +331,7 @@ let full_name: Signal<String> = computed!(first_name, last_name, |first: String,
 
 > [!tip]
 >
-> `computed!` 内部通过 `use_signal` 创建结果信号，使用 `set` 更新值。更新操作在 `batch` 闭包内执行，确保不会触发过早的 DOM 调度。详细用法参见 [computed! 宏](../macros/computed.md)。
+> `computed!` 内部通过 `use_signal` 创建结果信号，使用 `set` 更新值。更新操作在 `batch` 闭包内执行，确保不会触发过早的 DOM 调度。详细用法参见 [computed! 宏](computed.md)。
 
 ## 更新调度机制
 

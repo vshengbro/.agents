@@ -70,6 +70,6 @@ html! {
 
 > [!tip]
 >
-> `var!` 宏在 `class!`、内联样式和 `format!` 宏中都可以使用。它仅生成 CSS `var(--variable-name)` 字符串，实际变量值由 `vars!` 生成的 `Css` 在注入 DOM 时定义。以数字开头的变量名必须使用字符串字面量形式（如 `var!("font-2xl")`）。更多 `vars!` 用法参见 [vars! 和 var! 宏](../macros/css-vars.md)。
+> `var!` 宏在 `class!`、内联样式和 `format!` 宏中都可以使用。它仅生成 CSS `var(--variable-name)` 字符串，实际变量值由 `vars!` 生成的 `Css` 在注入 DOM 时定义。以数字开头的变量名必须使用字符串字面量形式（如 `var!("font-2xl")`）。更多 `vars!` 用法参见 [vars! 和 var! 宏](css-vars.md)。
 
 <Bottom />

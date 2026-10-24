@@ -212,7 +212,7 @@ class! {
 
 > [!tip]
 >
-> `var!` 宏在 `class!` 内部会展开为 CSS `var(--variable-name)` 字符串，支持 kebab-case 标识符或字符串字面量。详细用法参见 [vars! 和 var! 宏](../macros/css-vars.md)。
+> `var!` 宏在 `class!` 内部会展开为 CSS `var(--variable-name)` 字符串，支持 kebab-case 标识符或字符串字面量。详细用法参见 [vars! 和 var! 宏](css-vars.md)。
 
 ## 样式属性名
 

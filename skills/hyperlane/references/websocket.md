@@ -108,7 +108,7 @@ impl ServerHook for Websocket {
 > [!tip]
 >
 > 需要阻塞住当前处理函数，将后续所有请求在处理函数中处理。
-> 这里使用 `tokio` 的 `select` 来处理多个请求，使用 [`hyperlane-broadcast`](../../hyperlane-broadcast/README.md) 来实现广播。
+> 这里使用 `tokio` 的 `select` 来处理多个请求，使用 [`hyperlane-broadcast`](hyperlane-broadcast.md) 来实现广播。
 
 ### 客户端代码
 

@@ -18,6 +18,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -856,6 +857,204 @@ class TestAuditEndToEnd(unittest.TestCase):
         _code, payload, _ = self._run(root, "--protected-prefix", "skills/rust-standards/")
         self.assertTrue(any(f["check"] == "protected_incoming.target_missing"
                             for f in payload["failures"]))
+
+
+# ---------------------------------------------------------------------------
+# audit_skills: protected prefix and the vendored-reference link repair
+# ---------------------------------------------------------------------------
+class TestProtectedPrefixDefaults(unittest.TestCase):
+    def _repo(self, files: dict[str, str]) -> Path:
+        root = Path(tempfile.mkdtemp(prefix="audit-fixture-", dir=FIXTURE_ROOT))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        for rel, body in files.items():
+            p = root / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(body, encoding="utf-8")
+        return root
+
+    def _run(self, root: Path, *args: str) -> tuple[int, dict, str]:
+        payload_path = root / "audit.json"
+        argv = ["audit_skills.py", "--repo", str(root), "--json", str(payload_path),
+                *args]
+        saved = sys.argv
+        sys.argv = argv
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                code = audit.main()
+        finally:
+            sys.argv = saved
+        payload = json.loads(payload_path.read_text()) if payload_path.exists() else {}
+        return code, payload, out.getvalue()
+
+    def test_frozen_rust_subtree_is_protected_without_a_flag(self):
+        """The Rust subtree is frozen by design, so its long entry must not
+        be judged against the mutable entry budget by default."""
+        long_desc = " ".join(["word"] * 100)
+        body = ("---\nname: rust-standards\ndescription: "
+                f"{long_desc}\n---\n\n" + "\n".join(["# H"] * 200) + "\n")
+        root = self._repo({"skills/rust-standards/SKILL.md": body})
+        code, payload, text = self._run(root)
+        self.assertEqual(code, 0, text)
+        self.assertFalse(any(f["check"].startswith("entry.")
+                             for f in payload["failures"]))
+        self.assertFalse(any(f["check"].startswith("description.")
+                             for f in payload["failures"]))
+
+    def test_mutable_entry_outside_the_frozen_subtree_is_still_checked(self):
+        """Protecting one subtree must not disable the budget elsewhere."""
+        long_desc = " ".join(["word"] * 100)
+        body = ("---\nname: other\ndescription: "
+                f"{long_desc}\n---\n\n" + "\n".join(["# H"] * 200) + "\n")
+        root = self._repo({"skills/other/SKILL.md": body})
+        code, payload, text = self._run(root)
+        self.assertEqual(code, 1, text)
+        self.assertTrue(any(f["check"] == "entry.line_budget"
+                            for f in payload["failures"]))
+
+    def test_protected_prefix_without_baseline_compares_nothing(self):
+        """Regression: with no baseline the expected file set is empty, so
+        every file in the protected tree was reported as newly added."""
+        root = self._repo({"skills/rust-standards/SKILL.md":
+                           skill_md("rust-standards", "Use when r."),
+                           "skills/rust-standards/references/t.md": "# t\n"})
+        code, payload, text = self._run(root)
+        self.assertEqual(code, 0, text)
+        fp = payload["protected_fingerprint"]
+        self.assertFalse(fp["compared"])
+        self.assertEqual(fp["added"], [])
+        self.assertEqual(fp["deleted"], [])
+        self.assertTrue(fp["ok"])
+        self.assertEqual(fp["on_disk"], 2)
+        self.assertFalse(any(f["check"].startswith("protected.")
+                             for f in payload["failures"]))
+
+    def test_protected_prefix_with_baseline_still_detects_drift(self):
+        """Skipping the comparison must not weaken it when a baseline exists."""
+        root = self._repo({"skills/rust-standards/extra.md": "# extra\n",
+                           "skills/a/SKILL.md": skill_md("a", "Use when a.")})
+        baseline = {"files": {"skills/rust-standards/gone.md": {"sha256": "0" * 64}},
+                    "skills": []}
+        bp = root / "baseline.json"
+        bp.write_text(json.dumps(baseline))
+        _code, payload, _ = self._run(root, "--baseline", str(bp))
+        fp = payload["protected_fingerprint"]
+        self.assertTrue(fp["compared"])
+        self.assertEqual(fp["deleted"], ["skills/rust-standards/gone.md"])
+        self.assertEqual(fp["added"], ["skills/rust-standards/extra.md"])
+        self.assertFalse(fp["ok"])
+
+
+class TestRewriteReferenceLinks(unittest.TestCase):
+    """The vendored copies are flat while upstream is nested, so upstream
+    relative links must be re-pointed at the vendored sibling."""
+
+    def setUp(self) -> None:
+        self.mod = load_module("_rewrite_under_test", "rewrite_reference_links.py")
+
+    def _mapping(self, tmp: Path) -> Path:
+        p = tmp / "mapping"
+        p.write_text(
+            "skills/euv/references/css-vars.md\t\tsrc/euv/macros/css-vars.md\n"
+            "skills/hyperlane/references/hyperlane-broadcast.md\t"
+            "src/hyperlane-broadcast/README.md\n",
+            encoding="utf-8")
+        return p
+
+    def test_vendored_sibling_is_used_when_the_page_is_mapped(self):
+        mapping = {"src/euv/macros/css-vars.md":
+                   ["skills/euv/references/css-vars.md"]}
+        got = self.mod.rewrite_target(
+            "../macros/css-vars.md", "src/euv/macros/class.md", mapping,
+            "skills/euv/references/class.md", "https://ltpp.vip")
+        self.assertEqual(got, "css-vars.md")
+
+    def test_unmapped_page_falls_back_to_its_published_url(self):
+        mapping = {"src/euv/macros/css-vars.md":
+                   ["skills/euv/references/css-vars.md"]}
+        got = self.mod.rewrite_target(
+            "../ui/hooks.md", "src/euv/usage-introduction/event.md", mapping,
+            "skills/euv/references/event.md", "https://ltpp.vip")
+        self.assertEqual(got, "https://ltpp.vip/zh/euv/ui/hooks.html")
+
+    def test_current_upstream_layout_keeps_its_locale(self):
+        """Upstream moved from `src/<area>/<page>.md` to
+        `docs/<locale>/<area>/<page>.md`; the published URL must not carry
+        the layout prefix twice."""
+        got = self.mod.site_url("docs/zh/euv/macros/class/class.md",
+                                "https://ltpp.vip")
+        self.assertEqual(got, "https://ltpp.vip/zh/euv/macros/class/class.html")
+
+    def test_older_upstream_layout_still_resolves(self):
+        got = self.mod.site_url("src/euv/usage-introduction/event.md",
+                                "https://ltpp.vip")
+        self.assertEqual(got, "https://ltpp.vip/zh/euv/usage-introduction/event.html")
+
+    def test_anchor_is_preserved_across_the_rewrite(self):
+        mapping = {"src/euv/macros/css-vars.md":
+                   ["skills/euv/references/css-vars.md"]}
+        got = self.mod.rewrite_target(
+            "../macros/css-vars.md#top", "src/euv/macros/class.md", mapping,
+            "skills/euv/references/class.md", "https://ltpp.vip")
+        self.assertEqual(got, "css-vars.md#top")
+
+    def test_rewriting_twice_changes_nothing(self):
+        """The rewriter must be idempotent: a link it already re-pointed at
+        a vendored sibling must not be resolved against the upstream tree
+        again on the next run."""
+        mapping = {"src/euv/macros/computed.md":
+                   ["skills/euv/references/computed.md"]}
+        once = self.mod.rewrite_target(
+            "../macros/computed.md", "src/euv/usage-introduction/reactive.md",
+            mapping, "skills/euv/references/reactive.md", "https://ltpp.vip")
+        self.assertEqual(once, "computed.md")
+        twice = self.mod.rewrite_target(
+            once, "src/euv/usage-introduction/reactive.md",
+            mapping, "skills/euv/references/reactive.md", "https://ltpp.vip")
+        self.assertEqual(twice, once)
+
+    def test_absolute_and_fragment_links_are_left_alone(self):
+        mapping = {}
+        for target in ("https://example.com/a", "mailto:a@b.c", "#anchor",
+                       "/absolute/path"):
+            got = self.mod.rewrite_target(
+                target, "src/euv/macros/class.md", mapping,
+                "skills/euv/references/class.md", "https://ltpp.vip")
+            self.assertEqual(got, target)
+
+    def test_link_into_another_skill_keeps_that_skills_copy(self):
+        mapping = {"src/hyperlane-broadcast/README.md":
+                   ["skills/hyperlane/references/hyperlane-broadcast.md"]}
+        got = self.mod.rewrite_target(
+            "../../hyperlane-broadcast/README.md",
+            "src/hyperlane/usage-introduction/websocket.md", mapping,
+            "skills/hyperlane/references/websocket.md", "https://ltpp.vip")
+        self.assertEqual(got, "hyperlane-broadcast.md")
+
+    def test_source_vendored_into_two_skills_keeps_the_local_one(self):
+        """A page vendored into two skills must link to the copy in the
+        skill the reader is already in."""
+        mapping = {"src/hyperlane/usage-introduction/websocket.md":
+                   ["skills/euv/references/websocket.md",
+                    "skills/hyperlane/references/websocket.md"]}
+        got = self.mod.rewrite_target(
+            "websocket.md", "src/hyperlane/usage-introduction/websocket.md",
+            mapping, "skills/hyperlane/references/websocket.md", "https://ltpp.vip")
+        self.assertEqual(got, "websocket.md")
+
+    def test_mapping_parser_ignores_comments_and_blank_columns(self):
+        with tempfile.TemporaryDirectory(prefix="relink-", dir=FIXTURE_ROOT) as td:
+            p = Path(td) / "mapping"
+            p.write_text(
+                "# a comment\n"
+                "\n"
+                "skills/euv/references/a.md\t\tsrc/euv/macros/a.md\n"
+                "skills/euv/references/b.md\t\tsrc/euv/macros/b.md\t"
+                "# manual override: note\n",
+                encoding="utf-8")
+            parsed = self.mod.load_mapping(p)
+            self.assertEqual(sorted(parsed), ["src/euv/macros/a.md",
+                                              "src/euv/macros/b.md"])
 
 
 if __name__ == "__main__":

@@ -34,6 +34,13 @@ python3 scripts/audit_skills.py --route-cases cases.json --route-results selecti
 
 Exit codes: `0` clean · `1` at least one failure · `2` usage/IO error.
 
+`skills/rust-standards/` is protected by default — it is the frozen Rust
+reference and stays long-form on purpose, so the entry-point budget does not
+apply to it. `--protected-prefix` adds further prefixes on top. Without
+`--baseline` there is no reference set to compare the protected tree against,
+so the fingerprint check is skipped and reported as `not compared`; a
+protected file is never reported as newly added in that case.
+
 **Intent regression checks.** Cases contain `id`, `prompt`, and `expected`
 (one primary skill name, or `null` when none applies). Give a reviewer only the
 current descriptions and prompts, without the expected labels; capture their
@@ -81,7 +88,8 @@ When upstream docs-pages changes, run the sync script to refresh the vendored co
 
 1. Shallow-clones docs-pages (or reuses a clone via `--source-dir`).
 2. For each line in `sync-references.mapping`, copies the source `.md` into the destination, strips VuePress-only frontmatter (`head`, `icon`, `order`, `dataset`, `index`, `keywords`), and prepends a normalized header with `synced_from` / `sync_method` / `sync_date` so it's clear where the content came from.
-3. For lines tagged `# manual override:`, leaves the existing dest file alone (and warns if no dest exists yet).
+3. Re-points the page's relative links. Upstream is nested (`src/euv/macros/class.md`) while the vendored copies are flat (`skills/euv/references/class.md`), so an upstream link such as `../macros/css-vars.md` would otherwise point at a path that does not exist in the skill tree. A link to a page the mapping vendors becomes a sibling file name; a link to a page it does not vendor becomes that page's published URL on the docs site.
+4. For lines tagged `# manual override:`, leaves the existing dest file alone (and warns if no dest exists yet).
 
 ### Usage
 
@@ -112,6 +120,20 @@ skills/euv/references/foo.md<TAB>src/euv/usage-introduction/foo.md
 ### Pinning a custom version of a file
 
 If you need to hand-edit a vendored page (e.g. add a section that's not yet in upstream), append `# manual override:` to its mapping line. The script will then skip it on every run. The dest file will keep a `synced_from` header from the last successful sync so you can tell how stale it is.
+
+### Repairing the links in already-vendored pages
+
+Pages vendored before the script learned to re-point links still carry the
+upstream paths. `relink-references.sh` runs the same rewriter over the
+existing copies, driven by each file's `synced_from` header, so the result
+matches what a fresh sync produces:
+
+```shell
+bash scripts/relink-references.sh
+```
+
+It reports `unchanged` for a page with nothing to fix and `rewritten` for one
+it changed, and leaves hand-written pages (no `synced_from` header) alone.
 
 ### Verifying
 

@@ -40,14 +40,22 @@ ORPHANED=0
 UNTRACKED=0
 DRIFT=0
 
+# Read a command's output into an array.
+# `mapfile` is bash 4+ only and macOS still ships bash 3.2, so the loops
+# below read the command's output line by line instead.
+
 # 1. List of references/ files in HEAD (across all skills)
-mapfile -t HEAD_REFS < <(git ls-tree -r --name-only "$AGAINST" -- 'skills/*/references/' 2>/dev/null | sort)
+HEAD_REFS=()
+while IFS= read -r line; do HEAD_REFS+=("$line"); done < <(
+    git ls-tree -r --name-only "$AGAINST" -- 'skills/*/references/' 2>/dev/null | sort)
 
 # 2. List of references/ files in working tree
-mapfile -t WT_REFS < <(find skills -path '*/references/*.md' -type f 2>/dev/null | sort)
+WT_REFS=()
+while IFS= read -r line; do WT_REFS+=("$line"); done < <(
+    find skills -path '*/references/*.md' -type f 2>/dev/null | sort)
 
 # 3. Changed files (in both, but content differs)
-for f in "${HEAD_REFS[@]}"; do
+for f in ${HEAD_REFS[@]+"${HEAD_REFS[@]}"}; do
     if [[ -f "$f" ]]; then
         if ! git diff --quiet "$AGAINST" -- "$f" 2>/dev/null; then
             : # git diff is across HEAD vs WT, not file-vs-file — do it manually below
@@ -56,7 +64,9 @@ for f in "${HEAD_REFS[@]}"; do
 done
 
 # Simpler: use git diff --name-only
-mapfile -t DIFF_FILES < <(git diff --name-only "$AGAINST" 2>/dev/null | grep -E '^skills/[^/]+/references/.*\.md$' | sort || true)
+DIFF_FILES=()
+while IFS= read -r line; do DIFF_FILES+=("$line"); done < <(
+    git diff --name-only "$AGAINST" 2>/dev/null | grep -E '^skills/[^/]+/references/.*\.md$' | sort || true)
 CHANGED="${#DIFF_FILES[@]}"
 
 echo "→ References sync verification (against $AGAINST)"
@@ -68,13 +78,13 @@ echo "  changed by sync:      $CHANGED"
 if [[ "$CHANGED" -gt 0 ]]; then
     echo
     echo "  ── changed files ──"
-    for f in "${DIFF_FILES[@]}"; do
+    for f in ${DIFF_FILES[@]+"${DIFF_FILES[@]}"}; do
         echo "    $f"
     done
 fi
 
 # 4. Orphans: in HEAD but not in working tree (overrides the script skipped + then deleted)
-for f in "${HEAD_REFS[@]}"; do
+for f in ${HEAD_REFS[@]+"${HEAD_REFS[@]}"}; do
     if [[ ! -f "$f" ]]; then
         # Don't flag a "missing" file if it's already missing from HEAD (e.g. never tracked)
         if git cat-file -e "$AGAINST:$f" 2>/dev/null; then
@@ -85,7 +95,7 @@ for f in "${HEAD_REFS[@]}"; do
 done
 
 # 5. Untracked: in working tree but not in HEAD (mapping drift)
-for f in "${WT_REFS[@]}"; do
+for f in ${WT_REFS[@]+"${WT_REFS[@]}"}; do
     if ! git cat-file -e "$AGAINST:$f" 2>/dev/null; then
         UNTRACKED=$((UNTRACKED+1))
         echo "  ? untracked (in WT, missing in $AGAINST): $f"
@@ -93,11 +103,25 @@ for f in "${WT_REFS[@]}"; do
 done
 
 # 6. Mapping drift: source paths in mapping that don't exist in the upstream clone
-if [[ -n "${DOCS_PAGES_DIR:-}" && -d "$DOCS_PAGES_DIR/src" ]]; then
+if [[ -n "${DOCS_PAGES_DIR:-}" && -d "$DOCS_PAGES_DIR" ]]; then
     SCRIPT_DIR_LOCAL="$SCRIPT_DIR"
-    while IFS=$'\t' read -r dest_rel src_rel note; do
-        [[ -z "$dest_rel" || "$dest_rel" =~ ^[[:space:]]*# ]] && continue
-        src_rel="${src_rel# }"; src_rel="${src_rel% }"
+    while IFS= read -r raw_line; do
+        [[ -z "$raw_line" || "$raw_line" =~ ^[[:space:]]*# ]] && continue
+        # Columns are tab-separated and may repeat, so read the first two
+        # non-empty, non-comment fields rather than positional tabs.
+        dest_rel=""
+        src_rel=""
+        for col in ${raw_line//$'\t'/ }; do
+            [[ -z "$col" ]] && continue
+            [[ "$col" == \#* ]] && break
+            if [[ -z "$dest_rel" ]]; then
+                dest_rel="$col"
+            elif [[ -z "$src_rel" ]]; then
+                src_rel="$col"
+                break
+            fi
+        done
+        [[ -z "$src_rel" ]] && continue
         if [[ ! -f "$DOCS_PAGES_DIR/$src_rel" ]]; then
             DRIFT=$((DRIFT+1))
             echo "  ✗ mapping drift: $src_rel"

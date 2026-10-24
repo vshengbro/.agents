@@ -134,6 +134,26 @@ $(cat)
 HEADER
 }
 
+# Rewrite upstream-relative links in a vendored page.
+#
+# The upstream tree is nested (src/euv/macros/class.md), but the vendored
+# copies are flat (skills/euv/references/class.md). A relative link that
+# was valid upstream therefore points at a path that does not exist in the
+# skill tree. Resolve each link against the upstream source path and
+# re-point it at the vendored copy of the same page; when the target page
+# is not vendored, fall back to its published site URL.
+#
+# Stdin = page body. Args: $1=src_rel, $2=dest_rel
+rewrite_links() {
+    local src_rel="$1"
+    local dest_rel="$2"
+    python3 "$SCRIPT_DIR/rewrite_reference_links.py" \
+        --mapping "$MAPPING_FILE" \
+        --source "$src_rel" \
+        --dest "$dest_rel" \
+        --site-base "${DOCS_SITE_BASE:-https://ltpp.vip}"
+}
+
 # ---------- main loop ----------
 echo "→ Syncing references from $SOURCE_DIR"
 echo "  mapping: $MAPPING_FILE"
@@ -177,7 +197,9 @@ while IFS=$'\t' read -r dest_rel src_rel note; do
     fi
 
     mkdir -p "$(dirname "$dest_abs")"
-    if ! strip_vuepress_frontmatter "$src_abs" | build_skill_reference "$src_rel" "$dest_rel" > "$dest_abs.tmp"; then
+    if ! strip_vuepress_frontmatter "$src_abs" \
+        | rewrite_links "$src_rel" "$dest_rel" \
+        | build_skill_reference "$src_rel" "$dest_rel" > "$dest_abs.tmp"; then
         echo "  ✗ FAILED: $dest_rel" >&2
         rm -f "$dest_abs.tmp"
         FAILED=$((FAILED+1))
