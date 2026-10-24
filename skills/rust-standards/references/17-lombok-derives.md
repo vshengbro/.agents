@@ -28,7 +28,7 @@
 | `DisplayDebug` | `Display` 用 `{:?}` 格式 | 调试输出兼 `Display` |
 | `DisplayDebugFormat` | `Display` 用 `{:#?}` 格式 | 多行调试输出 |
 
-> **⚠️ 版本敏感:本节与 §17.8 的签名结论以 `lombok-macros` 10.x 为准(2026-10-13 对 10.2.4 源码 + 实编译复核;**2026-10-23 对 ctares 在用的 10.2.9 源码逐条复核,结论不变**)**。2.x 的行为与本表**不一致**(例如 `#[get(pub, copy)]` 在 2.0/2.1 里 `copy` 被忽略恒返回 `&T`,10.2.4 里生效)。锁在 2.x 的仓库必须以该版本 `cargo expand` / 编译为准,不能照抄本表。锁 10.x 的仓库直接用本表。
+> **⚠️ 版本敏感:本节与 §17.8 的签名结论以 `lombok-macros` 10.x 为准(2026-10-13 对 10.2.4 源码 + 实编译复核;**2026-10-25 对 ctares 在用的 10.3.0 源码逐条复核,结论不变**)**。2.x 的行为与本表**不一致**(例如 `#[get(pub, copy)]` 在 2.0/2.1 里 `copy` 被忽略恒返回 `&T`,10.2.4 里生效)。锁在 2.x 的仓库必须以该版本 `cargo expand` / 编译为准,不能照抄本表。锁 10.x 的仓库直接用本表。
 
 **标准组合**:
 
@@ -179,7 +179,7 @@ pub struct Tween<T: Interpolable + Copy> { ... }
 
 这种 struct 文档会**显式说明**为何不 derive Lombok,需保留手写 accessor。在仓库里 grep `Lombok-shaped counterpart` 或 `not deriving \`Data\`` 找这种例外,不要强改 setter。
 
-## 17.8 Lombok `get_*` 的返回类型由 `type(...)` 决定 —— 基线是 `&T`(2026-10-13 对 lombok-macros 10.2.4 源码 + 实编译复核;2026-10-23 对 10.2.9 源码复核结论不变)
+## 17.8 Lombok `get_*` 的返回类型由 `type(...)` 决定 —— 基线是 `&T`(2026-10-13 对 lombok-macros 10.2.4 源码 + 实编译复核;2026-10-25 对 10.3.0 源码复核结论不变)
 
 **基线行为(不写 `type(...)`)**:所有 `get_*` 返回 `&T`(引用类型字段返回 `&&T`,双层引用)。
 
@@ -220,7 +220,7 @@ if *args.get_release() { ... }
 
 **基础类型(`bool` / 整型 / 浮点 / `char` / `&'static str` 等)的 getter 必须显式写 `#[get(type(copy))]`**,否则生成 `&bool` 让每个调用点都要 `*` 解引用。
 
-lombok 10.2.4 源码 `generate/fn.rs::build_named_get_quote` 的 `ReturnType::Copy` 分支生成 `{ self.field }`,`generate_return_type` 把返回类型设为字段类型本身 —— `copy` **生效**。(2026-10-23 在 10.2.9 源码复核:`generate/fn.rs` 的 `ReturnType::Clone | ReturnType::Copy => quote! { #field_type }` 分支仍在,结论不变)
+lombok 10.2.4 源码 `generate/fn.rs::build_named_get_quote` 的 `ReturnType::Copy` 分支生成 `{ self.field }`,`generate_return_type` 把返回类型设为字段类型本身 —— `copy` **生效**。(2026-10-25 在 10.3.0 源码复核:`generate/fn.rs` 的 `ReturnType::Clone | ReturnType::Copy => quote! { #field_type }` 分支仍在,结论不变)
 
 **⚠️ 版本差异(重要)**:`lombok-macros` **2.0 / 2.1 实测忽略 `copy`**,不论是否写都返回 `&T`(euv-docs PR #31 / hyperlane request crate 历史结论)。**10.2.4 起 `copy` 生效**。所以:
 
@@ -465,7 +465,7 @@ pub struct ServerData {
 - 属性可组合:`#[get(pub(crate), type(copy))]`(可见性 + 类型转换同 attr,逗号分隔;**逗号前后顺序都实测有效**)。也可以拆成两行 `#[get(type(copy))]` + `#[get(pub(crate))]`,效果相同。
 - 收窄档位只有三个合法值:`pub(crate)` / `pub(super)` / `private`,三者**均已实编译验证收窄生效**(2026-10-13:`#[get(private)]` 的 `get_token` 在兄弟模块调用报 `E0624: method 'get_token' is private`)。lombok 的 `parse/fn.rs` 只识别 `pub` / `pub(crate)` / `pub(super)` / `private` 四个 token(`const.rs`: `PUB` / `PUB_CRATE` / `PUB_SUPER` / `PRIVATE`),**其它写法(如 `pub(in path)`)会被静默忽略** —— 不报错也不生效,别用。
 - 字段本身是 `pub` 的 → pub accessor 不放大暴露面,无需 attr。
-- **既有 pub accessor API 不回收**(semver):已发布 crate 的存量 `pub fn get_x()`(如 ctares jwt-service/color-log/server-manager、udp config/response/panic/context、tcplane ServerData getter)换成宏后保持 pub;只有"新增 accessor"或"原为 pub(crate)/字段直访"的才收紧。
+- **既有 pub accessor API 不回收**(semver):已发布 crate 的存量 `pub fn get_x()`(如 ctares jwt-service/color-log、udp config/response/panic/context、tcplane ServerData getter;`server-manager` 已于 2026-10-24 移出 ctares)换成宏后保持 pub;只有"新增 accessor"或"原为 pub(crate)/字段直访"的才收紧。
 - 收紧档位选 `pub(crate)`(跨模块可用)而非 `pub(super)`(仅限父模块下),除非确认只在本模块树用。
 - integration tests(tests/ 目录)是**外部消费者**,只能调 pub accessor——收紧后测试 E0624 即说明该 accessor 原为 pub API,应恢复 pub。
 - 未使用的 pub(crate) accessor 会连锁触发 `field is never read`(accessor 死代码→字段死代码):该字段若无任何读者,要么 accessor 提为 pub(内省 API),要么字段本来就不该存。
@@ -647,7 +647,7 @@ request.get_http_headers(&mut reader, &config).await?
 
 user 原话:「如果同时需要 Setter,Getter,GetterMut,直接写 Data 宏,等效三个宏的效果」。
 
-`Data` **不是**「三选一的另一种写法」,它**就是**三合一 —— 这是 lombok 自己的生成器给的事实,不是约定(`lombok-macros` 10.2.4 `src/lib.rs`,四个 derive 都调同一个 `inner_lombok_data`,只差三个 bool;2026-10-23 在 10.2.9 源码复核:`Getter`/`GetterMut`/`Setter`/`Data` 仍分别调 `inner_lombok_data(input, true, false, false)` / `(false, true, false)` / `(false, false, true)` / `(true, true, true)`,结论不变):
+`Data` **不是**「三选一的另一种写法」,它**就是**三合一 —— 这是 lombok 自己的生成器给的事实,不是约定(`lombok-macros` 10.2.4 `src/lib.rs`,四个 derive 都调同一个 `inner_lombok_data`,只差三个 bool;2026-10-25 在 10.3.0 源码复核:`Getter`/`GetterMut`/`Setter`/`Data` 仍分别调 `inner_lombok_data(input, true, false, false)` / `(false, true, false)` / `(false, false, true)` / `(true, true, true)`,结论不变):
 
 | derive | `inner_lombok_data(input, …)` | 生成 |
 |---|---|---|
@@ -686,7 +686,7 @@ pub struct RouteMatcher { /* … */ }
 
 ## §17.16.1 所有字段都跳过 mutator 时,`Data` 应该是 `Getter`(2026-10-18 user 钦定)
 
-§17.16 说 `Data` **就是**三合一,但三半是**逐字段、独立开关**的 —— `#[get_mut(skip)]` / `#[set(skip)]` 各自关掉对应的生成(`lombok-macros` 10.2.7 `src/parse/fn.rs`:`config.skip_flags.insert(FuncType::GetMut / Set)`;2026-10-23 在 10.2.9 源码复核,该 insert 仍在)。所以一个 `Data` struct 可以**一个可变 accessor 都不生成**,这时描述它的 derive 就是 `Getter`,不是 `Data`。
+§17.16 说 `Data` **就是**三合一,但三半是**逐字段、独立开关**的 —— `#[get_mut(skip)]` / `#[set(skip)]` 各自关掉对应的生成(`lombok-macros` 10.2.7 `src/parse/fn.rs`:`config.skip_flags.insert(FuncType::GetMut / Set)`;2026-10-25 在 10.3.0 源码复核,该 insert 仍在)。所以一个 `Data` struct 可以**一个可变 accessor 都不生成**,这时描述它的 derive 就是 `Getter`,不是 `Data`。
 
 ```rust
 // ❌ 违规:Data 承诺了没有任何字段会生成的 get_mut_* / set_*
@@ -724,7 +724,7 @@ pub struct RayTraceScene {
 
 **执行脚本**:同一个 `scripts/verify_no_redundant_accessor_derive.py`(两条规则共用一个解析器,避免两套字段扫描漂移),audit 以独立检查调用 `--rule getter-only`,同样注册进 `staged_file_gate.py` commit hook。检查编号以实际 `CHECKS` 列表为准,不写死总数。解析要点:derive 只从**紧贴 `struct` 关键字的那段连续属性**里读(绝不跨 struct 泄漏);字段按**顶层逗号**切分,泛型内逗号及 `Fn() -> T` 的箭头都不得截断字段;`type(...)` 配置先摘掉再找 `skip` 标识符(否则 `#[set(type(skip))]` 会被误读成 `#[set(skip)]`)。
 
-**重复属性必须按真实宏语义判定**:lombok-macros 10.2.7 在生成方法前先合并所有字段属性里的 skip flags(10.2.9 源码复核仍在)。因此任一同名属性带 `skip` 就禁用该类 accessor,顺序无关;不能把它误当作「首个 non-skip 总会生成」。用锁定版本的真实方法调用验证,缺失方法必须得到 E0599,而不是只让 checker 与自己的错误预期互相证明。迁移前后通过 rustdoc JSON 比较 getter 名称、签名、可见性及泛型约束,确认旧版与新版都不生成 mutator;再跑真实 hook 正反例和全审计。
+**重复属性必须按真实宏语义判定**:lombok-macros 10.2.7 在生成方法前先合并所有字段属性里的 skip flags(10.3.0 源码复核仍在)。因此任一同名属性带 `skip` 就禁用该类 accessor,顺序无关;不能把它误当作「首个 non-skip 总会生成」。用锁定版本的真实方法调用验证,缺失方法必须得到 E0599,而不是只让 checker 与自己的错误预期互相证明。迁移前后通过 rustdoc JSON 比较 getter 名称、签名、可见性及泛型约束,确认旧版与新版都不生成 mutator;再跑真实 hook 正反例和全审计。
 
 ## §17.17 有 `new` 就用 `New` 宏,不要自己实现 —— `#[new(skip)]` 支持字段跳过(2026-10-16 user 钦定)
 

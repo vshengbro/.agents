@@ -1,9 +1,23 @@
-# A minor/major bump PR's checks are red by design
+# A bump that leaves the old caret range is red by design
 
-> Verified on hyperlane by bumping the root `Cargo.toml` from `22.0.2` to
-> `23.0.0` in a scratch clone: `cargo check --workspace --all-features` failed
-> during version resolution with
-> `failed to select a version for the requirement `http-compress = "^22.0.2"``.
+> Verified on 2026-10-25 by bumping the root `Cargo.toml` of a scratch copy of
+> each repository and running `cargo metadata` (full resolution) on it:
+>
+> | repo | old pin | bumped to | result |
+> |---|---|---|---|
+> | hyperlane | `^22.0.6` | `22.0.7` | resolves |
+> | hyperlane | `^22.0.6` | `22.1.0` | **resolves** |
+> | hyperlane | `^22.0.6` | `23.0.0` | fails: `failed to select a version for the requirement `http-compress = "^22.0.6"`` |
+> | euv | `^0.32.6` | `0.32.7` | resolves |
+> | euv | `^0.32.6` | `0.33.0` | fails: `failed to select a version for the requirement `euv-core = "^0.32.6"`` |
+> | euv | `^0.32.6` | `1.0.0` | fails: same requirement error |
+>
+> **The rule is not "a minor bump breaks".** A caret requirement `^X.Y.Z` means
+> `>=X.Y.Z, <(X+1).0.0` when `X >= 1`, but `>=X.Y.Z, <X.(Y+1).0` when `X == 0`.
+> So a **minor** bump breaks a `0.x` repository (euv: `0.32.6` → `0.33.0`) and
+> leaves a `1.x`-or-higher repository alone (hyperlane: `22.0.6` → `22.1.0`).
+> Only a bump that crosses the caret's upper bound fails. A **major** bump
+> always crosses it.
 >
 > **The sections below that mention `euv`, `Signal::subscribe`, the wasm32 target
 > or `GH_TOKEN` were recorded against the euv repository. They are kept as
@@ -12,17 +26,19 @@
 
 ## The phenomenon
 
-After the root `Cargo.toml` version is bumped to a new minor/major range:
+After the root `Cargo.toml` version is bumped past the range the member
+`[workspace.dependencies]` path-dep pins still carry:
 
-- the member `[workspace.dependencies]` path-dep pins still carry the old range
-  (`^22.0.2`);
+- the member pins still carry the old range (`^22.0.6` in hyperlane, `^0.32.6`
+  in euv);
 - cargo fails during **version resolution**, before any compilation;
 - the error looks like `failed to select a version for the requirement ...`;
 - **the diff is one line in the root `Cargo.toml`. This is not a code problem, so
   do not "fix" the code.**
 
-A patch bump stays inside the old range, so it resolves and the checks run
-normally.
+A bump that stays inside the old range resolves and the checks run normally.
+For hyperlane that includes every `22.x` version; for euv it stops at the next
+`0.33.0`.
 
 ## Telling a designed-in red from a real problem
 
@@ -35,10 +51,15 @@ normally.
 
 ## Merge path
 
-A minor/major bump PR is merged with `gh pr merge --admin --squash` without
-waiting for green — a green run would mean it was really a patch bump. After the
-merge, the CI `publish` job runs `crate sync` + `crate fmt` on the master push and
-commits the synchronised versions.
+A bump PR whose checks are red for the designed-in reason is merged with
+`gh pr merge --admin --squash` without waiting for green. After the merge, the
+CI `publish` job runs `crate sync` + `crate fmt` on the master push and commits
+the synchronised versions.
+
+**A green run does not mean "it was really a patch bump".** It means the bumped
+version stayed inside the caret range of the old pins — true for every `22.x`
+version in hyperlane, false for the first `0.33.0` in euv. Read the failing
+requirement in the error text to tell which case you are in.
 
 **Always verify after the merge that the sync commit carries the new version
 number.** A sync job has written a stale root version before, needing a manual

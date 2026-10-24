@@ -5,12 +5,10 @@ Modeled on euv §17 + the 2026-09-13 PR #220 sync regression lesson.
 
 ## The invariant
 
-**14 packages, 1 version number.** The workspace has the root `hyperlane`
-package plus 13 members: `http-compress`, `http-constant`, `http-type`,
+**10 packages, 1 version number.** The workspace has the root `hyperlane`
+package plus 9 members: `http-compress`, `http-constant`, `http-type`,
 `http-request`, `hyperlane-core`, `hyperlane-macros`, `hyperlane-cli`,
-`hyperlane-plugin-compression`, `hyperlane-plugin-cors`,
-`hyperlane-plugin-logger`, `hyperlane-plugin-shutdown`,
-`hyperlane-plugin-static-files` and `hyperlane-plugin-websocket`. All resolve
+`hyperlane-plugin-logger` and `hyperlane-plugin-websocket`. All resolve
 to the same `<X.Y.Z>` through `version.workspace = true`. Verify with:
 
 ```bash
@@ -25,9 +23,9 @@ this workspace: they are a separate Cargo workspace with their own
 ## Manual flow (what a developer does)
 
 ```bash
-cd /root/github/hyperlane-dev/hyperlane
-NEW_VER="21.3.7"
-OLD_VER="21.3.6"
+cd /path/to/hyperlane
+NEW_VER="22.0.7"
+OLD_VER="22.0.6"
 
 # 1. edit ONLY the root Cargo.toml
 sed -i "s/^version = \"$OLD_VER\"$/version = \"$NEW_VER\"/" Cargo.toml
@@ -88,10 +86,10 @@ root Cargo.toml content, or a token scope issue), recover with the same tool
 the CI uses rather than a hand-written `sed` loop:
 
 ```bash
-cd /root/github/hyperlane-dev/hyperlane
+cd /path/to/hyperlane
 
 # 1. the root version is the single source of truth
-sed -i "s/^version = \"21.3.6\"$/version = \"21.3.7\"/" Cargo.toml
+sed -i "s/^version = \"22.0.6\"$/version = \"22.0.7\"/" Cargo.toml
 
 # 2. let crate-cli propagate it to every member and path-dep pin
 crate sync
@@ -112,22 +110,32 @@ produces a diff the sync step would immediately rewrite. Use `crate sync`.
 
 ## Patch vs minor/major bump
 
+The path-dep pins are caret requirements (`version = "22.0.6"` means
+`^22.0.6`), and a caret requirement for a `1.x`-or-higher crate allows every
+`22.x` version. So the deciding factor is **which side of the caret's upper
+bound the new version falls on**, not the bump label.
+
 | Bump type | `Cargo.toml` version field | CI behavior |
 | --- | --- | --- |
-| patch | e.g. `21.3.6` → `21.3.7` | `crate sync` propagates cleanly |
-| minor | e.g. `21.3.6` → `21.4.0` | local `cargo check` may fail on path-dep version mismatch (the `[workspace.dependencies]` pins still say `^21.3.6`). Run `crate sync` locally to verify; CI redoes it on the master push. |
-| major | e.g. `21.3.6` → `22.0.0` | same as minor |
+| patch | e.g. `22.0.6` → `22.0.7` | inside the range; `crate sync` propagates cleanly |
+| minor | e.g. `22.0.6` → `22.1.0` | still inside the range for a `22.x` workspace — **resolves, the checks run**. It only breaks in a `0.x` workspace, where `^0.32.6` stops at `0.33.0`. |
+| major | e.g. `22.0.6` → `23.0.0` | outside the range: `failed to select a version for the requirement `http-compress = "^22.0.6"`` |
 
-For minor/major, the PR compile job is expected to FAIL locally -- this is
-by design (the path-dep ranges are pinned to the old range and need
-`crate sync` to bump them). Don't waste cycles trying to fix local compile;
-commit just the root `Cargo.toml` bump, let CI sync do the rest, and verify on
-the auto-commit that lands.
+Measured on 2026-10-25 with `cargo metadata` (full resolution) on a scratch
+copy of each repository — see
+[minor-bump-ci-red-by-design.md](minor-bump-ci-red-by-design.md) for the table
+and the signal that tells a designed-in red from a real failure.
 
-The crates that carry `publish = false` (the five newer plugin crates and the
-three `bench-*` crates) never reach crates.io, so a version bump does not
-publish them. `crate publish` logs `Skipping <name> (publish = false)` for
-each of them and continues with the rest.
+When the bump does cross the bound, the PR compile job is expected to FAIL
+locally -- this is by design (the path-dep ranges are pinned to the old range
+and need `crate sync` to bump them). Don't waste cycles trying to fix local
+compile; commit just the root `Cargo.toml` bump, let CI sync do the rest, and
+verify on the auto-commit that lands.
+
+The crates that carry `publish = false` (the four `bench-*` crates) never reach
+crates.io, so a version bump does not publish them. `crate publish` logs
+`Skipping <name> (publish = false)` for each of them and continues with the
+rest.
 
 ## Real-world PRs to study
 

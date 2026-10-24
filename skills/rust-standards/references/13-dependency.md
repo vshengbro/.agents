@@ -497,6 +497,13 @@ user 原话:**"Cargo.toml 不同配置字段之间需要保证有一个空行"**
 
 所有命中都是「多行 entry 的闭合括号 `] }` 紧接下一个 section header,无空行」。
 
+**2026-10-25 复测:上表 7 处命中在两仓均已修复**(`verify_section_blanks.py`
+对 ctares 26 个文件、hyperlane 15 个文件报 0 violations),所以今天跑该检查
+应为 0 hits,不是 7 hits。表保留作为「命中长什么样」的样本。其中两处引用
+已随代码移动或消失:ctares 的 `[profile.dev]` 现在在 `Cargo.toml` L87(不再
+紧贴 `jsonwebtoken`),而 `color-log` 的 `[dev-dependencies]` 与
+`file-operation` 依赖随该 crate 于 2026-10-24 移出 ctares 一起消失。
+
 ### 13.8.3 验证
 
 ```bash

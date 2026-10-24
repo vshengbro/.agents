@@ -82,13 +82,20 @@ all. Write `#[response_middleware("-110")]` when a negative priority is meant.
 ### Published versus local
 
 `http-constant`, `http-compress`, `http-type`, `http-request`,
-`hyperlane-core`, `hyperlane-macros`, `hyperlane-cli`, `hyperlane` and
-`hyperlane-plugin-websocket` are published to crates.io; the framework crates
-are at `22.0.2`. The five newer plugin crates
-(`hyperlane-plugin-compression`, `-cors`, `-logger`, `-shutdown`,
-`-static-files`) and the three `bench-*` crates carry `publish = false`, have
-**no versions on crates.io at all**, and are usable only from a path
-dependency. Verify the live registry before asserting a version.
+`hyperlane-core`, `hyperlane-macros`, `hyperlane-cli`, `hyperlane`,
+`hyperlane-plugin-logger` and `hyperlane-plugin-websocket` are published to
+crates.io; the framework crates are at `22.0.6`. The other four plugin crates
+(`hyperlane-plugin-compression`, `-cors`, `-shutdown`, `-static-files`) were
+removed from the tree on 2026-10-24, and their last versions stay on crates.io
+at `22.0.6`. The four `bench-*` crates carry `publish = false` and are usable
+only from a path dependency. Verify the live registry before asserting a
+version.
+
+The workspace tree is one patch ahead of the registry: the root `Cargo.toml`
+says `22.0.7` in the working tree, and that version is **not** on crates.io.
+Three version numbers must be kept apart — the committed HEAD, the local
+working tree and the published registry — and only the last one is what a
+consumer can install.
 
 `hyperlane-macros` has a second, older release line on crates.io: `23.0.21`
 depends on `hyperlane ^21.3.6` and `syn ^2`, which does not match the current

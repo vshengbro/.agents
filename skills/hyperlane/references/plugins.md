@@ -1,21 +1,30 @@
 # hyperlane plugin crates
 
-Source: `plugin/*/src/` in the hyperlane workspace. Six plugin crates exist;
-only one is published.
+Source: `plugin/*/src/` in the hyperlane workspace. Two plugin crates are in the
+tree. Four others were in it until 2026-10-24 and are not any more.
 
 | crate | directory | published |
 |---|---|---|
-| `hyperlane-plugin-compression` | `plugin/compression` | no (`publish = false`) |
-| `hyperlane-plugin-cors` | `plugin/cors` | no (`publish = false`) |
-| `hyperlane-plugin-logger` | `plugin/logger` | no (`publish = false`) |
-| `hyperlane-plugin-shutdown` | `plugin/shutdown` | no (`publish = false`) |
-| `hyperlane-plugin-static-files` | `plugin/static-files` | no (`publish = false`) |
-| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `21.14.0` |
+| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.0.6` |
+| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.0.6` |
 
-All six are workspace members and all six depend on the `hyperlane` facade
-crate, so they compile against the workspace source, not against a released
-version. `cargo metadata --no-deps --format-version 1` is the authority for the
-member list.
+Both are workspace members and both depend on the `hyperlane` facade crate, so
+they compile against the workspace source, not against a released version.
+`cargo metadata --no-deps --format-version 1` is the authority for the member
+list.
+
+The four plugin crates that used to sit here — `hyperlane-plugin-compression`,
+`hyperlane-plugin-cors`, `hyperlane-plugin-shutdown` and
+`hyperlane-plugin-static-files` — were removed from the tree on 2026-10-24. The
+rules they held were not lost: they moved to the crates-dev family (the
+`ctares` workspace) as the four standalone rule crates listed further down, and
+those crates are published. So a task that needs one of them depends on the
+matching rule crate rather than writing the hook from scratch.
+
+The last published versions of the removed plugin crates stay on crates.io at
+`22.0.6`, and the crates.io releases of the rules that were published there
+stay as they are: a yanked dependency would break the resolution of the
+packages that depend on it.
 
 ## How a plugin attaches to the server
 
@@ -35,7 +44,7 @@ The hook itself implements `ServerHook` with the usual two methods,
 
 Every plugin keeps its settings in a process-wide `OnceLock` behind a static,
 exposed through an `init` that takes the configuration and a `get` that returns
-it. The pattern is identical in all six crates:
+it. The pattern is identical in the two crates:
 
 ```rust
 PluginName::init(Config { .. })?;      // Result<(), String>, refuses a second set
@@ -58,22 +67,18 @@ source, not from the README, and note the negative-literal trap:
 
 | plugin | hook | attribute in source | effective order |
 |---|---|---|---|
-| compression | `CompressionMiddleware` | `#[hyperlane::response_middleware(-110)]` | none (see below) |
-| cors | `CorsMiddleware` | `#[hyperlane::request_middleware(-110)]` | none (see below) |
 | logger | `RequestLogger` | `#[hyperlane::request_middleware(-120)]` | none (see below) |
 | logger | `ResponseLogger` | `#[hyperlane::response_middleware(100)]` | `100` |
-| shutdown | none | no hook is registered | — |
-| static-files | `StaticFilesRoute` | no attribute; the application registers it | — |
+| websocket | none | it is a trait and config surface, not a hook | — |
 
-The three negative attributes are written as negative **integer literals**. The
+The negative attribute is written as a negative **integer literal**. The
 macro's parser only recognises an integer literal or a string literal; a
 negative integer is a unary expression and falls through to "no order". The
 consequence is mechanical and was confirmed by running the compiled hooks:
 
-- `CompressionMiddleware`, `CorsMiddleware` and `RequestLogger` register with
-  **no order**, which under `sort_by_key` puts them **before** every hook that
-  has an order, not after the application's positive middlewares as the plugin
-  READMEs describe.
+- `RequestLogger` registers with **no order**, which under `sort_by_key` puts
+  it **before** every hook that has an order, not after the application's
+  positive middlewares as the plugin README describes.
 - `ResponseLogger` at `100` does carry its order and runs after positive
   application middlewares.
 - `assert_unique_order` does not fire for these, because it only checks hooks
@@ -85,44 +90,6 @@ which produces `Some(-110)`. Confirm the result by reading the compiled
 `HookType` rather than by trusting the attribute text.
 
 ## What each plugin does
-
-### `hyperlane-plugin-compression`
-
-Reads `accept-encoding`, picks the first offered encoding the client accepts in
-the configuration's preferred order, and writes `content-encoding` plus
-`vary: accept-encoding` on the answer. The framework compresses the body when
-the answer is built, so the middleware only writes the header.
-
-Configuration: `CompressionConfig { min_size: usize, encodings: Vec<Compress> }`.
-Defaults are `min_size` 1024 and the encodings `[Compress::Gzip, Compress::Br]`.
-The public helpers are `CompressionConfig::pick(&str) -> Option<Compress>` and
-`CompressionConfig::is_compressible(&str) -> bool`.
-
-A body is left alone when it is smaller than `min_size`, when the answer
-already carries an encoding, when the client asked for no encoding, or when the
-content type is already compressed (`application/zip`, `application/gzip`,
-`application/x-gzip`, `application/x-bzip2`, `application/x-xz`,
-`application/zstd`, and the `image/`, `video/`, `audio/`, `font/` prefixes).
-`text/event-stream` is never compressed.
-
-The crate re-exports `hyperlane::Compress` so the application needs no direct
-`http-compress` dependency.
-
-### `hyperlane-plugin-cors`
-
-Reads `origin` and, when the origin is allowed, writes
-`access-control-allow-origin`, `access-control-allow-methods`,
-`access-control-allow-headers`, optionally `access-control-max-age` and
-`access-control-allow-credentials`, and `vary: origin`. A request without an
-origin, and a request from an origin that is not allowed, are left alone.
-
-Configuration: `CorsConfig { allowed_origins, allowed_methods, allowed_headers,
-max_age, allow_credentials }`. The default allows the `*` origin and the `*`
-request header, and names the nine methods explicitly
-(`GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, CONNECT, TRACE`), with no max
-age and no credentials. `CorsConfig::allowed_origin` returns the wildcard for a
-wildcard configuration and the origin itself for a list, and `None` when the
-origin is not allowed.
 
 ### `hyperlane-plugin-logger`
 
@@ -139,41 +106,64 @@ The default level is `Info` and there is no file. The crate re-exports
 `init` calls `log::set_logger`, so it fails with "a logger was already
 installed" if the process already has one.
 
-### `hyperlane-plugin-shutdown`
-
-Turns the operating system's termination signals into a graceful shutdown.
-`ShutdownPlugin::init(ShutdownConfig { watch_terminate, message })` stores the
-configuration; `ShutdownPlugin::watch(&ServerControlHook)` spawns the watcher;
-`ShutdownPlugin::on_shutdown(&ServerControlHookHandler<()>)` installs the
-handler that runs when the server stops.
-
-The plugin registers **no hook**, so it changes nothing until the application
-asks for it. `watch_terminate` defaults to `true` and selects the terminate
-signal on unix in addition to the interrupt signal.
-
-### `hyperlane-plugin-static-files`
-
-Serves the files of a directory. The application registers the route itself,
-because the path belongs to the application:
-
-```rust
-StaticFilesPlugin::init(StaticFilesConfig { root: PathBuf::from("./public"), index: "index.html".to_owned() })?;
-server.route::<StaticFilesRoute>(&StaticFilesPlugin::pattern("/assets"));
-```
-
-`StaticFilesPlugin::pattern(prefix)` builds the route pattern so the parameter
-name stays the same across applications. `StaticFilesConfig::resolve(&str)`
-refuses a path that climbs out of the root, and `content_type(&Path)` uses the
-framework's own extension table, falling back to `application/octet-stream` for
-an unknown extension. The route answers a missing file with the not-found
-status and a directory with the index file.
-
-The plugin registers a route and no middleware, so it has no order.
-
 ### `hyperlane-plugin-websocket`
 
-The only published plugin. It provides `WebSocket`, `WebSocketConfig`,
-`BroadcastType` and the `BroadcastTypeTrait` bound, and integrates with
-`hyperlane-broadcast` for message dissemination. It is a trait-and-config
-surface rather than a middleware: the application supplies the connected,
-request, sended and closed hooks through the config setters.
+The published plugin that carries the most state. It provides `WebSocket`,
+`WebSocketConfig`, `BroadcastType` and the `BroadcastTypeTrait` bound, and
+integrates with `hyperlane-broadcast` for message dissemination. It is a
+trait-and-config surface rather than a middleware: the application supplies the
+connected, request, sended and closed hooks through the config setters.
+
+## The rules that left the tree
+
+The four crates below held what the removed plugin crates held, and they were
+published from the crates-dev family on 2026-10-24, in the same commit that
+removed the hyperlane plugin crates, before that family was rolled back. Their
+source is in the git history of the ctares repository (added in `4b8319c`,
+removed again in `4b9c8a8`), and the crates themselves stay on crates.io at
+`10.3.0`.
+
+| crate | crates.io | what it holds |
+|---|---|---|
+| `encoding-negotiator` | `10.3.0` | the encoding a client asked for, and whether a body is worth compressing |
+| `cors-policy` | `10.3.0` | the cross origin headers of an answer |
+| `signal-watcher` | `10.3.0` | the signal that asks the process to stop |
+| `static-file-resolver` | `10.3.0` | the file a path names under a root, without the traversal |
+
+Their contracts, in one paragraph each:
+
+- `CompressionPolicy { encodings: Vec<String>, min_size: usize }` picks the
+  first offered encoding the client accepts, in the order the policy prefers,
+  and `CompressionPolicy::is_compressible(&str)` tells whether a body of a
+  content type is worth compressing. The defaults are `min_size` 1024 and the
+  encodings `gzip` and `br`. The policy itself does **not** act on `min_size`
+  — it only carries the value; the size check, the "the answer already carries
+  an encoding" check and the "the client asked for no encoding" check lived in
+  the removed `hyperlane-plugin-compression` hook, so a caller that uses the
+  policy directly has to make them. `is_compressible` is what the policy does
+  decide: a body is left alone when the content type is already compressed
+  (`application/zip`, `application/gzip`, `application/x-gzip`,
+  `application/x-bzip2`, `application/x-xz`, `application/zstd`, and the
+  `image/`, `video/`, `audio/`, `font/` prefixes), and `text/event-stream` is
+  never compressed. An encoding the client refused with a quality of zero is
+  dropped.
+- `CorsPolicy { allowed_origins, allowed_methods, allowed_headers, max_age,
+  allow_credentials }` decides whether an origin is allowed and builds the
+  cross origin headers of the answer: `access-control-allow-origin`,
+  `access-control-allow-methods`, `access-control-allow-headers`, optionally
+  `access-control-max-age` and `access-control-allow-credentials`, and
+  `vary: origin`. The default allows the `*` origin and the `*` request
+  header, and names the nine methods explicitly (`GET, POST, PUT, DELETE,
+  PATCH, HEAD, OPTIONS, CONNECT, TRACE`), with no max age and no credentials.
+- `wait_for_signal(watch_terminate)` waits for the interrupt signal, and on
+  unix for the terminate signal as well when `watch_terminate` is set.
+  `spawn_watcher(watch_terminate, handler)` runs the same wait in the
+  background and calls the handler with the `TerminationSignal` that arrived.
+- `StaticFileResolver { root: &Path, index: &str }` resolves the file a path
+  names under the root, and refuses a path that climbs out of the root. An
+  empty path answers with the index file. The resolver carries **no** content
+  type: it depends only on `lombok-macros`, and it returns a `PathBuf`. The
+  content type of the answer is the caller's business — the removed
+  `hyperlane-plugin-static-files` took it from the framework's extension
+  table, `http-type`'s `FileExtension`, but `static-file-resolver` does not
+  and cannot: it has no dependency on `http-type`.

@@ -73,10 +73,12 @@ Two facts about the chart crate that source reading will not tell you:
   `cargo add euv-chart@<version>`, or
   `curl -s https://crates.io/api/v1/crates/euv-chart`.
 - **`euv-chart` is published and builds from the registry.** As of
-  2026-10-23 it is on crates.io at `0.32.3` alongside the rest of the
+  2026-10-25 it is on crates.io at `0.32.6` alongside the rest of the
   workspace, and `cargo add euv-chart` + `cargo build` resolves and compiles
   against the published `euv`, `euv-core` and `euv-engine`. If a consumer
-  cannot find it, their lockfile or index is stale — not the crate.
+  cannot find it, their lockfile or index is stale — not the crate. The
+  working tree is one patch ahead (`0.32.7`), which is **not** on crates.io
+  yet: an unpublished local version is not what a consumer can install.
 
 ## Delivery constraints
 

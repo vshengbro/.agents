@@ -32,7 +32,7 @@ if initialized {
 }
 ```
 
-`RenderConfig::webgl` 和 `EngineHandle::init_webgl` 用于 WebGL 2.0（基于 GLSL `#version 300 es` 着色器），失败时处理 `WebGlInitError`；`RenderConfig::webgpu` 和 `EngineHandle::init_webgpu` 用于 WebGPU（WGSL 着色器），失败时处理 `WebGpuInitError`。生产环境应实现 WebGPU → WebGL 降级路径。只需要标准游戏循环时，也可以直接使用 `Engine::run(config, handler).await`。
+`RenderConfig::webgl` 和 `EngineHandle::init_webgl` 用于 WebGL 2.0（基于 GLSL `#version 300 es` 着色器），失败时处理 `WebGl2InitError`；`RenderConfig::webgpu` 和 `EngineHandle::init_webgpu` 用于 WebGPU（WGSL 着色器），失败时处理 `WebGpuInitError`。生产环境应实现 WebGPU → WebGL 降级路径。只需要标准游戏循环时，也可以直接使用 `Engine::run(config, handler).await`。
 
 ## 调度器
 
@@ -73,7 +73,7 @@ renderer.replay(&list);
 
 ## WebGL
 
-`euv-engine` 0.1.0 提供 `WebGlRenderer` 后端，基于 WebGL 2.0 (`#version 300 es`) 编写 GLSL 着色器，适合需要自定义 shader 的中等复杂度 2D/3D 场景（粒子系统、后处理、几何变换等）。
+`euv-engine` 提供 `WebGl2Backend` 后端，基于 WebGL 2.0 (`#version 300 es`) 编写 GLSL 着色器，适合需要自定义 shader 的中等复杂度 2D/3D 场景（粒子系统、后处理、几何变换等）。
 
 ```rust
 use euv_engine::*;
@@ -84,11 +84,11 @@ let mut handle: EngineHandle = Engine::new_handle(config);
 
 match handle.init_webgl() {
     Ok(renderer) => {
-        // renderer: WebGlRenderer — 拥有 WebGL2 上下文，可直接编译 shader、绘制几何
+        // renderer: WebGl2Backend — 拥有 WebGL2 上下文，可直接编译 shader、绘制几何
         handle.start(handler);
     }
     Err(err) => {
-        // WebGlInitError — 浏览器不支持或上下文创建失败
+        // WebGl2InitError — 浏览器不支持或上下文创建失败
         web_sys::console::error_1(&format!("WebGL init failed: {:?}", err).into());
     }
 }
@@ -96,7 +96,7 @@ match handle.init_webgl() {
 
 ### 编译与链接着色器
 
-`WebGlRenderer::create_program(vertex_source, fragment_source)` 一次性完成编译与链接，返回 `Result<WebGlProgram, WebGlProgramError>`，失败时携带 GLSL info log：
+`WebGl2Backend` 侧的程序编译入口一次性完成编译与链接，返回 `Result<GlProgram, WebGlProgramError>`，失败时携带 GLSL info log：
 
 ```rust
 const VERTEX_SRC: &str = r#"#version 300 es
@@ -116,14 +116,14 @@ void main() {
 }
 "#;
 
-let program: WebGlProgram = renderer
+let program: GlProgram = renderer
     .create_program(VERTEX_SRC, FRAGMENT_SRC)
     .expect("shader link");
 ```
 
 ### 设置 uniform
 
-`WebGlRenderer` 提供 uniform 设置便捷方法（vec2 / vec4 / int / float），底层调用 `getUniformLocation` + `uniformXxx`，缺失的 uniform 会被静默忽略（与原生 WebGL 行为一致）：
+`WebGl2Backend` 提供 uniform 设置便捷方法（vec2 / vec4 / int / float），底层调用 `getUniformLocation` + `uniformXxx`，缺失的 uniform 会被静默忽略（与原生 WebGL 行为一致）：
 
 ```rust
 renderer.set_uniform_2f(&program, "u_offset", 0.5, 0.0);
@@ -137,9 +137,9 @@ renderer.set_uniform_1f(&program, "u_time", elapsed);
 | 方法                                                     | 说明                                              |
 | -------------------------------------------------------- | ------------------------------------------------- |
 | `RenderConfig::webgl(selector, width, height)`           | 创建 WebGL 渲染配置                                |
-| `EngineHandle::init_webgl()`                             | 初始化 WebGL 后端，返回 `WebGlRenderer`           |
-| `handle.init_webgl()?`                                   | `Result<WebGlRenderer, WebGlInitError>`          |
-| `WebGlRenderer::create_program(vs, fs)`                  | 编译并链接着色器程序                               |
+| `EngineHandle::init_webgl()`                             | 初始化 WebGL 后端，返回 `WebGl2Backend`            |
+| `handle.init_webgl()?`                                   | `Result<WebGl2Backend, WebGl2InitError>`         |
+| `WebGl2Backend` 的程序编译入口(`vs`, `fs`)              | 编译并链接着色器程序                               |
 | `renderer.set_uniform_2f(&prog, name, x, y)`            | 设置 `vec2` uniform                              |
 | `renderer.set_uniform_4f(&prog, name, x, y, z, w)`      | 设置 `vec4` uniform                              |
 | `renderer.set_uniform_1i(&prog, name, value)`           | 设置 `int` uniform                               |
@@ -151,7 +151,7 @@ renderer.set_uniform_1f(&program, "u_time", elapsed);
 
 ## WebGPU
 
-`euv-engine` 0.1.0 还提供 `WebGpuRenderer` 后端，基于 WGSL 编写着色器，适合现代浏览器上的高性能 GPU 渲染场景。
+`euv-engine` 还提供 `WebGpuRenderer` 后端，基于 WGSL 编写着色器，适合现代浏览器上的高性能 GPU 渲染场景。
 
 ```rust
 use euv_engine::*;

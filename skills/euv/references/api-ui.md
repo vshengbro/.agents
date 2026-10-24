@@ -896,6 +896,15 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvFieldProps`** — `pub struct EuvFieldProps {`
 
+### `component::footer::view::fn`
+
+- `fn` **`euv_footer`** — `pub fn euv_footer(node: VirtualNode<EuvFooterProps>) -> VirtualNode {...}`
+
+### `component::footer::view::struct`
+
+- `struct` **`EuvFooterItem`** — `pub struct EuvFooterItem {`
+- `struct` **`EuvFooterProps`** — `pub struct EuvFooterProps {`
+
 ### `component::form::view::fn`
 
 - `fn` **`euv_form`** — `pub fn euv_form(node: VirtualNode<EuvFormProps>) -> VirtualNode {...}`

@@ -13,6 +13,13 @@
 #   file unless --force is passed).
 #
 # Last verified against docs-pages @ master (commit 3b8669b, 2026-08-16).
+#
+# 2026-10-25: the upstream tree moved. docs-pages @ master is now the built
+# static site (index.html, css/, js/, pkg/, webfonts/); the `src/` tree this
+# mapping reads from no longer exists, so `sync-references.sh` now reports every
+# line as a missing source and exits 1. The vendored copies under
+# skills/*/references/ are frozen at the 2026-08-16 snapshot. Re-verify the
+# upstream layout before trusting this mapping again.
 
 # --- euv ---
 skills/euv/references/animation.md		src/euv/usage-introduction/animation.md
