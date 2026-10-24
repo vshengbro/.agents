@@ -127,6 +127,28 @@ EXEMPT_FROM_USE_RULES = {"mod.rs"}
 # Module path basenames exempt (bin/<name>.rs where <name> is anything).
 BIN_DIR_PATTERN = re.compile(r"/bin/[^/]+\.rs$")
 
+# The suffixes staged_file_gate.py appends when it materialises the HEAD
+# version of a staged file, so the baseline copy's name differs from the real
+# one by exactly this. The gate's own comment states the convention: "scope-
+# aware verifiers strip the suffix before deciding". A baseline copy IS the
+# same file, so every name-based decision has to use the ORIGINAL name.
+#
+# Without this, the keyword-name check (§1.4) fired on the baseline copy
+# ("const.rs.head-baseline.rs is not a keyword file name") and produced
+# exactly one finding there — the same count as the real violation in the
+# working file, so the gate's before/after delta was zero and the hook
+# answered "0 new violations — commit allowed" while a `fn` sat in
+# `const.rs`. The rule was invisible for EVERY keyword file of EVERY repo.
+GATE_SUFFIXES = (".head-baseline.rs", ".head-baseline.toml")
+
+
+def _original_name(name: str) -> str:
+    """The name of the file the gate materialised, without the gate suffix."""
+    for suffix in GATE_SUFFIXES:
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
 # Header pattern: optional `use super::*;` first non-comment line.
 USE_SUPER_STAR = "use super::*;"
 
@@ -191,7 +213,7 @@ def _is_exempt(path: Path, root: Path) -> bool:
     # part of the crate's source layout and must not be judged by §1.4.
     if "tmp" in parts:
         return True
-    bn = path.name
+    bn = _original_name(path.name)
     if bn in EXEMPT_BASENAMES:
         return True
     try:
@@ -373,11 +395,12 @@ def _is_nested_test_keyword_file(path: Path) -> bool:
     `use clap::Parser;` / `use euv_engine::*;` inline, while every
     pre-existing test `fn.rs` in the repo carried only `use super::*;`.
     """
+    name = _original_name(path.name)
     return (
         "tests" in path.parts
         and path.parent.name != "tests"
-        and path.name in KEYWORD_BASENAMES
-        and path.name not in EXEMPT_FROM_USE_RULES
+        and name in KEYWORD_BASENAMES
+        and name not in EXEMPT_FROM_USE_RULES
     )
 
 
@@ -406,7 +429,10 @@ def audit_one(path: Path, root: Path | None = None) -> list[str]:
             out += _check_use_centralized(path, text, lines, _scan_raw_string_state(lines))
     if _is_exempt(path, root):
         return out
-    basename = path.name
+    # The gate hands this verifier a baseline copy whose name carries the gate
+    # suffix. That copy is the same file, so the keyword name of the original
+    # decides every rule below.
+    basename = _original_name(path.name)
     if basename not in KEYWORD_BASENAMES:
         # §1.4: an unrecognised basename is a violation in its own right.
         # Returning [] here used to make a badly-named file invisible to
