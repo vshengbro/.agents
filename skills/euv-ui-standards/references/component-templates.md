@@ -24,8 +24,10 @@ hover via variant; that's CSS. Group buttons in `c_button_controls` (`flex;
 flex-wrap: wrap; gap: gap-element; margin-top: gap-component`).
 
 `euv_card { title }` renders `<div class=c_card><h3 class=c_card_title>`.
-`c_card` itself sets only colour and box-sizing — **there is no card border or
-fill**; use `c_card_title`'s `1px dashed var!(border)` underline to separate.
+`c_card` is a real surface — a `var!(surface-border-width)` solid `var!(border)` edge,
+a `var!(card)` fill, `var!(radius-xl)` corners, `var!(shadow-sm)` and
+`var!(space-2xl)` padding. `c_card_title` sets type and spacing, no edge of its
+own; the card's own edge separates it.
 
 Form controls:
 
@@ -79,9 +81,13 @@ background argument.
 `euv_logo` — accent square, `color: text-on-accent`; `c_euv_logo_nav` 32×32,
 `c_euv_logo_fab` 36→44 on mobile.
 
-Hand-rolled atoms that have **no** component: tabs (`c_tab_bar` with dashed
-bottom border, `c_tab_item_active` / `_inactive`), lists (`c_list_ul`,
-`c_list_item`, `c_list_item_text`, `c_list_item_button` max-width 120px),
+Hand-rolled atoms — tabs, lists and progress have components, so prefer
+those: tabs (`euv_tabs` — its `c_euv_tabs_bar` carries the `var!(muted)`
+fill and `var!(radius-lg)` corners; the bare `c_tab_bar` is only a
+`var!(border-width)` `var!(border)` bottom border with `var!(gap-element)`
+gaps, `c_tab_item_active` / `_inactive` are `var!(radius-md)` pills), lists
+(`euv_list` — the bare `c_list_ul`, `c_list_item`, `c_list_item_text`,
+`c_list_item_button` max-width 120px),
 drag/drop zones (`c_event_drag_zone` → `c_event_drop_zone_active`, dashed 2px
 border, 40px padding), counter grid (`c_counter_row` 2-col → 1-col mobile,
 `c_counter_value`), progress (`c_progress_container`, `c_progress_bar_running`
@@ -142,8 +148,8 @@ A consuming project overrides upstream styles with `Css::inject_css`:
 Css::inject_css(r#"
     html body .c_home_feature_grid .c_feature_card {
         padding: 16px !important;
-        border: 1px dashed #000 !important;
-        border-radius: 0 !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius-xl) !important;
     }
 "#);
 ```

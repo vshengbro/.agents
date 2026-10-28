@@ -105,8 +105,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-28T14:19:34.845Z",
-      "skillFolderHash": "f699735ebe3ab668f88828c659d8dc18cf6b36f7"
+      "updatedAt": "2026-10-28T16:42:11.255Z",
+      "skillFolderHash": "3e03fb5d8e6f514b8e2901cf9de0b492f05fb460"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
