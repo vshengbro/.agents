@@ -65,6 +65,14 @@ MAX_DESCRIPTION_WORDS = 60  # a "keyword dump" reads far denser than a trigger
 # adds further prefixes on top.
 DEFAULT_PROTECTED_PREFIXES = ("skills/rust-standards/",)
 
+# Subtrees vendored verbatim from an upstream repository (see
+# scripts/sync-mcode-stack.sh). Their SKILL.md text belongs to the upstream
+# author: we must not rewrite it, so the local description-length and
+# keyword-dump budgets do not apply to them. Everything else (frontmatter
+# shape, name/folder match, global name uniqueness, relative links, line
+# budget) is still enforced — only the description budget is waived.
+DEFAULT_VENDORED_PREFIXES = ("skills/mcode-stack/",)
+
 # Relative links carrying any of these are documentation placeholders, not
 # claims about a real file. They are reported in `skipped` — never dropped
 # silently — so a reviewer can disagree with the classification.
@@ -264,7 +272,8 @@ def under(rel: str, prefixes: tuple[str, ...]) -> bool:
 
 
 def check_frontmatter(path: Path, rel: str, rep: Report,
-                      enforce_budget: bool = True) -> dict | None:
+                      enforce_budget: bool = True,
+                      waive_description_budget: bool = False) -> dict | None:
     text = path.read_text(encoding="utf-8", errors="replace")
     raw, _body, err = split_frontmatter(text)
     if err or raw is None:
@@ -289,11 +298,11 @@ def check_frontmatter(path: Path, rel: str, rep: Report,
     if not isinstance(desc, str) or not desc.strip():
         rep.fail("description.nonempty", rel, "`description` missing or empty")
     else:
-        if enforce_budget and len(desc) > MAX_DESCRIPTION:
+        if enforce_budget and not waive_description_budget and len(desc) > MAX_DESCRIPTION:
             rep.fail("description.length", rel,
                      f"{len(desc)} chars > {MAX_DESCRIPTION} budget")
         words = desc.split()
-        if enforce_budget and len(words) > MAX_DESCRIPTION_WORDS:
+        if enforce_budget and not waive_description_budget and len(words) > MAX_DESCRIPTION_WORDS:
             rep.fail("description.keyword_dump", rel,
                      f"{len(words)} whitespace tokens > {MAX_DESCRIPTION_WORDS}; "
                      "reads as a keyword dump, not a trigger")
@@ -525,6 +534,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--protected-prefix", action="append", default=[],
                     help="subtree frozen against the baseline, on top of the "
                          f"default {list(DEFAULT_PROTECTED_PREFIXES)} (repeatable)")
+    ap.add_argument("--vendored-prefix", action="append", default=[],
+                    help="subtree vendored verbatim from an upstream repo; the "
+                         "description-length budget is waived for it, on top of "
+                         f"the default {list(DEFAULT_VENDORED_PREFIXES)} (repeatable)")
     ap.add_argument("--route-cases", help="JSON fixture of expected primary-skill selections")
     ap.add_argument("--route-results", help="independent JSON selections; required with --route-cases")
     ap.add_argument("--max-entry-lines", type=int, default=MAX_ENTRY_LINES,
@@ -549,6 +562,9 @@ def main(argv: list[str] | None = None) -> int:
     prefixes = tuple(sorted(
         {p if p.endswith("/") else p + "/" for p in
          (*DEFAULT_PROTECTED_PREFIXES, *args.protected_prefix)}))
+    vendored = tuple(sorted(
+        {p if p.endswith("/") else p + "/" for p in
+         (*DEFAULT_VENDORED_PREFIXES, *args.vendored_prefix)}))
 
     rep = Report()
     skill_dirs = iter_skill_dirs(skills_dir)
@@ -582,7 +598,8 @@ def main(argv: list[str] | None = None) -> int:
             total_lines += n_lines
 
         data = check_frontmatter(d / "SKILL.md", rel_skill, rep,
-                                 enforce_budget=not is_protected)
+                                 enforce_budget=not is_protected,
+                                 waive_description_budget=under(rel, vendored))
         name = (data or {}).get("name") or d.name
         if name in seen_names:
             rep.fail("name.global_unique", rel_skill,

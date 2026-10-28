@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -84,6 +84,14 @@
       "updatedAt": "2026-10-23T03:29:33.126Z",
       "skillFolderHash": "66c55d211e20bfc1cfdf461ab536aa0a27a0bd85"
     },
+    "once-drop-deploy": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/devops/once-drop-deploy/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "5e7b149cfded84ff160019f6181b76abc55f8e3f"
+    },
     "euv": {
       "source": "local",
       "sourceType": "local",
@@ -105,8 +113,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-23T03:10:36.053Z",
-      "skillFolderHash": "7bc5887caa7cc7431e75743d85c193b8370c247d"
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "06102cee9f583ee3a894b7e5a44ea984e33d5a18"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
@@ -179,6 +187,186 @@
       "installedAt": "2026-07-10T13:50:00.000Z",
       "updatedAt": "2026-10-23T03:29:33.126Z",
       "skillFolderHash": "33fcd95c59b1caaf62c3b61cbe2c8219e0dca1f2"
+    },
+    "context-tax-audit": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/context-tax-audit/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "e05198e76f344ddb470fdd887226512b84b7a2f0",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "engineering-change-descriptions": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/engineering-change-descriptions/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "63e732658e7bbe63112d7fc498213e1b68686af8",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "engineering-code-review": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/engineering-code-review/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "6e17a7a9d0c6876c0c4242a583e045d07db7ee4b",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "engineering-emergency-changes": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/engineering-emergency-changes/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "bb1c3c1b158923557d341937e2e334fd9238e5ee",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "engineering-review-comments": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/engineering-review-comments/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "f056492297d67f275dbee01c2a90da07f3d91a00",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "engineering-review-feedback": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/engineering-review-feedback/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "aa0921d1d25d6f860492c40461d5b4de245dd0d6",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "engineering-small-prs": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/engineering-small-prs/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "c37ec462155a45655086d42a57c0b1bd5b6bb7e0",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "handoff-doc": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/handoff-doc/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "012069e377147a543a161f64f3804607badd58d5",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "harness-experiment": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/harness-experiment/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "5bef769507c7eac311519910e9a8ff89cd3c45fb",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "independent-review": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/independent-review/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "2f15c8d6ff0bae3407fff5177d6ba8ca33fdf096",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "long-command-check": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/long-command-check/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "340a0e2a749216f5aaefa574aebc1a1b079e2e9a",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "long-session-check": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/long-session-check/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "89315909e88f5b7c7c4e10b2af9daa912189ab6e",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "subagent-split-check": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/subagent-split-check/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "55cfd9251ae52608163d8f076a614ddac750ff0d",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "tool-budget-audit": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/tool-budget-audit/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "7bcd7eb5bd0b998a1408c5dac79e067b03e50a91",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
+    },
+    "trajectory-review": {
+      "source": "MiniMax-AI/mcode-stack",
+      "sourceType": "github",
+      "skillPath": "skills/mcode-stack/trajectory-review/SKILL.md",
+      "installedAt": "2026-10-28T14:07:35.122Z",
+      "updatedAt": "2026-10-28T14:07:35.122Z",
+      "skillFolderHash": "c819fc0c007c83da2b381b80b6e271fff61cdac8",
+      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
+      "ref": "main",
+      "subpath": "stacks/ronny/skills",
+      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
     },
     "rust-standards": {
       "source": "local",

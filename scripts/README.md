@@ -154,6 +154,48 @@ bash scripts/verify-references.sh --against main
 DOCS_PAGES_DIR=/path/to/docs-pages bash scripts/verify-references.sh
 ```
 
+## `sync-mcode-stack.sh` — vendor the MiniMax Code stack (`MiniMax-AI/mcode-stack`)
+
+`skills/mcode-stack/` holds the `ronny` stack from
+[MiniMax-AI/mcode-stack](https://github.com/MiniMax-AI/mcode-stack) — 15
+engineering / agent-harness workflow skills, vendored verbatim.
+
+The script fetches upstream, copies each skill folder to
+`skills/mcode-stack/<skill-name>/`, copies the stack-level assets the skills
+point at (`NOTICE.md`, `checklists/`), and rewrites the two path families
+that were relative to the upstream stack root so they resolve from the
+vendored layout:
+
+| upstream | vendored |
+| --- | --- |
+| `../../NOTICE.md` | `../NOTICE.md` |
+| `checklists/x.md` | `../checklists/x.md` |
+
+It also refreshes `.skill-lock.json`: the vendored skills are recorded with
+`source: MiniMax-AI/mcode-stack`, `ref`, `subpath` and `upstreamCommit`, so
+the lock file always states which upstream revision is installed.
+
+```shell
+bash scripts/sync-mcode-stack.sh                 # sync from upstream main
+bash scripts/sync-mcode-stack.sh --ref v1.2.3     # sync a tag/branch
+bash scripts/sync-mcode-stack.sh --source-dir DIR # reuse an existing clone
+bash scripts/sync-mcode-stack.sh --dry-run        # show what would change
+bash scripts/sync-mcode-stack.sh --check          # verify vendored == upstream
+```
+
+`--check` compares the vendored tree against a freshly rewritten copy of
+upstream and exits 1 on any drift — it is the "is the vendored copy still
+current?" gate.
+
+**Do not hand-edit `skills/mcode-stack/<skill>/`** — the next sync overwrites
+it. Local edits belong in a separate skill.
+
+Because the upstream text belongs to the upstream author, `audit_skills.py`
+waives the description-length and keyword-dump budgets for this subtree
+(`DEFAULT_VENDORED_PREFIXES` in `scripts/audit_skills.py`); every other check
+— frontmatter shape, name/folder match, global name uniqueness, relative
+links, line budget — still applies.
+
 ## Why a custom script instead of git submodules / symlinks?
 
 docs-pages is a **private** VuePress monorepo with hundreds of pages, nested subdirs, and VuePress-specific frontmatter. Submodules drag in the whole tree; symlinks break on Windows + confuse the `read_file` tool. A flat curated list under each skill:
