@@ -89,8 +89,8 @@
       "sourceType": "local",
       "skillPath": "skills/devops/once-drop-deploy/SKILL.md",
       "installedAt": "2026-10-28T14:07:35.122Z",
-      "updatedAt": "2026-10-28T14:07:35.122Z",
-      "skillFolderHash": "5e7b149cfded84ff160019f6181b76abc55f8e3f"
+      "updatedAt": "2026-10-28T14:19:52.228Z",
+      "skillFolderHash": "9bbf82385cc77b9bc3b9ed9bb48a4321fb547aa3"
     },
     "euv": {
       "source": "local",
@@ -113,8 +113,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-28T14:07:35.122Z",
-      "skillFolderHash": "06102cee9f583ee3a894b7e5a44ea984e33d5a18"
+      "updatedAt": "2026-10-28T14:19:34.845Z",
+      "skillFolderHash": "f699735ebe3ab668f88828c659d8dc18cf6b36f7"
     },
     "gh-pr-creation-workflow": {
       "source": "local",

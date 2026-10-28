@@ -1,6 +1,6 @@
 ---
 name: once-drop-deploy
-description: 'Use when deploying, rebuilding or debugging the once-drop app on this host (/home/web/once-drop, /home/shell/once-drop.sh, once-drop.ltpp.vip). Covers log/state directory layout, staging-dir cleanup, JWKS mirror, and how to verify a deploy left no stray files.'
+description: Use when deploying, rebuilding or debugging the once-drop app on this host (/home/web/once-drop, /home/shell/once-drop.sh, once-drop.ltpp.vip). Covers log/state layout, staging cleanup, JWKS mirror, and deploy verification.
 ---
 
 # once-drop 部署与排障

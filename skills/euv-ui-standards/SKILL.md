@@ -26,7 +26,9 @@ Design and API detail lives in three topical references, loaded on demand: `refe
 
 ## 0. Source of Truth
 
-Registry `ui/src/style/class/<group>/fn.rs` (groups: data display forms identity overlay page shell) · tokens `ui/src/style/var/fn.rs` · reset + keyframes `ui/src/style/css/fn.rs` via `inject_app_global_css()` · views `ui/src/component/<name>/view/fn.rs` · pages `example/src/page/<name>/` · version of record = root `Cargo.toml` `[workspace.package].version`, **bumped at the root only**, never per sub-crate.
+Registry `ui/src/style/class/<group>/fn.rs` (groups: data display forms identity overlay page shell) · tokens `ui/src/style/var/theme/fn.rs` (light/dark semantics) + `ui/src/style/var/scheme/<name>/fn.rs` (the UI scheme's role primitives) · reset + keyframes `ui/src/style/css/fn.rs` via `inject_app_global_css()` · views `ui/src/component/<name>/view/fn.rs` · pages `example/src/page/<name>/` · version of record = root `Cargo.toml` `[workspace.package].version`, **bumped at the root only**, never per sub-crate.
+
+**Two token owners, never one.** The mode class (`c_theme_light` / `c_theme_dark`) owns the semantic mapping and the universal structure scale; the scheme class (`c_scheme_<name>`) owns the colour roles, the radius scale, the type ramp and the control heights. The two sets are disjoint by construction, so both can sit on the same root element without either shadowing the other. `ui/tests/theme` fails the build if they ever overlap, if a scheme drops a token, or if the registry reads a token nobody defines.
 
 **Hard constraints — violating any is a review reject.** Every `class!` block lives in the registry; a page's `view/fn.rs` only calls `c_xxx()`. Naming is `c_` + scope + element, snake_case lowercase: reused across pages ⇒ no page name (`c_card`), page-scoped ⇒ `c_<page>_<element>`. Never hardcode a colour or spacing literal in `class!`; always `var!(…)`.
 
