@@ -357,6 +357,52 @@ def check_links(path: Path, rel: str, rep: Report, skills_root: Path) -> None:
                          f"{url} -> anchor #{frag} not in {target.name}")
 
 
+def audit_history_debt(skills_dir: Path, prefixes: tuple[str, ...],
+                       rep: Report) -> dict:
+    """Run the rust-standards history-debt checker over the protected subtree.
+
+    The protected skill must state only the current rules: dated provenance,
+    iteration labels, PR references and withdrawn-rule markers are historical
+    debt. The checker lives with the skill it polices, so the rule and its
+    enforcement ship together.
+    """
+    checker = skills_dir / "rust-standards" / "scripts" / "verify_no_history_debt.py"
+    result = {"checker": str(checker.relative_to(skills_dir.parent)),
+              "ran": False, "hits": []}
+    skill_root = skills_dir / "rust-standards"
+    if not skill_root.is_dir():
+        # The protected skill is not installed in this tree; there is nothing
+        # to police. Absence is not a failure.
+        result["skipped"] = "rust-standards skill not present"
+        return result
+    if not checker.is_file():
+        # The checker ships with the skill it polices. A tree that does not
+        # install the protected skill (test fixtures, partial checkouts) has
+        # nothing to police — that is a skip, not a failure. The real repo
+        # asserts the checker exists in its own test suite.
+        rep.skip("history_debt", str(checker.relative_to(skills_dir.parent)))
+        result["skipped"] = "checker not installed in this tree"
+        return result
+    try:
+        import subprocess
+        proc = subprocess.run(
+            [sys.executable, str(checker), str(skills_dir / "rust-standards")],
+            capture_output=True, text=True, check=False)
+    except OSError as exc:
+        rep.fail("history_debt.checker_failed",
+                 str(checker.relative_to(skills_dir.parent)), str(exc))
+        return result
+    result["ran"] = True
+    if proc.returncode != 0:
+        for line in proc.stdout.splitlines():
+            if not line.strip() or line.startswith("FAIL:"):
+                continue
+            result["hits"].append(line)
+            rel, _, rest = line.partition(":")
+            rep.fail("history_debt.marker", rel, rest.strip()[:200])
+    return result
+
+
 def audit_protected(skills_dir: Path, prefixes: tuple[str, ...],
                     baseline: dict | None, rep: Report) -> dict:
     """Exact set + sha256 comparison against the baseline for protected files.
@@ -670,6 +716,9 @@ def main(argv: list[str] | None = None) -> int:
     # ---- protected fingerprint ----------------------------------------
     fingerprint = audit_protected(skills_dir, prefixes, baseline, rep)
 
+    # ---- history debt in the protected subtree ------------------------
+    history_debt = audit_history_debt(skills_dir, prefixes, rep)
+
     # ---- before/after metrics ------------------------------------------
     old_files = (baseline or {}).get("files", {})
     def entry_changed(path):
@@ -742,6 +791,7 @@ def main(argv: list[str] | None = None) -> int:
         "protected_prefixes": list(prefixes),
         "metrics": metrics,
         "protected_fingerprint": fingerprint,
+        "history_debt": history_debt,
         "dangling_references": dangling,
         "route_checks": routes,
         "failures": rep.failures,

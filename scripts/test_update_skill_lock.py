@@ -19,6 +19,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1055,6 +1056,56 @@ class TestRewriteReferenceLinks(unittest.TestCase):
             parsed = self.mod.load_mapping(p)
             self.assertEqual(sorted(parsed), ["src/euv/macros/a.md",
                                               "src/euv/macros/b.md"])
+
+
+# ---------------------------------------------------------------------------
+# history-debt checker: the protected skill states only current rules
+# ---------------------------------------------------------------------------
+class TestHistoryDebtChecker(unittest.TestCase):
+    CHECKER = (Path(__file__).resolve().parent.parent
+               / "skills" / "rust-standards" / "scripts"
+               / "verify_no_history_debt.py")
+
+    def _run(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(self.CHECKER), *args],
+            capture_output=True, text=True, check=False)
+
+    def test_checker_is_installed(self):
+        """The rule and its enforcement must ship together."""
+        self.assertTrue(self.CHECKER.is_file(), f"missing {self.CHECKER}")
+
+    def test_real_skill_tree_is_clean(self):
+        skill_root = self.CHECKER.parent.parent
+        proc = self._run(str(skill_root))
+        self.assertEqual(proc.returncode, 0, proc.stdout)
+
+    def test_violating_fixture_fails(self):
+        with tempfile.TemporaryDirectory(prefix="debt-fixture-",
+                                         dir=FIXTURE_ROOT) as td:
+            bad = Path(td) / "SKILL.md"
+            bad.write_text(
+                "---\nname: bad\ndescription: fixture\n---\n\n"
+                "# bad\n\n"
+                "(2026-09-26 user 钦定) round 4 PR #202\n\n"
+                "这条规则已废弃。\n\n"
+                "### 修订历史\n",
+                encoding="utf-8")
+            proc = self._run(td)
+            self.assertEqual(proc.returncode, 1, proc.stdout)
+            self.assertIn("history-debt marker", proc.stdout)
+
+    def test_clean_fixture_passes(self):
+        with tempfile.TemporaryDirectory(prefix="debt-fixture-",
+                                         dir=FIXTURE_ROOT) as td:
+            good = Path(td) / "SKILL.md"
+            good.write_text(
+                "---\nname: good\ndescription: fixture\n---\n\n"
+                "# good\n\n"
+                "规则直接陈述当前口径,不带日期或轮次。\n",
+                encoding="utf-8")
+            proc = self._run(td)
+            self.assertEqual(proc.returncode, 0, proc.stdout)
 
 
 if __name__ == "__main__":

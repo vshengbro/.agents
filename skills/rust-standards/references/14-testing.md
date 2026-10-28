@@ -11,7 +11,7 @@
 
 项目惯例:每个 `tests/<sub>/fn.rs` 第一行必须是 `use super::*;`,即使 super 实际上没 re-export 任何东西(`tests/<sub>/mod.rs` 通常只有 `mod r#fn;`)。
 
-euv PR #233 第一版我写了:
+euv 第一版我写了:
 ```rust
 use std::path::Path;
 use std::fs;
@@ -64,7 +64,7 @@ mod tests {
 - `#[cfg(test)] mod tests { ... }` 把测试和 production 混在同一个 file 里,大型 fn file 会膨胀到 1000+ 行,**review diff 难以读**。
 - 项目目录的"production/test"边界靠 file path 体现,**不能依赖 `#[cfg(test)]` 编译器 attribute** 作为 boundary marker。
 
-### API 可见性铁律(2026-09-12 user 明确):**绝对禁止为测试改 visibility**
+### API 可见性铁律(user 明确):**绝对禁止为测试改 visibility**
 
 具体含义:
 
@@ -79,7 +79,7 @@ pub use renderer::render::compute_plan;     // 原本没有这条
 pub(crate) fn internal_helper() { ... }  // 原本是 fn
 ```
 
-**user 原话(2026-09-12)**:
+**user 原话**:
 > "你不应该修改模块可见性, 你应该使用已有可见的api去在tests里做单测, 通过已有的api覆盖, **没有暴露的api的单测**。"
 
 **推理**:
@@ -87,9 +87,9 @@ pub(crate) fn internal_helper() { ... }  // 原本是 fn
 - `pub(crate)` 已经包含整个 crate 的可见性,如果连 crate 内 integration test 都看不到 → 那说明**这个 fn 本来就不该被测试**(它是 implementation detail,不是 stable contract),**正确做法是删掉这个测试,而不是改 visibility**。
 - 没有暴露的 API = 没有针对它的单测(测试 = 通过已暴露 API 验证行为,不是 direct white-box inspection)。
 
-### `pub(crate)` item 的测试怎么办 — **DELETE,不保留 inline**(2026-09-12 user 终极规则)
+### `pub(crate)` item 的测试怎么办 — **DELETE,不保留 inline**(user 终极规则)
 
-user 原话(2026-09-12 第二轮明确):
+user 原话(明确):
 
 > "src里所有单测删除,有tests目录是单测的,如果单测的功能不是pub那就忽略,如果是pub就加到tests 里严格遵守规范"
 
@@ -111,7 +111,7 @@ mod tests {
 - `pub` fn / enum / struct 的测试 → 移到 `<crate>/tests/<feature>/fn.rs` + `<crate>/tests/<feature>/mod.rs`(`use euv_engine::*;` / `use euv_core::*;`),不能改 visibility 让 inline test 看得见。
 - 即便某个 `pub(crate)` 算法非常关键、值得 unit test → **也不能加 inline 测试**,**算法正确性必须通过 `pub` API 的 end-to-end 测试间接验证**。
 
-**euv PR #203 实测(2026-09-12)**:
+**euv 实测**:
 - `core/src/renderer/render/fn.rs` 整块 922 行 inline 测试(测 `compute_child_ops_plan` + `lis_indices`,都是 `pub(crate)`)→ **整块删除**。
 - `engine/src/physics/impl.rs` 5 个 inline tests → 4 个 pub-only 测试移到 `engine/tests/physics/fn.rs`,1 个调用 `pub(crate)` getter `get_inverse_inertia` 的测试 → **删除**(没改 visibility)。
 - `engine/src/lighting/impl.rs` 6 个 inline tests → 5 个全部移到 `engine/tests/lighting/fn.rs`(全 pub),1 个调用 `pub(crate)` const 的测试 → **删除**。
@@ -139,16 +139,16 @@ git grep -B 3 "fn .*() {" -- '*.rs' | grep "tests live inline"
 # 期望: 0..N 行(master 已有 N 处,新 PR 加 inline 必须 append 一条)
 ```
 
-### Master 当前 inline `mod tests` 列表(2026-09-12 PR #203 后)
+### Master 当前 inline `mod tests` 列表(后)
 
 所有 inline `#[cfg(test)] mod tests` 都已删除或迁移到 `tests/`:
 
-- `engine/src/physics/impl.rs:971` — inline tests 已迁到 `engine/tests/physics/fn.rs`(2026-09-12 PR #203)
-- `engine/src/lighting/impl.rs` — inline tests 已迁到 `engine/tests/lighting/fn.rs`(2026-09-12 PR #203)
-- `engine/src/raytracing/impl.rs` — inline tests 已迁到 `engine/tests/raytracing/fn.rs`(2026-09-12 PR #203)
-- `core/src/renderer/render/fn.rs` (PR #202 + PR #203 inline) — inline tests 已删除(测 pub(crate),按 §14.4 不保留,2026-09-12 PR #203)
+- `engine/src/physics/impl.rs:971` — inline tests 已迁到 `engine/tests/physics/fn.rs`
+- `engine/src/lighting/impl.rs` — inline tests 已迁到 `engine/tests/lighting/fn.rs`
+- `engine/src/raytracing/impl.rs` — inline tests 已迁到 `engine/tests/raytracing/fn.rs`
+- `core/src/renderer/render/fn.rs` (+ inline) — inline tests 已删除(测 pub(crate),按 §14.4 不保留)
 
-## 14.5 单测不需要注释(2026-09-12 user 明确)
+## 14.5 单测不需要注释(user 明确)
 
 ### 铁律:测试 fn 内禁止任何 `///` / `//!` / `//` 注释
 
@@ -248,7 +248,7 @@ The pitfall that keeps recurring: when adding tests for a newly-created `pub fn`
 
 Even when `<crate>/lib.rs` has `pub use {build::*, ...};` (which re-exports the pub fn at crate root), the safest pattern inside `tests/<feature>/fn.rs` is `euv_crate::pub_fn_name(...)` directly. `use super::*;` from inside `fn.rs` brings nothing useful (test crate has no `super` parent beyond `tests/mod.rs`'s `use euv_crate::*;`, which is global anyway). Belt-and-suspenders: write the full path.
 
-### Anti-pattern I hit in 2026-09-14 (PR #233 first pass)
+### Anti-pattern I hit in (first pass)
 
 Wrote `#[cfg(test)] mod minify_inline_js_tests { use std::path::Path; ... }` at the bottom of `cli/src/build/fn.rs` because the helper was new and the natural instinct is to put tests where the function lives. §14.4 forbids it. **Always start from the assumption: this new test goes in `tests/<feature>/`, period.** Only after explicitly verifying there's no `tests/`-compatible path (e.g. testing a `pub(crate)` item, which then means *delete the test*) should you even consider alternatives — and there are none per §14.4.
 
@@ -267,7 +267,7 @@ git diff origin/master HEAD --stat -- 'tests/**/*.rs'
 If `#[cfg(test)]` shows up in the diff but no `tests/<feature>/` file was created, the PR is incomplete — fix before push.
 
 
-## 14.7 `tests/<sub>/fn.rs` 顶部只允许 `use super::*;` 一条 use(2026-09-25 user 钦定:`会重置`)
+## 14.7 `tests/<sub>/fn.rs` 顶部只允许 `use super::*;` 一条 use(user 钦定:`会重置`)
 
 ### 铁律
 
@@ -330,7 +330,7 @@ bash ~/.agents/skills/rust-standards/scripts/verify_test_imports_centralized.sh 
 - 每行 grep `^use `,只看 column 0 的顶层 use,**不**看 fn 体内 use(测试 fn 体内不应有 use,但 fn.rs 内整体都应该只靠 `super::*`)
 - 只要有一行非 `use super::*;` 的 use,就报告
 
-### Auto-fixer(strictify_tests_layout.py,2026-09-25 加固)
+### Auto-fixer(strictify_tests_layout.py, 加固)
 
 ```bash
 # 单次跑:删注释、规范化 mod.rs、清除 fn.rs 违规 use
@@ -387,7 +387,7 @@ fn t() { ... }
 | `tests/<file>.rs` (loose root) | ❌ | 是 integration test crate root,`super` 不存在,**严禁**写 `use super::*;` |
 | `src/` 任一文件 | ❌ | §6 集中导入由 §6.1/§6.4 + audit rule 7/17 覆盖,与 §14.7 不同维度 |
 
-## 14.8 临时验证资源必须回收(2026-10-18 user 钦定)
+## 14.8 临时验证资源必须回收(user 钦定)
 
 **铁律**:为了验证而起的每一个临时资源,测试结束 —— 包括测试**失败**、超时、中断、取消 —— 都必须回收后才能报告完成。完整判定/登记/证据规则见 [`agent-skills-source-sync`](../../agent-skills-source-sync/SKILL.md#临时验证资源生命周期硬规则-3-细则)。
 

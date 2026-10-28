@@ -30,11 +30,11 @@
 /// Explanation of when this function might panic.
 ```
 
-**关键约束(2026-09-26 user 加强,2026-09-27 user 第三次强化)**:
+**关键约束(user 加强, user 第三次强化)**:
 
 1. **`# Arguments` 与 `# Returns` 行必须紧跟空 `///` 行**(section header 之前留一行空 `///`,section 内容之前留一行空 `///`)。
 2. **`# Arguments` 的 `- \`Type\` - description` 与 `# Returns` 的 `- \`Type\` - description` 各自使用 `-`(dash)分隔符(`Returns` 也允许 `:` 分隔符,但两种形式不可混用)**。
-3. **类型签名精确匹配(2026-09-27 user 钦定,新加的硬约束)**:每个 `- \`Type\` -` 中的 `Type` 必须等于 fn 签名中的实际参数类型(保留 `&` 与 `` ` ``),**不允许**把泛型 `T` 写成 `T: Sized`、把 `&self` 写成 `Self`、把 `&'static mut T` 写成 `'static mut T`。完整规则:
+3. **类型签名精确匹配(user 钦定,新加的硬约束)**:每个 `- \`Type\` -` 中的 `Type` 必须等于 fn 签名中的实际参数类型(保留 `&` 与 `` ` ``),**不允许**把泛型 `T` 写成 `T: Sized`、把 `&self` 写成 `Self`、把 `&'static mut T` 写成 `'static mut T`。完整规则:
    - `- \`&Self\` -` 用于 `&self` / `&mut self` 方法
    - `- \`T\` -` 用于泛型参数 `T`(不带 where 子句约束)
    - `- \`&str\` -` 用于 `&str` 参数(保留 `&`)
@@ -84,18 +84,18 @@ where
 | Layer | 内容 |
 |-------|------|
 | 1 | 存在性 — 每个非测试 fn / impl 必须有 `///` 注释 |
-| 2 | 完整性 — 有非 self 参数的 fn 必须有 `# Arguments`,非 () / Self 返回必须有 `# Returns` |
+| 2 | 完整性 — 有非 self 参数的 fn 必须有 `# Arguments`,非  / Self 返回必须有 `# Returns` |
 | 3 | 格式 — `Arguments` 与 `Returns` 的 `-` 行格式(`- \`Type\` - description` / `- \`Type\`: description`) |
-| 4 | **签名类型匹配(2026-09-27 新加)** — `Arguments` 里每个 `- \`Type\` -` 的 `Type` 必须等于 fn 签名的实际参数类型;`Returns` 同理。doc 块第一个非空 `///` 不能直接是 `# Arguments`(必须有 prose 描述) |
+| 4 | **签名类型匹配(新加)** — `Arguments` 里每个 `- \`Type\` -` 的 `Type` 必须等于 fn 签名的实际参数类型;`Returns` 同理。doc 块第一个非空 `///` 不能直接是 `# Arguments`(必须有 prose 描述) |
 
-被 `audit_rust_standards.py` check 35 调用,exit 1 即违规。**已知 caveat(2026-09-27 实测 801 真违规 in euv)**:本规则对旧代码是破坏性变更,authoritative enable 后会触发大量现存 doc comment 的连锁修改 —— 计划单独立 PR sweep(参考 2026-09-26 check 23-37 的接入节奏)。
+被 `audit_rust_standards.py` check 35 调用,exit 1 即违规。**已知 caveat(实测 801 真违规 in euv)**:本规则对旧代码是破坏性变更,authoritative enable 后会触发大量现存 doc comment 的连锁修改 —— 计划单独立 PR sweep(参考 check 23-37 的接入节奏)。
 
 ## 2.3 字段级注释
 
 - 结构体/枚举每个字段必须单独注释其用途。
 - 元组结构体的每个字段同样要注释。
 
-## 2.4 lib.rs 必须的 `//!` 头部注释 (2026-09-26 第五轮 user 钦定)
+## 2.4 lib.rs 必须的 `//!` 头部注释 (user 钦定)
 
 `lib.rs` 必须以 `//!` doc block 开头,**强制结构**:
 
@@ -108,7 +108,7 @@ where
 第一行文本(`//!` 后)必须等于最近 `Cargo.toml` 的 `[package].name`
 字段值 — 这是强制性对应关系,改名 crate 时 lib.rs 第一行必须同步改。
 
-**user 原话**(2026-09-26 第五轮):"对于 lib.rs 必须要检查是否存在 `//!`
+**user 原话**:"对于 lib.rs 必须要检查是否存在 `//!`
 注释,注释第一行 `//!` 后是包名后面是一行 `//!` 再后面才是内容"。
 
 **验证脚本**:`scripts/verify_lib_rs_doc_comment.py` 读最近 Cargo.toml
@@ -122,22 +122,20 @@ where
 - `cli/src/lib.rs:1` 写 `//! euv CLI` 但包名是 `euv-cli`
 - `macros/src/lib.rs:1` 写 `//! euv_macros` 但包名是 `euv-macros`
 
-**历史 audit-pitfalls §17** 的"lib.rs `//!` doc comment IS allowed"
-条目标记为 **DEPRECATED** —— 这条规则从"可加可不加"升级为"必须
-按固定 3 行结构加"。
+这条规则是**必须**按固定 3 行结构加,不是"可加可不加"(见 `references/audit-pitfalls.md` §17)。
 
-## 2.5 mod.rs 硬性规则:不加任何注释(2026-10-09 升级为绝对口径,覆盖 mod.rs + 全部 TOML)
+## 2.5 mod.rs 硬性规则:不加任何注释(升级为绝对口径,覆盖 mod.rs + 全部 TOML)
 
 **`mod.rs` 不加任何注释** —— 既不写文件头 `//!`,也不写 `mod r#xxx;` 之间的 `// xxx 模块`,保持纯结构组织。**这一条是硬性规则,不可例外。**
 
 **每一个 `*.toml` 文件同样不加任何注释**(`#` 注释一律禁止;字符串内的 `#` 是数据不是注释,如 `description = "a # b"`、`colour = "#ff0000"`)。
 
-**2026-10-09 绝对化(user directive「toml文件和mod.rs禁止注释」)**:此前执行是部分的 —— audit check 5 只扫 git diff 且正则只捕 `//`(漏 `///` / `//!` / 块注释 / 行尾注释),TOML 完全没有检查;check 26 的 mod.rs 注释分支还豁免第 1 行 `///`。升级后:
+** 绝对化(user directive「toml文件和mod.rs禁止注释」)**:此前执行是部分的 —— audit check 5 只扫 git diff 且正则只捕 `//`(漏 `///` / `//!` / 块注释 / 行尾注释),TOML 完全没有检查;check 26 的 mod.rs 注释分支还豁免第 1 行 `///`。升级后:
 
 - **覆盖范围**:仓内**每一个** `*.toml` + **每一个** `mod.rs`(含 `tests/**/mod.rs`),tree-wide,不只 diff。
 - **覆盖形式**:`//`、`///`、`//!`、`/* ... */`(可嵌套)、行尾注释、TOML `#` 行首与行尾。
 - **字符串感知**:TOML 四种字符串(basic / literal / 多行 basic / 多行 literal)与 Rust 字符串 / raw string / 字符字面量 / lifetime 全部按 span 跳过 —— `"http://x"`、`'/'`、`r#"..."#` 不误报;单行字符串未闭合跨行后,后续行的 `#` **照报**(宁假阳性不漏报)。
-- **验证脚本**:`scripts/verify_no_toml_mod_comments.py`,被 `audit_rust_standards.py` **check 51** 调用(check 5 已标 DEPRECATED);已注册 `staged_file_gate.py`(TOML 文件首次进入 gate,baseline 按原扩展名物化 `Cargo.toml.head-baseline.toml`,其它 verifier 仍只见 `.rs`)。
+- **验证脚本**:`scripts/verify_no_toml_mod_comments.py`,被 `audit_rust_standards.py` **check 51** 调用;已注册 `staged_file_gate.py`(TOML 文件首次进入 gate,baseline 按原扩展名物化 `Cargo.toml.head-baseline.toml`,其它 verifier 仍只见 `.rs`)。
 - **auto-fixer**:`scripts/fix_no_toml_mod_comments.py`(默认 dry-run,`--write` 落盘 + re-verify,幂等,`--files` 限定范围);已注册 `rust_pre_commit.py` Phase 1 第一位(注释删除可能留下 section 间 0 空行或多空行,由随后的 fix_dep_order.py 归一)。fixtures `scripts/fixtures/toml-mod-comments/{compliant,violating}` + `scripts/self_test_no_toml_mod_comments.py`(verifier 双向 + fixer 幂等 + gate 四向模拟)。
 - **check 26 对齐**:`verify_module_imports_centralized.py` 的 mod.rs 注释分支已删除(豁免 `///` 与绝对口径矛盾),注释统一归 check 51。
 

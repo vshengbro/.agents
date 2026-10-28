@@ -1,8 +1,8 @@
-# ctares workspace facts (verified 2026-10-25)
+# ctares workspace facts (verified )
 
 Reference for the `ctares` Rust workspace, which is the reference repository this
 skill is calibrated against. Every number below was read out of the live repo at
-`/Users/sqs/code/ctares` on 2026-10-25; re-verify with the commands given when a
+`/Users/sqs/code/ctares` on ; re-verify with the commands given when a
 claim matters.
 
 ## Shape
@@ -19,14 +19,14 @@ claim matters.
 | `rust-standards.toml` | present at the root | `cat rust-standards.toml` |
 | `crate-cli/tmp/` | 26 generated scratch crates, git-ignored | `ls crate-cli/tmp \| wc -l` |
 
-Member list (2026-10-25): `bin-encode-decode`, `chinese-identification-card`,
+Member list `bin-encode-decode`, `chinese-identification-card`,
 `chunkify`, `clonelicious`, `color-log`, `color-output`, `compare_version`,
 `crate-cli`, `future-fn`, `instrument-level`, `jwt-service`, `lombok-macros`,
 `recoverable-spawn`, `recoverable-thread-pool`, `std-macro-extensions`,
 `stripe-pay-client`, `stripe-pay-core`, `stripe-pay-server`, `system-time`,
 `tcp-request`, `tcplane`, `tokio-broadcast`, `udp`, `udp-request`.
 
-The tree was slimmed to these 24 on 2026-10-24 (`chore(ctares): slim the family
+The tree was slimmed to these 24 on (`chore(ctares): slim the family
 down to 24 crates`). `server-manager`, `file-operation` and `hot-restart` left
 the workspace, and `china_identification_card` was renamed to
 `chinese-identification-card`. **The published crates are not gone** — the
@@ -49,7 +49,7 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py /Users/s
 → === SUMMARY: 54/54 PASS ===
 ```
 
-Re-measured 2026-10-25. The older hit counts recorded in SKILL.md for this repo
+Re-measured . The older hit counts recorded in SKILL.md for this repo
 (allow-lints 4, keyword-file-purity 16, lombok accessor contract 99, pub-group
 order 7-in-2, no-pub-in-tests 6) are **2026-09/10 baselines that have since been
 cleared** — do not expect them to reproduce. Two specific file:line citations
@@ -88,13 +88,13 @@ and the workflow never redirects into `Cargo.toml` directly.
   workspace. It does **not** use `crate fmt --check`, so it does not enforce
   derive ordering (see the `crate fmt` scope note in SKILL.md §13).
 - The top-level `name:` and `on:` blocks are separated by a blank line
-  (changed 2026-10-23, `style(ci): separate workflow name from trigger block`).
+  (changed , `style(ci): separate workflow name from trigger block`).
 
 ## `crate fmt` behaviour (verified against crate-cli 10.3.0 source)
 
 The `crate-cli` crate in this workspace is the implementation of the `crate fmt`
 command the skill tells you to run. Its real behaviour differs from the old
-skill text in three ways that were re-verified on 2026-10-25:
+skill text in three ways that were re-verified on :
 
 1. **Scope is the cwd package, not the workspace.** `crate fmt` spawns plain
    `cargo fmt` (`crate-cli/src/fmt/fn.rs`, `execute_fmt`:
@@ -121,7 +121,7 @@ derive ordering, so exit 0 does not mean the derive order is compliant.
 
 `lombok-macros` is a workspace member here and is the crate that implements the
 `Getter` / `GetterMut` / `Setter` / `New` / `Data` derives described in
-[17-lombok-derives.md](17-lombok-derives.md). The 2026-10-25 re-check against
+[17-lombok-derives.md](17-lombok-derives.md). The re-check against
 the in-tree 10.3.0 source confirmed every signature claim in that file still
 holds: `Data` is still the trio (all four derives call `inner_lombok_data` with
 differing bools), `type(copy)` still yields the field type rather than `&T`

@@ -30,7 +30,7 @@ fn parse<T: FromStr>(input: T) -> Result<T, Error> {
 
 **不允许在 `fn` 签名直接写 `<T: Bound>`,必须挪到 `where T: Bound { ... }`**。
 
-**§9.2a 参数位 `impl Trait`（2026-10-09 user 钦定）**：**参数位置**的 `impl Trait` 是推断 shim（inference shim），不是约束写法 —— 允许 `fn f(x: impl AsRef<str>)`。目的是让调用方免写第二个 turbofish 参数（如 `route::<S>(path)` 而非 `route::<S, P>(path)`）。**非参数位置**（返回类型、类型别名、结构体字段等）的 `impl Trait` 仍禁止，必须用 `where` 显式声明。返回位置的 `impl Trait`（RPIT）一直允许，因为它不占用泛型参数槽位。
+**§9.2a 参数位 `impl Trait`（ user 钦定）**：**参数位置**的 `impl Trait` 是推断 shim（inference shim），不是约束写法 —— 允许 `fn f(x: impl AsRef<str>)`。目的是让调用方免写第二个 turbofish 参数（如 `route::<S>(path)` 而非 `route::<S, P>(path)`）。**非参数位置**（返回类型、类型别名、结构体字段等）的 `impl Trait` 仍禁止，必须用 `where` 显式声明。返回位置的 `impl Trait`（RPIT）一直允许，因为它不占用泛型参数槽位。
 
 ## 9.3 impl 块排列顺序(同一文件内多个 impl 时)
 
@@ -87,7 +87,7 @@ pub(crate) fn patch_children_keyed(...) {
 
 **`euv fmt` / `cargo fmt` 不会自动删除 fn 内空行**——这两个 formatter 只重排 token 间空白,不主动移除 inter-statement 空行。**review 时必须手动检查**。
 
-**⚠️ cargo fmt 反向陷阱 (2026-09-12 实测, euv PR #203):cargo fmt 有时会在 fn 体内插入空行,必须 review reject**。具体场景:rustfmt 在某些 let-pattern 后(常见于 `world.add_body(body);` 或 `body.apply_torque(...)` 之后)会自动插入一个 blank line 作 visual separator。`cargo fmt -- --check` 不会因此失败——它只检查 idempotency,只要再跑一遍结果一致就 PASS。所以 PR 在 CI 里"check 通过"不等于"符合 §9.5"。
+**⚠️ cargo fmt 反向陷阱 (实测, euv ):cargo fmt 有时会在 fn 体内插入空行,必须 review reject**。具体场景:rustfmt 在某些 let-pattern 后(常见于 `world.add_body(body);` 或 `body.apply_torque(...)` 之后)会自动插入一个 blank line 作 visual separator。`cargo fmt -- --check` 不会因此失败——它只检查 idempotency,只要再跑一遍结果一致就 PASS。所以 PR 在 CI 里"check 通过"不等于"符合 §9.5"。
 
 **手动校验(每个 PR commit 前必跑)**:
 ```bash

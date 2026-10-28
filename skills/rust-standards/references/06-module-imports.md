@@ -13,13 +13,13 @@
   4. `pub(crate) use`
   5. `pub(super) use`
   6. `use` 私有导入
-- 每组按 当前 crate / 标准库 / 外部库 顺序排列
+- 每组按当前 crate / 标准库 / 外部库顺序排列
   - **第 6 组(private use)内部还要细分**:
     - 私有 `use std::{...}`(或 `use current_crate::*;` 如果当前 crate 是 workspace 成员)在前
     - 私有 `use {external_crate_1::*, external_crate_2::Symbol, ...}` 在后
     - **单条 `use external_crate::Symbol;` 也要并入 `use {...}` 块**,不要写成独立的 `use ...;` 行后跟 `use {...}` 块。例如 `use log::SetLoggerError;` 应合并进 `use {clap::Parser, log::SetLoggerError, serde::Serialize, ...}`,而不是独占一行放在 `use std::{...}` 之后 / `use {...}` 块之前。
 
-### §6.1 常见违规(2026-09-14 euv PR #235 实测)
+### §6.1 常见违规(euv 实测)
 
 1. **private use 写在 pub use 之前**(step 6 必须在 step 2-5 之后)。
 2. **`pub use {sub-modules::*}` 放在 `pub use std` / `pub use external` 之后**(子模块 glob 是 step 2,必须最前)。
@@ -28,7 +28,7 @@
 5. **单条 `use external_crate::Symbol;` 单独成行,没合并进 `use {...}` 块**。
 6. **`pub use {sub-modules::*}` 但 sub-modules 内的 items 是 `pub(crate)`**(`E0644: glob import doesn't reexport anything with visibility 'pub'`)。**Fix**:改成 `pub(crate) use {sub-modules::*};`,visibility 必须 ≤ glob 内所有 item 的最大 visibility。验证:`grep -h 'pub(\|^pub ' <crate>/src/<sub>/fn.rs <crate>/src/<sub>/struct.rs ...` 看最大可见性。
 
-### §6.1 pitfall-a:`pub use {sub_modules::*}` 的 visibility 匹配(2026-09-14 euv PR #236)
+### §6.1 pitfall-a:`pub use {sub_modules::*}` 的 visibility 匹配(euv )
 
 `pub use {a::*, b::*, c::*};` glob re-export 要求**所有 glob 进来的 item 至少有 `pub` visibility**。如果某 sub-module 的 fn / struct / const 是 `pub(crate)`,`pub use` 会编译期 warn:
 
@@ -53,7 +53,7 @@ warning: glob import doesn't reexport anything with visibility `pub` because no 
 
 ### Audit 覆盖范围
 
-`scripts/audit_rust_standards.py` 当前 **不检查** §6.1 的顺序违规(只检查 mod.rs 三段式 + sub-file `use super::*;`)。**lib.rs use/pub use 组顺序是 user-review-only 项** —— review reject 之前 agent 不会自动发现。PR #235 是 user 主动指出后才修。
+`scripts/audit_rust_standards.py` 当前 **不检查** §6.1 的顺序违规(只检查 mod.rs 三段式 + sub-file `use super::*;`)。**lib.rs use/pub use 组顺序是 user-review-only 项** —— review reject 之前 agent 不会自动发现。 是 user 主动指出后才修。
 
 > 完整模板见 `templates/lib-rs.md`
 
@@ -63,11 +63,11 @@ warning: glob import doesn't reexport anything with visibility `pub` because no 
 2. `pub use {r#xxx::*, ...};` 或 `pub use {子模块::*};` 把需要对外暴露的符号 glob 出去;只在本 crate 内可见的符号用 `pub(crate) use {...};`;测试用的 `mod.rs` 通常不需要 `pub use`
 3. 末尾独占一行 `use super::*;`(不带分号以外的任何修饰)
 
-> 完整模板(标准/简化/私有/测试 四种)见 `templates/mod-rs.md`
+> 完整模板(标准/简化/私有/测试四种)见 `templates/mod-rs.md`
 
 ## 6.3 子文件(fn.rs / struct.rs / impl.rs 等)
 
-- **第一行** **可以省略 `use super::*;`**(2026-09-26 第六轮 user 放宽)。即:
+- **第一行** **可以省略 `use super::*;`**(user 放宽)。即:
   - ✅ 文件**无** `use` —— OK(例如 `pub fn foo() {}` 直接开头)
   - ✅ 文件**首行** `use super::*;` —— OK
   - ✅ 文件**体内任何位置** `use super::*;` —— OK
@@ -75,8 +75,8 @@ warning: glob import doesn't reexport anything with visibility `pub` because no 
 - 后续自由声明,**不允许**出现 `use crate::xxx;`、`use std::xxx;`、`use super::具体路径;`、`use external_crate::xxx;`、`use crate::*;` 这类长路径或具体路径导入(任何非 `use super::*;` 形式的 use 都违规)
 - 必须通过 `use super::*;`(或干脆**不**写 use,完全在文件内本地声明所有东西)来访问父模块符号
 
-> **历史**(2026-09-26 之前): 旧 §6.3 强制要求子文件首行必须是 `use super::*;`,
-> 不能省略。第六轮 user 原话: "不是所有文件都必须要需要使用 use super::*,
+> **历史**(之前): 旧 §6.3 强制要求子文件首行必须是 `use super::*;`,
+> 不能省略。 user 原话: "不是所有文件都必须要需要使用 use super::*,
 > 可以不要 use, 对于 lib.rs, mod.rs 之外的 rs 文件, 是不允许出现 use::super::*
 > 和没有 use 之外的其他写法的", 明确放宽 "可以不要 use"。本节已同步更新。
 >
@@ -158,13 +158,13 @@ for f in $(git diff --name-only origin/master HEAD -- '*.rs' | grep -E '^[^/]+/s
 done
 ```
 
-预 commit 必跑这一检查。euv PR #233 实测:3 处 `minify_js::Session/minify/TopLevelMode` 调用全被这一脚本抓到,audit 原 rule 9 漏掉。
+预 commit 必跑这一检查。euv 实测:3 处 `minify_js::Session/minify/TopLevelMode` 调用全被这一脚本抓到,audit 原 rule 9 漏掉。
 
 **例外**:
 - `#[cfg(test)] mod tests { use std::time::Instant; }` 如果 `Instant` 没在 lib.rs pub use,且仅测试使用 → OK。
 - 子文件**首次**使用某个 std 符号,而该符号尚未被 lib.rs re-export → **应先加到 lib.rs** (`pub use std::time::Instant;`),然后再在 sub-file 用。**不要**在 sub-file 内 `use std::time::Instant;` 直接绕开。
 
-## 6.5 禁止 `use ... as ...` as 重命名(2026-09-26 user 钦定)
+## 6.5 禁止 `use ... as ...` as 重命名(user 钦定)
 
 **user 原话**: "类型导入禁止使用 as 重命名,如果类型冲突才在使用的地方使用最短可区分的命名空间"
 
@@ -179,7 +179,7 @@ use std::{fmt::{self, Write as FmtWrite}};
 pub use std::io::Result as IoResult;
 ```
 
-### 豁免:`as _` (2026-10-17)
+### 豁免:`as _`
 
 `use foo as _;` **允许**。它不引入任何名字,`_` 永远不会被读到,所以不存在"用短名误导读者"的问题,也没有"使用处该写哪个命名空间"的问题 —— 这句 `use` 存在的唯一目的是**让链接器把这个 crate 留在二进制里**:
 
@@ -230,9 +230,9 @@ euv cli 实测:`FmtResult` 是本地 `pub(crate) struct FmtResult`(`cli/src/fmt/
 - 脚本:`scripts/verify_no_import_rename.py <repo>`(use 块状态机,覆盖单行 / 分组多行 / 各可见性)。
 - audit:`audit_rust_standards.py` check 37。
 - fixture:`~/.hermes/cache/scratch/verifier-fixtures/rename-{compliant,violating}`,双向通过(0 / 3 hits,exit 0/1)。
-- 三仓收敛(2026-09-26):hyperlane 2 / euv 6 / ctares 1 → 全部 0。
+- 三仓收敛hyperlane 2 / euv 6 / ctares 1 → 全部 0。
 
-## 6.6 同 root 的 `use` 必须聚合成一个 brace 语句(2026-09-27 user 钦定)
+## 6.6 同 root 的 `use` 必须聚合成一个 brace 语句(user 钦定)
 
 **user 原话**: "同一作用域内,相同 crate/模块 root 的 use 必须聚合成一个 brace 形式语句,禁止拆成多行独立 use"
 
@@ -261,7 +261,7 @@ pub use serde::Serialize;
 
 ### 分组粒度:按 (root, visibility) 分组 —— 这是实测结论,不是拍脑袋
 
-**实测(2026-09-27,rustfmt 1.9.0-stable + nightly 1.101.0):**
+**实测(rustfmt 1.9.0-stable + nightly 1.101.0):**
 
 | rustfmt 配置 | `use std::a; use std::b;` | `pub use std::a; use std::b;`(跨 visibility) |
 | --- | --- | --- |
@@ -304,5 +304,5 @@ verifier 用"连续段"(run)切分实现这一点:两个 `use` 之间若存在�
 - audit:`audit_rust_standards.py` check 41(列表第 40 条)。
 - hook:`staged_file_gate.py` 已注册 `verify_use_aggregation`,只拦**新引入**的违规,不拦历史债。
 - fixture:`~/.hermes/cache/scratch/verifier-fixtures/use-agg-{compliant,violating}`:compliant 0 hits / exit 0(8 个豁免文件),violating 4 hits / exit 1(4 个违规文件)。audit 端到端双向通过(check 41 在 violating 侧 FAIL 4 hits,在 compliant 侧 PASS)。
-- 三仓实测(2026-09-27):**euv 1 违规文件 / 1 hit**(`macros/tests/mod.rs:12`)/ **ctares 0** / **hyperlane 0**。
+- 三仓实测**euv 1 违规文件 / 1 hit**(`macros/tests/mod.rs:12`)/ **ctares 0** / **hyperlane 0**。
   - **注意**:`grep` 粗扫出的"多条 `use std::`"绝大多数**本来就已经是 brace 形式**(如 euv `core/src/lib.rs:15` + `:28` 分别是 `pub use std::{` / `use std::{`),不是违规;粗扫数字远高于 verifier 数字属正常。verifier 会解析出每条语句的**真实 root**再分组,无 root 的 `use { ... }` re-export 块不参与分组。

@@ -2,7 +2,7 @@
 
 > **Use when**: CLI / binary exceeds ~150 lines, OR you want to honour
 > §1.3 keyword-purity for a binary target. Verified against
-> `eastspire/euv-docs` PR #31 (feat/cli-binary, 2026-09-18).
+> `eastspire/euv-docs` (feat/cli-binary).
 
 ## Cargo.toml
 

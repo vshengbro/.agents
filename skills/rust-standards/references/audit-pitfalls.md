@@ -128,7 +128,7 @@ A repo-wide grep for the first non-comment line across
 start with `use super::*;` — confirming the pattern is universal.
 
 The audit script category 7 used to misreport these. As of
-2026-08-28 it now matches by `basename` and skips every
+ it now matches by `basename` and skips every
 keyword-only sub-file (`const.rs` / `static.rs` / `fn.rs` /
 `enum.rs` / `struct.rs` / `trait.rs` / `impl.rs` / `type.rs`).
 When in doubt, manually confirm the file doesn't reference any
@@ -186,7 +186,7 @@ inside `patch_attributes` — needs `.as_ref()`.
 ## 12. macro emit `Tag::Element("div".to_string())` → `Cow::Borrowed("div")`
 
 When refactoring `Tag::Element(String)` to `Tag::Element(Cow<'static,
-str>)`, the macro `tag_literal = "#tag_name.to_string()"` token
+str>)`, the macro `tag_literal = "#tag_name.to_string"` token
 **does not work** when wrapped in `Cow::Borrowed(...)` because
 `"div".to_string()` is not `'static`. Use the raw string literal token
 directly: `tag_literal = #tag_name` (no `.to_string()`) → wrap in
@@ -242,23 +242,21 @@ Blank lines between sections:
 - Between `[build-dependencies]` and `[lib]` (if any)
 - No blank line AFTER the last block (no trailing newline-of-blank-line)
 
-## 17. lib.rs `//!` doc comment IS allowed [DEPRECATED 2026-09-26 fifth iteration]
+## 17. lib.rs `//!` doc comment — MANDATORY 3-line doc block (§2.4, check 37)
 
-The audit script category 5 (// comments in mod.rs) does NOT
-flag lib.rs. Master explicitly allows a top-of-file `//!` crate
-description on lib.rs. Same for raw_html.rs (the only non-lib.rs file
-allowed to have `//!` as first lines — it's the proc-macro implementation
-file in `macros/src/`).
+The mod.rs comment check does NOT flag lib.rs, but lib.rs must still start
+with the canonical 3-line `//!` doc block below. Same for raw_html.rs (the
+only non-lib.rs file allowed to have `//!` as first lines — it's the
+proc-macro implementation file in `macros/src/`).
 
-**[DEPRECATED 2026-09-26 fifth iteration]**:  This exemption is upgraded
-to a MANDATORY rule by `verify_lib_rs_doc_comment.py` (audit check 37).
-Per user original (2026-09-26 第五轮): "对于 lib.rs 必须要检查是否存在
+**This is a MANDATORY rule**, enforced by `verify_lib_rs_doc_comment.py` (audit check 37).
+Per user original: "对于 lib.rs 必须要检查是否存在
 //! 注释,注释第一行 //! 后是包名后面是一行 //! 再后面才是内容".
 The required structure is now:
 
-  //! <package_name>     // text must equal [package].name from Cargo.toml
+  //! <package_name> // text must equal [package].name from Cargo.toml
   //!
-  //! <description>      // project description
+  //! <description> // project description
 
 Real-workspace findings (euv): 5 lib.rs files violate this rule:
 - `core/src/lib.rs:1` 写 `//! euv` 但 `[package].name = "euv-core"`
@@ -267,9 +265,8 @@ Real-workspace findings (euv): 5 lib.rs files violate this rule:
 - `cli/src/lib.rs:1` 写 `//! euv CLI` 但 `name = "euv-cli"`
 - `macros/src/lib.rs:1` 写 `//! euv_macros` 但 `name = "euv-macros"`
 
-The historical "allowed" framing here is now reversed: missing the
-`//!` block is a violation; the only "allowed" form is the canonical
-3-line structure documented above.
+Missing the `//!` block is a violation; the only compliant form is the
+canonical 3-line structure documented above.
 ## 18. `struct`/`fn` at column 0 inside WGSL shader raw strings — NOT a violation
 
 Keyword-file purity scans (R1.3) that match top-level items by "line starts
@@ -602,10 +599,10 @@ project-specific deviations.
    intent (e.g. `MAX_ANCESTOR_DEPTH_FOR_HIGH_FREQ` — every component
    word must be standard English, no internal abbreviations).
 
-**The "PR diff only" trap**: when PR #21 was reviewed for fn naming,
+**The "PR diff only" trap**: when was reviewed for fn naming,
 the initial scan showed `change_locale`, `change_factory`,
 `change_config`, `change_fallback_locale` as "newly added" — but those
-were actually introduced in PR #20 (the rust-standards refactor PR
+were actually introduced in (the rust-standards refactor PR
 whose commits `a70fe8b` → `df9c9c6` were already merged into the
 branch). The perf PR `df9c9c6..HEAD` only added `try_reclaim_inactive`
 + 2 consts + 4 wasm_bindgen_test helpers. Always scope the naming
@@ -629,7 +626,7 @@ symbol already exposed via the chain), rustc emits a compile error
 (unambiguous glob) **or** clippy fires `unused_imports` — both are
 review-blocking.
 
-**Concrete pattern (PR #202, euv keyed-diff planner)**:
+**Concrete pattern (euv keyed-diff planner)**:
 - Before: `fn.rs::compute_child_ops_plan` opened with
   `use std::collections::{HashMap, HashSet};` even though `lib.rs` line
   18 has `pub use std::collections::{HashMap, HashSet, VecDeque};`.
@@ -663,7 +660,7 @@ ChildOpPlan`, `pub(crate) struct FooBar`, `pub(crate) type MyAlias =
 purity and the audit script's category 1 (`non-keyword prod files`)
 won't catch it because the file basename **is** `fn.rs`.
 
-**Concrete pattern (PR #202)**:
+**Concrete pattern **:
 - Before: `core/src/renderer/render/fn.rs` contained
   `pub(crate) enum ChildOpPlan { ... }` inline with `lis_indices` and
   `compute_child_ops_plan`.
@@ -699,7 +696,7 @@ breaks are expressed by comment lines (`// Phase 1: ...`,
 implementation style of "blank line then comment header then code"
 does not match this project's master convention.
 
-**Concrete pattern (PR #202)**:
+**Concrete pattern **:
 - Before: comment blocks inside `patch_children_keyed` were separated
   by single blank lines (line 718 was the only true blank inside the
   fn body — between comment block and code).
@@ -740,7 +737,7 @@ historically had a broken ERE regex that made the rule silently PASS
 even when real inline `#[cfg(test)] mod tests { ... }` violations
 existed in the diff.
 
-**The bug** (pre-2026-09-12):
+**The bug** (pre-):
 
 ```python
 ('#[cfg(test)] in production', '''
@@ -766,7 +763,7 @@ counts `r.stdout` lines, not stderr.
 - Rule 4 ("#[test] in production", separate grep) had the same
   escape-layer bug for a different regex — fixed in the same pass.
 
-**The fix** (2026-09-12):
+**The fix**
 
 Replace `grep -E <regex>` with `grep -F <literal>` whenever the rule
 needs to match a fixed Rust token:
@@ -803,19 +800,19 @@ If the rule keeps PASSing despite visible violations, check
 `r.stderr` from `subprocess.run([...])` for `grep: ...` errors — that's
 the symptom of a broken ERE.
 
-**Master-exception exemption REMOVED (2026-09-12 user 第二轮)**:
+**The master exception is withdrawn** (user 原话):
 
 user 原话:
 
 > "src里所有单测删除,有tests目录是单测的,如果单测的功能不是pub那就忽略"
 
-这条把 §14.4 的"master 例外 pattern"(允许 `pub(crate)` item 用 `#[cfg(test)] mod tests { ... }` + `// These tests live inline` 注释保留 inline 测试)**完全推翻**。现在的规则:
+§14.4 没有"master 例外 pattern" —— 不允许用 `#[cfg(test)] mod tests { ... }` + `// These tests live inline` 注释保留 inline 测试。规则:
 
 - 任何 inline `#[cfg(test)] mod tests { ... }` 块 = violation,不管有没有 `// These tests live inline` 注释。
 - `pub(crate)` item 没有单元测试——算法正确性必须通过 `pub` API 的 end-to-end 测试间接覆盖。
 - `pub` item 的测试必须搬到 `<crate>/tests/<feature>/fn.rs`,不能改 visibility。
 
-**audit script rule 8 修改**:删掉 `// These tests live inline` 注释的 exemption,任何 `+#[cfg(test)]` 行都 FAIL。**euv PR #203 实测**:core/src/renderer/render/fn.rs 922 行 inline tests + engine 三个 inline tests + master 注释全部删除/迁移。
+**audit script rule 8 修改**:删掉 `// These tests live inline` 注释的 exemption,任何 `+#[cfg(test)]` 行都 FAIL。**euv 实测**:core/src/renderer/render/fn.rs 922 行 inline tests + engine 三个 inline tests + master 注释全部删除/迁移。
 
 **迁移目标**:
 - `pub(crate)` fn 关联的 inline 测试 → **整块删除**(不带任何注释保留)。
@@ -875,7 +872,7 @@ WGSL shader raw strings are **not** violations. But the §18 entry only
 names the **symptom** (false positive in column-0 keyword scans) — it
 does not give a **re-scan recipe** for a future session that hits it.
 
-This session (2026-09-12, euv PR #202 + master §1.3a audit) found that
+This session (euv + master §1.3a audit) found that
 **master has 38 such false positives** in
 `example/src/page/{game_2d,game_3d,lighting,raytrace}/hook/const.rs` —
 all `pub(crate) const *_WEBGPU_SHADER: &str = r#" ... "#;` blocks
@@ -949,7 +946,7 @@ true violations — all were shader code.
 
 The naïve "track global brace depth, treat every `{` as fn-body start"
 scanner produces **40+ false positives** in master (verified this
-session, 2026-09-12). Three classes of false positive that the naive
+session, ). Three classes of false positive that the naive
 scanner must special-case:
 
 1. **`use std::{ ... }` blocks** (blank lines inside the use list, e.g.
@@ -1021,7 +1018,7 @@ pub(crate)** symbols. A plain `fn name(...)` (no `pub`) is **private**
 to the fn.rs file itself; the sibling `impl.rs` cannot see it via
 `use super::*;` even though the mod.rs glob re-exports `r#fn::*`.
 
-**Concrete failure (this session, euv PR #202 + style cleanup)**:
+**Concrete failure (this session, euv + style cleanup)**:
 
 After moving `cached_method_name` from `impl.rs` to `fn.rs`, cargo
 emits `error[E0425]: cannot find function 'cached_method_name' in
@@ -1093,7 +1090,7 @@ violation**:
 |------|---------|------|-----|
 | 3 | `panic!(\|\.expect\(\|\.unwrap\(\)` (in shell template) | backslash collision | `grep -F` "panic!" + separate `grep -F` ".expect(" + "grep -F" ".unwrap("; OR `grep -E` verified |
 | 4 | `^#[test]` | low | OK |
-| 8 | `^\\+.*#\\[(test\|cfg\\(test\\)\\)\\]` | **HIGH — was broken** | `grep -F "#[cfg(test)]"` (fixed 2026-09-12) |
+| 8 | `^\\+.*#\\[(test\|cfg\\(test\\)\\)\\]` | **HIGH — was broken** | `grep -F "#[cfg(test)]"` (fixed ) |
 | 11 | `mod r#<keyword>` | low (literal `r#` prefix) | OK |
 | 13 | `^#!\[cfg\(test\)\]` | medium — backslash collision | `grep -F "#![cfg(test)]"` |
 | 14 | `^pub(crate) fn .*\(self\)` | low | OK |
@@ -1254,7 +1251,7 @@ The lint false positive does not affect the actual compilation.
 real syntax error): the lint output ALSO shows up in `cargo check`
 stderr. If `cargo check` exits 0, the file is fine.
 
-## 29.1 patch tool deletes preceding `///` doc-comment block when old_string starts mid-function — verified 2026-09-14 (euv-cli inline-js minify PR #233)
+## 29.1 patch tool deletes preceding `///` doc-comment block when old_string starts mid-function — verified (euv-cli inline-js minify )
 
 **Symptom**: A patch with `old_string` of the form
 `<last line of preceding function's body>\n<blank line>\n/// - &Path - ...\n///\n/// - &Path - description.\npub async fn some_fn(...) {`
@@ -1320,7 +1317,7 @@ retry with a Python script. Don't try to amend the deletion — the
 more than the rebuild.
 
 
-## 30. audit rule 8 (#[cfg(test)] detection) broken regex — fixed 2026-09-12
+## 30. audit rule 8 (#[cfg(test)] detection) broken regex — fixed
 
 **Symptom**: audit script rule 8 `grep -E "^\\+.*#\\[(test|cfg\\(test\\)\\)"` (Python format → shell escape → grep ERE) failed because `\\(` in ERE is invalid syntax. `grep` emitted `Unmatched ( or \(` to stderr and stdout was empty, so the rule always reported PASS — **false-positive PASS** even when `#[cfg(test)] mod tests` truly exists in production code.
 
@@ -1332,7 +1329,7 @@ more than the rebuild.
 
 **Verified**: rule 8 now correctly reports FAIL when a new file adds inline `#[cfg(test)] mod tests` without master-exception comment.
 
-## 31. audit rule 15 (R1.3a raw-string-aware keyword purity) — added 2026-09-12
+## 31. audit rule 15 (R1.3a raw-string-aware keyword purity) — added
 
 **Why**: rule 1 only checks for non-keyword basename (e.g. `foo.rs` outside the 8 keyword-file names). It did NOT catch column-0 decl mismatches WITHIN keyword files (e.g. `pub(crate) enum X` declared in `struct.rs`, which is forbidden).
 
@@ -1351,27 +1348,23 @@ more than the rebuild.
 - `type Alias = ...` → `type.rs`
 - `const FOO` / `static BAR` → `const.rs` / `static.rs`
 
-**Verified**: rule 15 catches all column-0 decl mismatches that rule 1 missed, including the historical euv master violations (PR #202 cleanup) and WGSL shader code in raw strings (correctly excluded).
+**Verified**: rule 15 catches all column-0 decl mismatches that rule 1 missed, including the historical euv master violations (cleanup) and WGSL shader code in raw strings (correctly excluded).
 
-## 37. `tests/` comment rules — user iteration pattern + audit rule 16 false-positive traps
+## 37. `tests/` comment rules — current scope + audit rule 16 false-positive traps
 
-User went through three rounds of corrections on the same `tests/` topic, each round strictly tightening the rule. Future sessions debugging "why does audit rule 16 fire?" need to know the exact scope and the false-positive traps:
+Current `tests/` rule (§14.4 + §14.5). Future sessions debugging "why does audit rule 16 fire?" need the exact scope and the false-positive traps:
 
-### Round 1 (2026-09-12): §14.4 — no visibility widening for tests
+### §14.4 — no inline `mod tests`, no visibility widening
 
 User 原话:
 > "你不应该修改模块可见性,你应该使用已有可见的api去在tests里做单测,通过已有的api覆盖,没有暴露的api的单测"
-
-So `pub(crate)` items have no tests — `#[cfg(test)] mod tests` blocks testing them must be **deleted entirely**, not moved.
-
-### Round 2 (2026-09-12): §14.4 — no inline `mod tests` at all
-
-User 原话:
 > "src里所有单测删除,有tests目录是单测的,如果单测的功能不是pub那就忽略,如果是pub就加到tests里"
 
-This nuked the prior "master-exception" exemption (§14.4 master pattern `// These tests live inline` comment as a marker). ALL inline `#[cfg(test)] mod tests` blocks are forbidden across the whole codebase. Tests for `pub` items move to `<crate>/tests/<feature>/fn.rs`; tests for `pub(crate)` items are deleted.
+- ALL inline `#[cfg(test)] mod tests` blocks are forbidden across the whole codebase — there is **no** "master exception" pattern (a `// These tests live inline` comment is not a marker).
+- Tests for `pub` items move to `<crate>/tests/<feature>/fn.rs`; tests for `pub(crate)` items are **deleted**, not moved.
+- Never widen visibility to make a test possible.
 
-### Round 3 (2026-09-12): §14.5 — no comments in tests
+### §14.5 — no comments in tests
 
 User 原话:
 > "单测不需要任何注释,删除所有单测注释"
@@ -1421,11 +1414,11 @@ fn foo_returns_true_when_input_is_positive() {
 
 `engine/tests/mod.rs` / `ui/tests/mod.rs` / `core/tests/mod.rs` are at the integration-test crate root — `super::*` would be "too many leading super keywords" (E0433). Rule 6 already excludes these from the trailing-`use super::*;` check. Engine / ui top-level mod.rs end with `use wasm_bindgen::JsValue;` (after any `use std::{...};`); core top-level mod.rs ends with `use std::{...};` or similar. Do not try to add `use super::*;` here.
 
-**Verified**: euv PR #203 final state, audit rule 16 PASSES with 30/30 engine tests + 0 core inline tests, all comment-stripped.
+**Verified**: euv final state, audit rule 16 PASSES with 30/30 engine tests + 0 core inline tests, all comment-stripped.
 
 ## 38. CI `cargo fmt --check` is stricter than local `cargo fmt` (version skew pitfall)
 
-2026-09-12 PR #203: local `cargo fmt --all` ran idempotent (0 changed), but CI's `cargo fmt -- --check` failed on `engine/tests/mod.rs:7` because CI had a trailing blank line that local rustfmt (1.9.0-stable) didn't normalize but CI rustfmt (1.98.1) did.
+  : local `cargo fmt --all` ran idempotent (0 changed), but CI's `cargo fmt -- --check` failed on `engine/tests/mod.rs:7` because CI had a trailing blank line that local rustfmt (1.9.0-stable) didn't normalize but CI rustfmt (1.98.1) did.
 
 **Symptoms**: local idempotent, CI fails with a small diff like:
 ```
@@ -1437,9 +1430,9 @@ Diff in <path>/mod.rs:7:
  ##[error]Process completed with exit code 1.
 ```
 
-**Fix**: when local `cargo fmt --all` is idempotent but CI fails, run `cargo fmt -- --check` locally (uses the same binary but the `--check` flag forces stricter comparison). If still failing in CI only, the issue is the rustfmt version skew between local stable (1.9.0-stable as of 2026-07) and CI stable (1.98.1 as of 2026-09-01).
+**Fix**: when local `cargo fmt --all` is idempotent but CI fails, run `cargo fmt -- --check` locally (uses the same binary but the `--check` flag forces stricter comparison). If still failing in CI only, the issue is the rustfmt version skew between local stable (1.9.0-stable as of 2026-07) and CI stable (1.98.1 as of ).
 
-**Action**: after local `cargo fmt` is idempotent, also run `euv fmt` (if euv project) then re-check. If they diverge, manually fix the discrepancy and re-commit. PR #203 commit `d0ab4ae5` was exactly this fix — a single line removal.
+**Action**: after local `cargo fmt` is idempotent, also run `euv fmt` (if euv project) then re-check. If they diverge, manually fix the discrepancy and re-commit. commit `d0ab4ae5` was exactly this fix — a single line removal.
 
 This is environment-dependent (rustfmt version skew) but the **workflow lesson** is durable: when local is idempotent and CI fails on fmt, don't just re-run `cargo fmt` — manually inspect the diff CI reports and apply it directly.
 
@@ -1474,7 +1467,7 @@ sibling subdir like `debug/` exists with its own `Cargo.toml`,
 verify the subdir is excluded from the parent and treat as
 informational, not as a violation to fix.
 
-Verified against `crates-dev/lombok-macros` (2026-09-12): `debug/`
+Verified against `crates-dev/lombok-macros` `debug/`
 ships 7 raw-pointer test structs (`GenericPtr<T>`, `DstPtr`,
 `ConstPtr`, `OptPtr`, `OptDstPtr`, `CopyPtr`, `TuplePtr`) in
 `debug/src/main.rs`, all gated by `fn main()` assertions, run via
@@ -1493,7 +1486,7 @@ to "satisfy" the keyword-purity rule would break the binary build.
 Audit category 1 (`non-keyword prod files`) historically missed this
 case — when a PR adds `cli/src/main.rs` (e.g. a `[[bin]]` crate being
 imported into the workspace), the rule reports `NON-KEYWORD: cli/src/main.rs`.
-The fix (2026-09-14): add `/main\.rs$` to the grep -vE exclusion list
+The fix add `/main\.rs$` to the grep -vE exclusion list
 in the rule template, alongside `/lib\.rs$` and `/raw_html\.rs$`.
 
 **NOT a violation**: any `main.rs` (or `bin/<name>.rs` referenced from
@@ -1504,7 +1497,7 @@ keyword files.
 (e.g. `src/foo.rs`, `src/utils.rs`, `src/helpers.rs`) — those should
 be re-organized into keyword subdirectory + `mod.rs`.
 
-Verified during hyperlane monorepo migration (PR #34): audit now PASSes
+Verified during hyperlane monorepo migration audit now PASSes
 on `cli/src/main.rs` after the rule fix.
 
 
@@ -1517,14 +1510,14 @@ entry point. Both are legitimate cargo conventions that must not be
 re-organised into keyword subdirectory + `mod.rs` — cargo's discovery
 rules require them at the conventional paths.
 
-**Audit fix (2026-09-18)**: add `/bin/[^/]+\.rs$` and `(^|/)build\.rs$` to
+**Audit fix **: add `/bin/[^/]+\.rs$` and `(^|/)build\.rs$` to
 the grep -vE exclusion list in audit rule #1 (non-keyword prod files)
 and rule #7 (sub-file first line not `use super::*`), alongside
 `/main\.rs$`. The `(^|/)` prefix is required because `build.rs` lives
 at the repo root (no leading `/`); the pattern `(^|/)build\.rs$`
 matches `build.rs` and `path/to/build.rs` but not `sub_build.rs`.
 
-Triggered by `eastspire/euv-docs` PR #31 (feat/cli-binary): adding
+Triggered by `eastspire/euv-docs` (feat/cli-binary): adding
 `[[bin]] name = "euv-docs"` plus a 14-line env-var block in `build.rs`
 to support a CLI binary. Both files are mandatory cargo conventions.
 
@@ -1539,7 +1532,7 @@ matches only files that satisfy the `bin/<one-segment>.rs` or top-level
 `build.rs` pattern.
 
 
-## 39b. audit script check 19 (R9.1 §9.1 item 10 — fn-body blank lines) — added 2026-09-18
+## 39b. audit script check 19 (R9.1 §9.1 item 10 — fn-body blank lines) — added
 
 **Why**: §9.1 item 10 forbids blank lines inside function bodies. The
 audit script previously had no check for this (audit-pitfalls #33 gave
@@ -1547,7 +1540,7 @@ the recipe but no rule was wired in), so a hand-written `pub fn` with
 multiple blank lines between statements would PASS the audit and only
 fail user review.
 
-**Audit fix (2026-09-18)**: check 19 added to `audit_rust_standards.py`.
+**Audit fix **: check 19 added to `audit_rust_standards.py`.
 Detection algorithm:
 
 1. Classify brace-opening context per audit-pitfalls #33:
@@ -1563,7 +1556,7 @@ Detection algorithm:
 new-file line number falls inside a hunk range from
 `git diff <base> HEAD -U0 -- <file>`. This prevents upstream historical
 violations from being blamed on the PR. Verified against
-`eastspire/euv-docs` PR #31 (feat/cli-binary): build.rs has 25 fn-body
+`eastspire/euv-docs` (feat/cli-binary): build.rs has 25 fn-body
 blank lines upstream-side but **0 in PR diff hunks** — audit correctly
 reports 19/19 PASS for that PR.
 
@@ -1575,7 +1568,7 @@ upstream/master` = `2e7fbb5`, diff scope = 4 files (the PR's actual
 diff), not 6 (which is what `origin/master..HEAD` would return because
 the local fork master contains 2 commits not yet merged upstream).
 
-**Verified against**: `eastspire/euv-docs` PR #31 with hand-cleaned
+**Verified against**: `eastspire/euv-docs` with hand-cleaned
 `src/bin/euv-docs.rs` (4 phase comments replace inter-statement blank
 lines) — 19/19 PASS, 0 false positives.
 
@@ -1584,8 +1577,8 @@ lines) — 19/19 PASS, 0 false positives.
   the next fn's doc comment) — these separate items, not inside bodies.
 - Blank lines inside `#[cfg(test)] mod tests { ... }` — test fns are
   exempt per `tests/` pattern.
-- Blank lines between trait method signatures (`pub trait Foo { fn a();
-  fn b(); }`).
+- Blank lines between trait method signatures (`pub trait Foo { fn a;
+  fn b; }`).
 - Blank lines inside `use { ... }` blocks or const-item lists.
 
 
@@ -1601,7 +1594,7 @@ with no methods), adding `use super::*;` triggers `unused_imports` at
 mod.rs level (which propagates to all sub-files via `use super::*;`).
 rustc 2024 edition treats `unused_imports` as a warning by default.
 
-**Concrete case (hyperlane monorepo, PR #34)**: `cli/src/command/mod.rs`
+**Concrete case (hyperlane monorepo)**: `cli/src/command/mod.rs`
 contains `mod r#enum;` + `pub use r#enum::*;`. The only sub-file
 `cli/src/command/enum.rs` declares a pure `pub enum CommandType`
 without any `use super::*;` chain reference. Adding `use super::*;`
@@ -1624,7 +1617,7 @@ to `mod.rs` raises `warning: unused import: super::*` because:
    `unused_imports: super::*` warnings — if 0 warnings, the omission
    is consistent.
 
-**Audit script update** (2026-09-14): category 6 should be relaxed to
+**Audit script update** category 6 should be relaxed to
 "missing `use super::*;` AND at least one sub-file uses parent
 symbols" — if the sub-file analysis shows zero parent-symbol usage,
 the mod.rs's `use super::*;` is exempt. Equivalent check:
@@ -1644,7 +1637,7 @@ if [ "$has_parent_use" -eq 0 ]; then
 fi
 ```
 
-Verified during hyperlane monorepo migration (PR #34): `cli/src/command`,
+Verified during hyperlane monorepo migration `cli/src/command`,
 `cli/src/help`, `cli/src/version`, `type/src/box_leak`, `type/src/lifetime`
 all contain only leaf enum/struct/trait sub-files. `cli/src/logger/mod.rs`
 does need `use super::*;` because it has sub-files (impl.rs) that use
@@ -1674,7 +1667,7 @@ controlled), `get_X` panics (caller asserts presence). The panic in
 violation, without inspecting the call pattern. This produces false
 positives for the `try_X().unwrap()` wrapper pattern.
 
-**Concrete case (hyperlane monorepo, PR #34)**: 15 occurrences across
+**Concrete case (hyperlane monorepo)**: 15 occurrences across
 `type/src/request/impl.rs`, `type/src/response/impl.rs`,
 `type/src/stream/impl.rs`, `type/src/websocket_frame/impl.rs` — all of
 them `try_X().unwrap()` inside a `pub fn get_X(...)` wrapper.
@@ -1689,13 +1682,13 @@ implemented):
 expected to either:
 1. Accept the FAIL (and document it in the PR description as "upstream
    wrapper pattern — not modified in this PR"), OR
-2. Replace `try_X().unwrap()` with `try_X().expect("descriptive
+2. Replace `try_X().unwrap()` with `try_X.expect("descriptive
    message")` (audit still flags, but the panic message is more
    useful), OR
 3. Change `get_X` to return `Result<T, E>` and propagate with `?`
    (BREAKING — out of scope for migration PRs).
 
-Verified during hyperlane monorepo migration (PR #34): all 15
+Verified during hyperlane monorepo migration all 15
 occurrences follow this pattern. They are upstream code copied from
 http-type (crates-dev) and not introduced by the migration.
 
@@ -1720,7 +1713,7 @@ But it parses `[workspace.dependencies]` only, NOT each sub-crate's
 (macros sub-crate), `log::Level` (cli sub-crate), `notify::Error`
 (cli sub-crate) are not detected.
 
-**Concrete case (hyperlane monorepo, PR #34)**:
+**Concrete case (hyperlane monorepo)**:
 
 - `macros/src/common/fn.rs`: `proc_macro2::TokenStream` annotations
 - `cli/src/logger/impl.rs`: `log::Level`, `log::LevelFilter`
@@ -1742,7 +1735,7 @@ initial monorepo PR; address each sub-crate's lib.rs re-export in
 follow-up PRs scoped to that crate (one PR per crate keeps review
 diff small).
 
-## 43. Check 19 false positives — R14.7 `tests/<sub>/fn.rs` non-super use (2026-09-25 new check)
+## 43. Check 19 false positives — R14.7 `tests/<sub>/fn.rs` non-super use (new check)
 
 Check 19 wraps `verify_test_imports_centralized.sh`. The script's detection:
 
@@ -1769,7 +1762,7 @@ Known **non**-false-positive cases (these are real violations; auto-fixable):
 Known **actual** false-positive patterns (the script's logic intentionally
 excludes these; if you see one reported, file a bug):
 
-1. None known yet. **The check is new (2026-09-25)**; run it on every
+1. None known yet. **The check is new **; run it on every
    eastspire-owned repo and add new entries here as they appear.
 
 **Auto-fixer caveat**: `strictify_tests_layout.py` always rewrites
@@ -1792,14 +1785,9 @@ Reasons:
 
 **Reference**: `references/14-testing.md §14.7` for the full prose.
 
-## 44. §13.7 排序规则第四轮变更(2026-09-26,length+lex)
+## 44. §13.7 排序规则(length+lex)与一次性迁移成本
 
-`verify_dep_order.py` 在 2026-09-26 升级为第四轮规则:**本地 vs 三方分组,组内按 entry 完整长度升序 + 长度相同按 dep key 字典序**。前 3 轮规则版本:
-
-- 第一轮 (2026-09-14):块内 (key 长度, 字典序)
-- 第二轮 (2026-09-14):(len, lex) + workspace.dependencies alphabetic,无分组空行
-- 第三轮 (2026-09-14):本地 vs 三方分组 + 组内 alphabetic + 唯一空行在组边界
-- **第四轮 (current, 2026-09-26):本地 vs 三方分组 + 组内 (entry 完整长度, key 字典序) + 唯一空行在组边界**
+`verify_dep_order.py` 的规则:**本地 vs 三方分组,组内按 entry 完整长度升序 + 长度相同按 dep key 字典序**。
 
 **用户原话**:「toml依赖导入需要严格遵守顺序,首先本地依赖是同一组,外部依赖是一组,不同组之间需要空行分割,同组之间按照完整的长度(含特性等字段)升序排序,一样的长度按照字典序升序」。
 
@@ -1809,20 +1797,20 @@ Reasons:
 - `_entry_chars(raw_lines)`:把每个非空行 `.strip()`,用 `" ".join(...)` 拼起来,再 `re.sub(r"\s+", "", ...)` 去所有空白,返回 `len`。这样 `serde = { version = "1.0.229", features = ["derive"] }` 长度是 46,`toml = "0.9.12"` 长度是 14,与 tablo formatter(默认 `=` 两侧空格、4 空格缩进)无关。
 - 双向验证 fixture:compliant `demo-cli < demo-core < demo-engine < demo-macros, clap < serde < serde_json < tokio` 排列 = exit 0;violated 打散 = exit 1 且 actual/expected 反向可见。
 
-**euv 单仓实测结果**(2026-09-26,在第四轮规则下):
+**euv 单仓实测结果**:
 
-| 文件 | 当前轮(第三轮 alphabetic)顺序 | 期望(第四轮 length+lex)顺序 |
+| 文件 | 迁移前顺序 | 期望(length+lex)顺序 |
 |---|---|---|
 | `euv/Cargo.toml [dependencies]` | `euv-core, euv-macros` 本地 → `alloc, console, js-sys, lombok, wasm, wasm-futures, web-sys` | `euv-core, euv-macros` 本地 → `js-sys, web-sys, wasm, lombok, alloc, wasm-futures, console` |
 | `euv/Cargo.toml [workspace.dependencies]` | 7 个本地 alphabetic → 27 个三方 alphabetic | 7 个本地按 path 长度排(`euv < euv-ui < euv-cli < euv-core < euv-engine < euv-macros < euv-example`)→ 三方按 entry 长度排(`log < toml < quote < chrono < ignore < js-sys < if-addrs < hyperlane < serde_json < lombok < proc-macro2 < color-output < hyperlane-cli < wasm-bindgen < alloc-no-stdlib < compare_version < serde-wasm-bindgen < wasm-bindgen-test < wasm-bindgen-futures < console < clap < serde < syn < qrcode < notify < tokio < web-sys`) |
 | `euv/cli/Cargo.toml [dependencies]` | 全三方 alphabetic | 全三方按 entry 长度排 |
 
-**为什么这个变更值得记录到 audit-pitfalls**:第三轮 → 第四轮的迁移是破坏性的,任何 euv / hyperlane / crates-dev / docs-pages 仓跑 `verify_dep_order.py` 都会大量 FAIL,**仓主需要在第四轮迁移前接受一次性大批量重排**(每个 dep 块的条目都按 entry 长度重排,涉及的 PR 数量级是一次重排)。不放在 audit-pitfalls.md 记录,未来 session 在 review 旧 PR 时会以为 `verify_dep_order.py` 是 bug。
+**为什么这个变更值得记录到 audit-pitfalls**:这次迁移是破坏性的,任何 euv / hyperlane / crates-dev / docs-pages 仓跑 `verify_dep_order.py` 都会大量 FAIL,**仓主需要迁移前接受一次性大批量重排**(每个 dep 块的条目都按 entry 长度重排,涉及的 PR 数量级是一次重排)。不放在 audit-pitfalls.md 记录,未来 session 在 review 旧 PR 时会以为 `verify_dep_order.py` 是 bug。
 
 **注意**:workspace root 与单 crate root 行为差异。`is_local` 依赖 `[workspace] members` 列表解析;fixture 不写 `[workspace]` 时,本地组会被认为是空、整块当三方处理。真实仓上不会撞到这里(workspace.toml 总是带 `[workspace]` 段)。
 
 
-## 45. audit shell template wraps a `.py` script with `bash <script.py>` instead of `python3 <script.py>` — 2026-09-26 `verify_dep_order.py` 接入实测
+## 45. audit shell template wraps a `.py` script with `bash <script.py>` instead of `python3 <script.py>` — `verify_dep_order.py` 接入实测
 
 **Symptom**: Audit check 21 calls `verify_dep_order.py` and the wrapper hangs with `exit code = 127` and stderr `syntax error near unexpected token '('`.看上去像是 shell 报错,但实际上——
 
@@ -1842,11 +1830,11 @@ python3 "{{audit_script_dir}}/verify_dep_order.py" "{{target}}"
 
 **Detection**:
 - audit 跑出 `exit 127` + stderr `syntax error near unexpected token` —— 100% 是 wrap 成 `bash *.py` 了
-- audit 跑出 `exit 2` 且找不到 toml —— 可能是 `cwd=` 不对 或 `find` 路径过滤问题(见 §46)
+- audit 跑出 `exit 2` 且找不到 toml —— 可能是 `cwd=` 不对或 `find` 路径过滤问题(见 §46)
 
 **Verification**: 双向 fixture 自测 compliant→0 + violated→1,数据可见,exit 0/1,不是 127。
 
-## 46. `find -not -path '*/tmp/*'` 误过滤 `/tmp/...` 测试根 — 2026-09-26 `verify_dep_order.py` 接入实测
+## 46. `find -not -path '*/tmp/*'` 误过滤 `/tmp/...` 测试根 — `verify_dep_order.py` 接入实测
 
 **Symptom**: 接 audit check 21 双向 fixture 自测时,临时的 `/tmp/dep_order_test_*` 仓根被 `find` 跳过,`verify_dep_order.py` 报 `exit 2`(内部 `if not files: return 2`)。
 
@@ -1868,7 +1856,7 @@ find str(root) -name Cargo.toml -not -path '*/target/*' -not -path '*/tmp/test_*
 1. 任何 verifier script 的 `find`/`walk`/glob 过滤,不要写 `*/tmp/*` 这种全名空间 broad 匹配
 2. 用 verifier 仓根做 fixture 测试时,fixture 路径不能用 verifier 不希望过滤的子串(`/tmp/`、`/target/`、`*/.cargo/registry/*`);否则过滤器把 fixture 自己也过滤掉,verifier 报"0 files",看起来像 verifier bug。
 
-## 47. verifier → audit wrapper 的 stdout 过滤与 exit-code 传递契约 — 2026-09-26 check 21 接入实测
+## 47. verifier → audit wrapper 的 stdout 过滤与 exit-code 传递契约 — check 21 接入实测
 
 **Symptom**: 接入 verifier 到 audit 时,如果 verifier exit 0 也打印 status line(例如 `N files checked, 0 violations`),audit 把它当成 violation hit 显示,变成 false-fail。
 
@@ -1900,9 +1888,9 @@ exit "$exit_code"
 
 然后跑完整 audit `python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>` 看 `SUMMARY: N/M PASS`,N = 通过的项数,M = 总项数。
 
-## 48. verifier 与 auto-fixer 必须共用一套 parse 逻辑(2026-09-26 fix_dep_order.py 接入实测)
+## 48. verifier 与 auto-fixer 必须共用一套 parse 逻辑(fix_dep_order.py 接入实测)
 
-**Symptom**: verify 报 "实际顺序 = [...], 期望顺序 = [...],但我手动排好的 fix 写盘后,fix 再跑一次 verifier 报 FAIL(actual vs expected 不一致)——明明 verify 与 fix 用的是同一份 round 4 规则。
+**Symptom**: verify 报 "实际顺序 = [...], 期望顺序 = [...],但我手动排好的 fix 写盘后,fix 再跑一次 verifier 报 FAIL(actual vs expected 不一致)——明明 verify 与 fix 用的是同一份规则。
 
 **Root cause**: verifier 自己一份 parse 逻辑(Cargo.toml → 4 类块 → entry list),fix 又写一份 parse 逻辑(从 ASCII 文本重建 block);当 entry 跨多行(tokio features `[ ... ]` 跨 6-10 行)或 entry 内部有 bracket(`notify = { ... features = [ ... ] }`),两套 parsers 对"一个 entry 的边界"看法不同 → fix 用它自己的 parser 决定"完成 entry 边界"的位置,写出 fix 内容但 verifier 用它的 parser 重新 tokenize 后认为多/少了 entry → mismatch。
 
@@ -1926,7 +1914,7 @@ read_local_crate_names = _verify.read_local_crate_names
 
 **之后 fix 脚本仅在下列点偏离 verifier**:
 - 排序逻辑:verifier 排序后用作 expected,fix 排序后用作 fix 后 actual
-- entry 文本提取与重组:verifier 把 block 切成 (key, lines) tuples 后丢掉 lines;fix 拿到 tuples 后重排 lines,按 round 4 规则组装 block 文本
+- entry 文本提取与重组:verifier 把 block 切成 (key, lines) tuples 后丢掉 lines;fix 拿到 tuples 后重排 lines,按规则组装 block 文本
 
 **这套规则适用于任何 structural-config 校验**:
 - `verify_*.py` 提供 `parse_*` / `expected_*` 函数
@@ -1935,7 +1923,7 @@ read_local_crate_names = _verify.read_local_crate_names
 
 **Detection**: fix 跑完后再跑 verify,应 exit 0;循环 `fix && verify && fix && verify` 第二次必须 no-op(幂等)。若不幂等 → 两套 parsers 分歧,立即合并到一个 verifier 模块。
 
-## 50. Long rust-refactor sessions: commit incrementally or worktree gets auto-pruned and 6 turns of work vanish (2026-09-26)
+## 50. Long rust-refactor sessions: commit incrementally or worktree gets auto-pruned and 6 turns of work vanish
 
 **Symptom**: A session that does 6+ turns of cross-cutting Rust refactor (Request/Response API redesign, parser module split, field flatten, etc.) on a `git worktree` branch can lose **all uncommitted work** if:
 
@@ -1999,11 +1987,11 @@ read_local_crate_names = _verify.read_local_crate_names
 - Worktree-free workflows (editing directly on master or single non-worktree branch) — `git commit` is still preferable but no worktree-prune failure mode exists.
 - Truly atomic single-commit tasks (rename one symbol across 30 files in one commit) — one commit at the end is fine, because the change is atomic and a stale worktree's HEAD still has the right files.
 
-## 49. Check 22 (§17) — `verify_ci_no_bump.py` 接入 audit 实战 (2026-09-26)
+## 49. Check 22 (§17) — `verify_ci_no_bump.py` 接入 audit 实战
 
-新增 §17:CI 流水线不允许 bump / 写 `version =` 行。配套 verifier `scripts/verify_ci_no_bump.py` 在三仓( ctares / hyperlane / euv )首次接入时的实测 pitfall 列表。
+新增 §17:CI 流水线不允许 bump / 写 `version =` 行。配套 verifier `scripts/verify_ci_no_bump.py` 在三仓(ctares / hyperlane / euv )首次接入时的实测 pitfall 列表。
 
-### 49.1 — `python3 -c` 内嵌 regex 跨多层 shell + python 转义(2026-09-26 实测)
+### 49.1 — `python3 -c` 内嵌 regex 跨多层 shell + python 转义(实测)
 
 CI 工作流的 inline python 脚本(如 `docs/Cargo.toml` version 镜像脚本)会把 regex `version\s*=\s*\"` 通过 bash 单/双引号 → python `r'...'` 再传到 `re.sub`。每一层都可能再加一层 backslash escape:
 
@@ -2028,7 +2016,7 @@ EOF
 
 **正确做法**:verifier 的 `PYTHON_VERSION_LITERAL_RE` 不要尝试精确匹配 `\s` `*` `\"` 等子串;改用宽松模式 `version\s*[^\"']*?\s*=\s*[^\"']*?[\"']`,接受 0-多个反斜杠 + 任意非引号字符 + 最终引号。配合上游 python-write-keyword(`write_text` / `re.sub(` / `.replace(` 等)的存在,误报率几乎为 0。
 
-### 49.2 — allowlist marker 必须 tightly-coupled(2026-09-26 实测)
+### 49.2 — allowlist marker 必须 tightly-coupled(实测)
 
 verifier 支持 `# ci-allow-version-write: <reason>` 注释豁免某行违规。最初设计允许 marker 在 violation 上方 6 行内匹配,实测中:
 
@@ -2037,11 +2025,11 @@ verifier 支持 `# ci-allow-version-write: <reason>` 注释豁免某行违规。
 
 **正确做法**:把 marker 距离缩到「紧挨 violation 的上一行」(`lines[lineno - 2]` 即 0-indexed `lineno - 2`)。任何 2 行及以上的间隔都不豁免,迫使 author 把 marker 紧贴 violation 写,不易漏看。
 
-### 49.3 — `cc` / `crate` 是同一个工具的两种 binary name(2026-09-26 实测)
+### 49.3 — `cc` / `crate` 是同一个工具的两种 binary name(实测)
 
 crate-cli 在不同发布版本里 binary name 是 `cc`(老版本)或 `crate`(新版本,per `crate-cli v0.2.5` cargo install list 显示 `cc`,但 `0.2.8` 已改)。**正确做法**:verifier 用 `\b(?:cc|crate)\s+bump\b` 同时匹配两种 binary,不要硬编码。
 
-### 49.4 — `sed -i` 与 read-only `sed -E` 必须区分(2026-09-26 实测)
+### 49.4 — `sed -i` 与 read-only `sed -E` 必须区分(实测)
 
 CI workflow 里有两类 `sed` 调用:
 
@@ -2054,7 +2042,7 @@ CI workflow 里有两类 `sed` 调用:
 
 **正确做法**:`SED_VERSION_WRITE_RE` 只匹配 `sed -i` / `perl -pi` / `> file` / `| tee file` 这四种写盘模式,不匹配 `$()` 替换里的只读 sed。配上 `SED_VERSION_LITERAL_RE = \bversion\b`,只在「写盘 + 涉及 version」两个条件都满足时违规。
 
-### 49.5 — euv docs/Cargo.toml mirror script: removed, version now human-maintained (2026-09-26)
+### 49.5 — euv docs/Cargo.toml mirror script: removed, version now human-maintained
 
 `euv-dev/euv/.github/workflows/rust.yml` originally had an inline
 python step mirroring root's `version =` into the non-workspace-member
@@ -2080,56 +2068,43 @@ the user which side of the trade-off they prefer; do not default.
 
 ---
 
-## §54-§57 — 2026-09-26 second iteration (user-driven, checks 29-32)
+## §54-§57 — checks 29-32
 
-User 原话 (2026-09-26 第二轮):
+User 原话:
 
 > "mod.rs 的 mod 前面不能有可见性"
 > "rust skill 里的其他内容也需要通过脚本完成校验"
 
 This iteration adds 4 new verification scripts (checks 29-32) covering
-4 previously-non-scripted or partially-scripted rules.  Bidirectional
+4 previously-non-scripted or partially-scripted rules. Bidirectional
 fixture self-tests are mandatory before audit wiring (same protocol as
 §49-§53).
 
-### §54 — REMOVED: bare-`mod` rule (§6.2) and its `verify_mod_visibility.py`
+### §54 — `pub mod` in `mod.rs` is legal (§6.2)
 
-**Withdrawn 2026-10-17 by user directive: `pub mod` is allowed in `mod.rs`.**
+`mod.rs` 里的 `mod r#xxx;` **可以**带可见性前缀,`pub mod` 是合法形式,不应报违规。
 
-The rule asserted that `mod` in `mod.rs` is always crate-internal, so any
-visibility prefix is redundant. That premise is false whenever a child module is
-reached by MODULE PATH from outside its own subtree — and Rust has no way to
-widen a bare `mod` after the fact:
+原因:Rust 没有办法在事后把 bare `mod` 加宽:
 
-    mod inner;  pub use inner;         -> E0255, `inner` defined twice
-    mod inner;  pub(crate) use inner;  -> E0255
-    mod inner;  use inner;             -> E0255
+    mod inner; pub use inner; -> E0255, `inner` defined twice
+    mod inner; pub(crate) use inner; -> E0255
+    mod inner; use inner; -> E0255
 
 So `pub mod` is the only form that keeps `crate::parent::child::*` resolvable.
 Verified empirically on hyperlane-quick-start: stripping `pub` from the nine
 exempted mod.rs files produced
 
-    error[E0603]: module `path` is private        (x2)
+    error[E0603]: module `path` is private (x2)
     error[E0425]: cannot find value `SERVER_ENV_FILE_PATH`
     error[E0425]: cannot find value `SERVER_DOCKER_COMPOSE_FILE_PATH`
 
-The gate also needed an in-band exemption (`# mod-visibility-allow: <reason>`)
-added later, in #45 — a second sign the rule was pressing on real code rather
-than enforcing a real property.
-
-Removed: `scripts/verify_mod_visibility.py`, audit check 29, its
-`staged_file_gate.py` and `verify_on_save.py` registrations, and the
-`mod-visibility-allow` exemption in `verify_no_toml_mod_comments.py` (§2.5 bans
-every comment in mod.rs, so the marker had to go there too).
-
-**Keep**: `pub mod` in `lib.rs`, and item-level visibility (`pub` /
-`pub(crate)` fields) — those are unchanged.
+**不变**:`lib.rs` 里的 `pub mod`,以及 item 级可见性(`pub` / `pub(crate)` 字段)。
 
 ### §55 — verify_no_allow_lints.py (check 30, §14)
 
-User original (2026-09-14): "从根源修复 warn, 禁止使用 allow 宏".
+User original "从根源修复 warn, 禁止使用 allow 宏".
 Existing check 2 in `audit_rust_standards.py` was git-diff scoped:
-only flagged `#[allow(...)]` introduced in the current PR.  This
+only flagged `#[allow(...)]` introduced in the current PR. This
 left historical `#[allow]`s in the codebase invisible to the audit.
 The new script does tree-wide scan:
 
@@ -2139,7 +2114,7 @@ The new script does tree-wide scan:
   - Inside `#[cfg(test)] mod tests { ... }` block (the test
     helper function may legitimately silence unused warnings).
   - Inside any `tests/` directory tree (R14.7 self-contained).
-- Coexists with check 2 (git-diff scope).  Both can be active;
+- Coexists with check 2 (git-diff scope). Both can be active;
   check 2 is the PR gate, check 30 is the baseline gate.
 
 Bidirectional fixture test: 0/3 violations.
@@ -2150,13 +2125,13 @@ Real-workspace findings:
 
 ### §56 — verify_explicit_type_annotations.py (check 31, §5.1)
 
-User original (rule 6, 2026-09-26): "所有变量 / 参数 / 返回值必须显式
-类型".  The existing check 12 in `audit_rust_standards.py` only catches
-`Vec::new()` (single regex).  The new script catches all 12 standard
+User original (rule 6): "所有变量 / 参数 / 返回值必须显式
+类型". The existing check 12 in `audit_rust_standards.py` only catches
+`Vec::new()` (single regex). The new script catches all 12 standard
 collection constructors + the `Vec<_>` placeholder pattern:
 
 - Regex family 1: `let <name> = (Vec|VecDeque|HashMap|HashSet|BTreeMap|
-  BTreeSet|LinkedList|BinaryHeap|String|Box|Rc|Arc)::new();` — catches
+  BTreeSet|LinkedList|BinaryHeap|String|Box|Rc|Arc)::new;` — catches
   bare collection constructor without type annotation.
 - Regex family 2: `let <name>: Vec<_> = ...collect();` — catches the
   `Vec<_>` placeholder which defeats the rule's purpose (reader still
@@ -2169,9 +2144,9 @@ Real-workspace findings: ctares 1 hit, euv 0 hits.
 
 ### §57 — verify_no_wasm_inline.py (check 32, §12)
 
-User original (rule 12, 2026-09-26): "WASM 项目禁止所有 inline 注解".
+User original (rule 12): "WASM 项目禁止所有 inline 注解".
 This is a WASM-specific rule — only applies to crates declared as
-`crate-type = ["cdylib", ...]` in their Cargo.toml.  Pure rlib /
+`crate-type = ["cdylib", ...]` in their Cargo.toml. Pure rlib /
 bin crates are unaffected.
 
 Implementation:
@@ -2192,9 +2167,9 @@ caught).
 
 ---
 
-## §58-§61 — 2026-09-26 third iteration (user-driven, checks 33-36)
+## §58-§61 — checks 33-36
 
-User 原话 (2026-09-26 第三轮):
+User 原话:
 
 > "let 的类型必须要显示标注 (包含 let _ = )"
 > "闭包参数需要显示标注"
@@ -2202,7 +2177,7 @@ User 原话 (2026-09-26 第三轮):
 > "硬编码字符串必须要维护到 const.rs"
 
 This iteration adds 4 new verification scripts (checks 33-36) covering
-4 hard rules the user explicitly added in this round.  All scripts
+4 hard rules the user explicitly added in this round. All scripts
 pass bidirectional fixture self-tests before audit wiring (same
 protocol as §49-§57).
 
@@ -2231,7 +2206,7 @@ Real-workspace findings:
 - ctares: 34 hits.
 - euv: 333 hits.
 
-### §90 — closure verifier 把 `match` 的 or-pattern 当闭包(2026-10-01 vice-city-web 实测)
+### §90 — closure verifier 把 `match` 的 or-pattern 当闭包(vice-city-web 实测)
 
 `verify_closure_type_annotations.py` 的 `CLOSURE` 正则 `\|(?P<params>[^|=][^|]*?)\|` 只看
 `|` 分隔符,不解析 Rust 语法。`match` 的**或模式**同样是 `A | B | C` 形状,于是:
@@ -2252,7 +2227,7 @@ match asset {
 或含 `=>` 且 `|` 出现在第一个 `=>` 之前,判为 or-pattern 跳过。
 **注意别整行跳过**(会藏真违规):同一行若同时含迭代器闭包,仍要按 span 处理。
 
-### §91 — `drop(guard)` 不满足 §borrow,必须是块作用域(2026-10-01 实测)
+### §91 — `drop(guard)` 不满足 §borrow,必须是块作用域(实测)
 
 `verify_no_panicking_borrow.py` 用 **brace depth** 跟踪 guard 作用域
 (`_scan_fn` 里的 `live: dict[str, int]`),`drop(guard);` **不会**让 verifier 认为 guard 已死。
@@ -2282,7 +2257,7 @@ set_window_json(NAME, &json);   // 此时无 guard,可重入
   立刻触发 §borrow —— 因为**违规一直存在**,只是没被规则 35 的行文本暴露。**修一条规则
   要准备连带修被它遮住的其他规则**。
 
-### §92 — §5.2 闭包标注:`iter()` 给 `&&T`,`find()` 给 `&T`(2026-10-01 实测)
+### §92 — §5.2 闭包标注:`iter()` 给 `&&T`,`find()` 给 `&T`(实测)
 
 给 §5.1/§5.2 补类型标注时,链上每一段的实参类型**不同**,写错就是 E0631:
 
@@ -2301,11 +2276,11 @@ set_window_json(NAME, &json);   // 此时无 guard,可重入
 
 ### §59 — verify_closure_type_annotations.py (check 34, §5.2)
 
-User explicitly added §5.2: "闭包参数需要显示标注".  Closure
-parameters must have explicit `: T` annotation.  Implementation
+User explicitly added §5.2: "闭包参数需要显示标注". Closure
+parameters must have explicit `: T` annotation. Implementation
 heuristic:
 
-- Regex `\|(?P<params>[^|=][^|]*?)\|` finds closures.  Empty
+- Regex `\|(?P<params>[^|=][^|]*?)\|` finds closures. Empty
   `||` (operator) is excluded by the `[^|=]` first-char requirement.
 - Param splitter `_split_top_commas()` walks the captured string
   character-by-character, tracking `<>`/`()`/`{}` depth, splitting
@@ -2334,28 +2309,28 @@ de-duplicated; this check 35 is the AUTHORITATIVE entry per user
 iteration.
 
 Test files are exempt because R14.5 forbids ALL comments in test
-files; thus no `///` doc comments there either.  Non-test fn /
+files; thus no `///` doc comments there either. Non-test fn /
 impl method must have `///` doc comment with:
 
 - Layer 1 (existence): at least one `///` line above fn/impl.
 - Layer 2 (completeness): `# Arguments` section if non-self params,
-  `# Returns` section if non-() return.
+  `# Returns` section if non- return.
 - Layer 3 (format): argument items use `- \`Type\` - description`
   form, return items use `- \`Type\`: description` form.
 
 Bidirectional fixture test: 0/3 violations.
 
-Real-workspace findings: ctares 1048 hits, euv 3151 hits.  These
+Real-workspace findings: ctares 1048 hits, euv 3151 hits. These
 are large-scale coverage gaps — projects need a sustained
-doc-comment addition campaign.  Per pitfall §39a, use the
+doc-comment addition campaign. Per pitfall §39a, use the
 `doc_comment_audit.py` fixer (`--write`) to bulk-add template
 doc-comments before manual review.
 
 ### §61 — verify_hardcoded_strings.py (check 36, §1.3c strengthened)
 
 User explicitly added §1.3c strengthened: "硬编码字符串必须要维护到
-const.rs".  This is the **comprehensive** successor to the
-fn.rs-only byte/char/multi-char check 18.  Catches ALL string
+const.rs". This is the **comprehensive** successor to the
+fn.rs-only byte/char/multi-char check 18. Catches ALL string
 literals (≥ 4 non-trivial chars) in any non-const file.
 
 Implementation:
@@ -2373,7 +2348,7 @@ Implementation:
 
 Bidirectional fixture test: 0/4 violations.
 
-Real-workspace findings: ctares 447 hits, euv 3384 hits.  This is
+Real-workspace findings: ctares 447 hits, euv 3384 hits. This is
 the largest single-class violation; will require sustained
 const-extraction work, especially for `eprintln!`/`println!`
 arguments (which are exempt but adjacent code may have other
@@ -2404,7 +2379,7 @@ non-mod.rs lines only — those are the real first-line violations.
 statement indented INSIDE the `for sec in [...]` loop. When a Cargo.toml
 file (e.g. `cli/tmp/test_sync_no_version/Cargo.toml` fixtures used by
 the audit self-test) contains no matching dep sections, the loop
-falls through and the function returns `None`. The main() then iterates
+falls through and the function returns `None`. The main then iterates
 `for v in check_file_v2(...):` → `TypeError: 'NoneType' object is not
 iterable`.
 
@@ -2475,12 +2450,12 @@ stdout count — only the verifier script's stdout counts.
 
 ---
 
-## §62 — 2026-09-26 fifth iteration (user-driven, check 37)
+## §62 — check 37
 
-User 原话 (2026-09-26 第五轮):
+User 原话:
 
 > "对于 lib.rs 必须要检查是否存在 //! 注释,注释第一行 //! 后是
->  包名后面是一行 //! 再后面才是内容"
+> 包名后面是一行 //! 再后面才是内容"
 
 This iteration strengthens the existing lib.rs comment policy from
 "allowed but optional" (§17 historical) to MANDATORY 3-line structure.
@@ -2488,9 +2463,9 @@ The new script `verify_lib_rs_doc_comment.py` reads the nearest
 `Cargo.toml`'s `[package].name` field and validates that lib.rs
 starts with:
 
-  //! <package_name>     // text must equal [package].name
+  //! <package_name> // text must equal [package].name
   //!
-  //! <description>      // content
+  //! <description> // content
 
 Implementation:
 
@@ -2515,32 +2490,30 @@ Real-workspace findings (euv): 5 lib.rs files violate:
 - `cli/src/lib.rs` — text "euv CLI" but name "euv-cli"
 - `macros/src/lib.rs` — text "euv_macros" but name "euv-macros"
 
-The historical "audit-pitfalls §17 lib.rs `//!` doc comment IS
-allowed" entry is marked DEPRECATED — see that section for the
-full evolution narrative.
+See audit-pitfalls §17 for the mandatory 3-line `//!` doc block rule.
 
 
 ---
 
-## §63 — 2026-09-26 sixth iteration (user-driven, §6.3 use rule relaxation)
+## §63 — §6.3 use rule relaxation
 
-User 原话 (2026-09-26 第六轮):
+User 原话:
 
 > "不是所有文件都必须要需要使用 use super::*, 可以不要 use, 对于
->  lib.rs, mod.rs 之外的 rs 文件, 是不允许出现 use::super::* 和没
->  有 use 之外的其他写法的"
+> lib.rs, mod.rs 之外的 rs 文件, 是不允许出现 use::super::* 和没
+> 有 use 之外的其他写法的"
 
 This iteration reverses the historical "first line MUST be `use super::*;`"
-rule for sub-files (any .rs file other than lib.rs / mod.rs).  After this
+rule for sub-files (any .rs file other than lib.rs / mod.rs). After this
 change:
 
-  ✅ File with NO `use` at all          — OK
+  ✅ File with NO `use` at all — OK
   ✅ File with `use super::*;` (anywhere) — OK
-  ❌ File with `use crate::xxx;`         — violation
-  ❌ File with `use std::xxx;`           — violation
-  ❌ File with `use external::xxx;`      — violation
-  ❌ File with `use super::specific;`    — violation (must be `*` or omit)
-  ❌ File with `use crate::*;`           — violation (must be `use super::*;`)
+  ❌ File with `use crate::xxx;` — violation
+  ❌ File with `use std::xxx;` — violation
+  ❌ File with `use external::xxx;` — violation
+  ❌ File with `use super::specific;` — violation (must be `*` or omit)
+  ❌ File with `use crate::*;` — violation (must be `use super::*;`)
 
 Implementation:
 
@@ -2563,7 +2536,7 @@ Bidirectional fixture test on `/tmp/use-rule-test`:
     `use super::*;` already elsewhere)
 
 Real-workspace findings:
-  - euv:   9 violations (down from 358 — most sub-files were missing
+  - euv: 9 violations (down from 358 — most sub-files were missing
     first-line `use super::*;` per old rule; new rule is much more
     permissive)
   - ctares: 16 violations (down from 176 for same reason)
@@ -2574,10 +2547,10 @@ Real-workspace findings:
 
 Documentation:
 - SKILL.md hard rule 5 rewritten with the new allow-list / deny-list.
-- references/06-module-imports.md §6.3 updated from "第一行 必须是"
+- references/06-module-imports.md §6.3 updated from "第一行必须是"
   to "第一行 **可以省略** `use super::*;`".
 
-## §63 verify_doc_comment_format.py — attr-skip + 缩进修复(2026-09-26 第六轮)
+## §63 verify_doc_comment_format.py — attr-skip + 缩进修复
 
 修复两个导致全仓 check 34 基线 835 hits 的 verifier bug:
 
@@ -2586,7 +2559,7 @@ Documentation:
 
 修复效果:hyperlane check 34 从 835 → 626 hits(剩余为真违规:doc 缺失 / 格式不符)。fixture 双向自测:compliant(属性行 + 缩进 section)0 / violating(无 doc / 缺 section)3。
 
-## §64 verify_hardcoded_strings.py — write!/writeln! 与多行格式宏豁免(2026-09-26 第六轮)
+## §64 verify_hardcoded_strings.py — write!/writeln! 与多行格式宏豁免
 
 修复两个 §1.3c 格式串豁免失效:
 
@@ -2595,17 +2568,17 @@ Documentation:
 
 修复效果:hyperlane check 35 从 495 → 466 hits(与 baseline 完全持平)。fixture 覆盖:单行 write! / 多行 write!+println! / 第三参数据字面量仍命中(`write!(f, "{}", "data literal")` → 1 hit)。**注意**:`write!` 格式参数必须是字面量(Rust 语言限制,const 格式串不编译)—— 所以格式串只能就地写,豁免是唯一出路,不能"挪到 const.rs"。
 
-## §65 check 37(no-import-rename)接入 pitfalls(2026-09-26 第六轮)
+## §65 check 37(no-import-rename)接入 pitfalls
 
 - **别名替换前必须 `grep -rn "struct <A>\|type <A>\|enum <A>"`**:euv cli 的 `FmtResult` 是本地 struct 不是 std 别名,全局文本替换把定义改炸。详见 06-module-imports.md §6.5。
 - **本地模块遮蔽 std 路径**:euv cli 有 `mod fmt;`,替换后 `fmt::Result` 解析到本地模块(E0425)。本地模块与 std 同名时最短可区分形式是全路径 `std::fmt::Result`(本次通过回退 cli 的 FmtResult 替换规避 —— 它本来就是本地类型)。
 - **三仓收敛数字**:hyperlane 2(type/src/lib.rs 的 `Write as FmtWrite` / `Context as TaskContext`,perf 任务引入) / euv 6(`Result as FmtResult`×4 / `Write as _`×2 / `io::Error as IoError`×1) / ctares 1(`Value as TomlEditValue`)→ 全部 0。`Write as _` 无冲突时直接改 `Write` 具名导入;`Write` 作为 trait 在作用域内即可满足 `write!` 宏。
 
-## §66 verify_doc_comment_format.py Layer 4 签名类型精确匹配接入(2026-09-27 第三轮)
+## §66 verify_doc_comment_format.py Layer 4 签名类型精确匹配接入
 
 user 强化 §2.2 doc-comment 校验,要求 `# Arguments` / `# Returns` 行内的反引号类型必须**精确等于** fn 签名的实际类型(保留 `&` 与 `` ` ``)。audit wrapper(check 35)沿用同一脚本,**无需新增 check 槽位**。
 
-**实测命中**(euv 仓 2026-09-27 跑一次 `python3 verify_doc_comment_format.py .`):
+**实测命中**(euv 仓跑一次 `python3 verify_doc_comment_format.py .`):
 
 - **801 violations in 125 files**(euv monorepo)。
 - 典型违规形态:
@@ -2621,7 +2594,7 @@ user 强化 §2.2 doc-comment 校验,要求 `# Arguments` / `# Returns` 行内�
 - 关联类型(`fn foo(&self) -> <Self as Trait>::Item`)的返回类型解析只到 `<Self as Trait>::Item` 字面。
 - `impl Trait` 返回类型(`-> impl Display`)目前解析为字面 `impl Display`,doc 写 `- \`impl Display\` - description` 可过。
 
-**接入策略**(参考 2026-09-26 check 23-37 节奏):
+**接入策略**(参考 check 23-37 节奏):
 1. ✅ Phase 1(本次完成):verifier + fixture + 双向自测 + SKILL.md / references 更新。
 2. ⏸ Phase 2(user 决策):是否在 audit_rust_standards.py check 35 wrapper 加上 Layer 4 强制 — 由于会触发 801 现有代码违规,**强烈建议**先单独 PR sweep(euv / hyperlane / ctares 各自跑一遍并修复),完成后再开启 audit enforcement,与 verifier 接入 audit 不同 PR(否则 reviewer 看到 801 hit 直接打回)。
 3. **当前状态**:Layer 4 verifier 已就绪,fixture 双向 0/6 通过;audit check 35 wrapper 调用同一脚本,会自动启用 Layer 4 校验。euv 仓现有 801 violations,**user 决定是否立刻修还是先 baseline-标记 follow-up**。
@@ -2629,18 +2602,18 @@ user 强化 §2.2 doc-comment 校验,要求 `# Arguments` / `# Returns` 行内�
 **修复建议**(对未来 sweep PR):写一个 fixer 脚本 `fix_doc_comment_types.py`,正则 `- \`(.*?)\` -` 替换为 `- \`<signature_type>\` -`,signature_type 从最近 fn 签名按顺序提取(Layer 4 的反向运算)。参考 §1.3c `fix_dep_order.py` 的接入节奏(先 verifier,再 fixer,再 audit wrapper,每步独立 PR)。
 
 
-## §66 check 38(no-self-field-access)接入 pitfalls(2026-09-26 第七轮)
+## §66 check 38(no-self-field-access)接入 pitfalls
 
 - **fixture 双向**:self-compliant(accessor 体直写 / Display impl 直读 / `#[cfg(test)]` 直读 / 业务方法走 accessor)0 hits;self-violating(业务直读 / 直写 / `self.x.clear()` 字段方法 / Drop impl 直写)4 hits exit 1,audit 端到端双向通过。
 - **括号深度启发式的边界**:`_exempt_ranges` 按行计 `{`/`}` 差值,字符串内含未配对括号(如 `println!("}")`)会错位 —— 项目内 format 串几乎全配对,实测 3 仓无误报;若未来出现错位,把字符串里的孤立括号换成转义常量再扫。
 - **`fn new` 在豁免区**:struct literal 构造不涉及 `self.field`,但 `let mut s = Self{..}; s.field = x;` 这种 builder 写法在 `fn new` 里**合法豁免**(new 是构造器,与宏生成 new 内部同性质) —— 这是规则 §17.12 第 1 类("宏生成的 new 内部")对手写 new 的自然延伸。
 - **request crate 的 50 处"二次违规"**:§17.12 当轮只清扫了业务方法,AsyncRead/AsyncWrite wrapper(`Pin::new(&mut self.inner)`)、`Buf` 实现、builder 字段组装当时未被规则文本覆盖;本轮(check 38)把"非 Debug/Display 的 trait impl"显式列为违规区,清扫时必须覆盖 trait impl 文件(如 `proxy/impl.rs`)。
 
-## §67 verify_no_self_field_access.py check 38 接入 + 边界精度验证(2026-09-27)
+## §67 verify_no_self_field_access.py check 38 接入 + 边界精度验证
 
 user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须使用 Lombok `Data` 宏生成的 `get_<field>` / `set_<field>` / `try_get_<field>` / `get_<field>_ref` / `get_<field>_mut` API(参见 `/Users/sqs/code/ctares/lombok-macros/src/lib.rs:502` `Data` derive 实现 + `generate/const.rs:17-30` 方法前缀常量)。允许结构体直接初始化(`Self { field: value, ... }` 与 `Self { ..self }` 更新语法)。
 
-**检测精度**(实测 euv 仓 2026-09-27 跑一次):
+**检测精度**(实测 euv 仓跑一次):
 
 - 203 violations in euv monorepo(全 `self.X` 直接访问)。
 - 真实违规形态(节选):`self.delay_ms` / `self.step` / `self.max` / `self.min` / `self.interval_ms` / `self.ptr` / `self.dyn_ref` 等(全为业务方法体内字段直读/直写,**无 false positive 可见**)。
@@ -2656,7 +2629,7 @@ user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须�
 | `tests/` 目录(R14.7 self-contained) | ✅ 整目录跳过 |
 | `self.method()` 方法调用(`(` 紧跟) | ✅ regex lookahead `(?!\s*\()` 排除 |
 
-**结构体直接初始化豁免**(user 钦定):
+**结构体直接初始化豁免**
 
 | 写法 | 检测 |
 |------|------|
@@ -2667,17 +2640,17 @@ user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须�
 
 **audit pipeline 接入**:
 
-- `scripts/verify_no_self_field_access.py` 已存在(2026-09-26 第六轮)。
-- `audit_rust_standards.py` check 38 已 wired(2026-09-26 第六轮),wrapper 模板与其它 check 同构(`grep -v` 过滤 success-path summary + `PIPESTATUS[0]` 传 exit + FAIL trailer `>&2`)。
+- `scripts/verify_no_self_field_access.py` 已存在。
+- `audit_rust_standards.py` check 38 已 wired,wrapper 模板与其它 check 同构(`grep -v` 过滤 success-path summary + `PIPESTATUS[0]` 传 exit + FAIL trailer `>&2`)。
 - fixtures `~/.hermes/cache/scratch/verifier-fixtures/self-{compliant,violating}` 双向通过。
-- **新增** `self-edge-cases` fixture(2026-09-27):覆盖 6 种豁免 + 4 种违规,期望 2 violations,实测 2 ✓。
+- **新增** `self-edge-cases` fixture覆盖 6 种豁免 + 4 种违规,期望 2 violations,实测 2 ✓。
 
 **已知 limitation**(脚本设计取舍):
 
 1. **regex-based 检测,无 AST 解析**:脚本用 `\bself\.([a-z_][a-z0-9_]*)\b(?!\s*\()` 匹配字段访问,不解析 Rust AST。优点:零依赖、快;缺点:**任何 `self.<lowercase>` 都会被报**(即使它不是字段而是 `enum` variant 或模块内部 fn)。euv 实测 0 false positive,但 `mod xxx;` + `self::xxx` 路径语法不会被误报(`self::` 不是 `self.`)。
 2. **tuple field `self.0` 不覆盖**:regex 要求 `[a-z_]` 起始,数字 `0` 不匹配。tuple struct 字段直读不会被报 —— **已知限制**,euv 仓 tuple struct 很少,影响可忽略。
 3. **跨行模式 `self\n.field` 不匹配**:regex 单行应用,跨行字段访问(罕见但 Rust 允许)漏报。
-4. **Lombok `Data` derive 内部生成的 impl 块**:Lombok `inner_lombok_data` 生成 `impl #name { #(#methods)* }`(固有 impl,无 trait),每个方法是 `get_*` / `set_*` / `get_mut_*`,body 内有 `&self.field_name`。脚本通过识别 accessor fn 名(`^(get|set|try_get)_`)豁免 body,所以 Lombok 生成代码不被误报。**但** Lombok 静默失效(§17.11)后手写 accessor 仍走同名 `get_X` / `set_X` 豁免路径 —— 验证:hyperlane request crate 已经在 2026-09-26 收敛到 0 violation。
+4. **Lombok `Data` derive 内部生成的 impl 块**:Lombok `inner_lombok_data` 生成 `impl #name { #(#methods)* }`(固有 impl,无 trait),每个方法是 `get_*` / `set_*` / `get_mut_*`,body 内有 `&self.field_name`。脚本通过识别 accessor fn 名(`^(get|set|try_get)_`)豁免 body,所以 Lombok 生成代码不被误报。**但** Lombok 静默失效(§17.11)后手写 accessor 仍走同名 `get_X` / `set_X` 豁免路径 —— 验证:hyperlane request crate 已经收敛到 0 violation。
 
 **修复策略**(对未来 sweep PR):
 
@@ -2699,11 +2672,11 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 
 **euv sweep 节奏建议**(参考 §66 经验):sweep PR 不在 audit 接入同一 commit。先独立 PR 收敛 euv 203 violations(分 crate 或分模块批量),然后 audit 38 自然为 0 PASS。
 
-## §67 §17.11(accessor 集中在 struct.rs) vs check 23(struct.rs 禁 impl)的规则冲突(2026-09-26 第七轮发现)
+## §67 §17.11(accessor 集中在 struct.rs) vs check 23(struct.rs 禁 impl)的规则冲突(发现)
 
 §17.11 要求手写 accessor "在 struct.rs 的 impl 块顶部集中加入",但 check 23(§1.3 关键字文件纯净)规定 struct.rs column-0 只能有 struct 声明,任何 `impl X {}` 都算违规。两者直接冲突。hyperlane request crate 现状选了 §17.11 一侧(proxy/struct.rs 已有 `impl Proxy {}` 等 20 处基线违规),本轮 check 38 收敛新增 `impl ProxyTunnelStream/SyncProxyTunnelStream` 两个 accessor 块,check 23 hits 20 → 22(+2,同类既有模式)。**待 user 裁决**:要么修 §17.11 改成"accessor 集中放 impl.rs",要么给 check 23 对 accessor-only impl 块开豁免。裁决前新代码跟随所在文件既有模式。
 
-## §68 check 23 在 struct.rs 中 impl 块的合法豁免清单(2026-09-27, 本轮 PR 复盘)
+## §68 check 23 在 struct.rs 中 impl 块的合法豁免清单(本轮 PR 复盘)
 
 §1.3 check 23 规定 struct.rs 列 0 只允许 struct 声明,但宏优先规则(§17.11)改用 lombok Data 取代手写 accessor 后,**手写 impl 块并未消除,而是被压缩到只剩"宏干不了"的几类**,这些必须留在 struct.rs 列 0 才不破坏模块结构。合法豁免如下:
 
@@ -2714,7 +2687,7 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 
 审计读法:check 23 看到 impl 块不立刻报错 —— **与 §67/§68 豁免清单对账**,命中豁免的 PASS,没命中且无注释说明的才是真违规。修复路径:不搬结构,补豁免注释或脚本里硬编码豁免映射。
 
-## §69 audit 失败项的"本轮引入 vs baseline 既有"判别方法(2026-09-27)
+## §69 audit 失败项的"本轮引入 vs baseline 既有"判别方法
 
 `audit_rust_standards.py` 只给 hit 数,看不出哪些是本 PR 改的。判别方法:
 
@@ -2723,13 +2696,13 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 3. 剩余 hit 全部是 baseline 既有债务,**不进 PR 验收阻塞**
 
 本次三 PR 复盘结果:
-- hyperlane PR #35:check 23 在 PR 触达文件里 6 处,全部命中 §68 豁免(已发布 API 链式 setter / 计算型 / Default trait),**本轮无新增需修**。
-- euv PR #277:check 23 PR 触达 1 处(`signal/struct.rs` 加 `pub(crate) type ListenerEntry`)—— `type` 别名是 rust-standards §6.4 允许的 type.rs 文件职责,实际放在 struct.rs 是基线既有(`examples/core signal` 同类)且没破坏规则,记 §68 豁免候选
-- ctares PR #15:check 23 PR 触达 0 处(10 hits 全部在 tcplane/udp handler/attribute 等基线文件),**本轮无新增需修**
+- hyperlane :check 23 在 PR 触达文件里 6 处,全部命中 §68 豁免(已发布 API 链式 setter / 计算型 / Default trait),**本轮无新增需修**。
+- euv :check 23 PR 触达 1 处(`signal/struct.rs` 加 `pub(crate) type ListenerEntry`)—— `type` 别名是 rust-standards §6.4 允许的 type.rs 文件职责,实际放在 struct.rs 是基线既有(`examples/core signal` 同类)且没破坏规则,记 §68 豁免候选
+- ctares :check 23 PR 触达 0 处(10 hits 全部在 tcplane/udp handler/attribute 等基线文件),**本轮无新增需修**
 
 完整 PASS 项 check 37(§6.5 禁 as-rename)+ check 38(§17.3/§17.12 禁 self.field) = 本轮 PR 的硬目标,**全部达成**。其他 FAIL(check 21/32/33/34/35/36)是历史债。
 
-## §70 `verify_dep_order.py` 报 `tmp/test_*` violation(2026-09-27)
+## §70 `verify_dep_order.py` 报 `tmp/test_*` violation
 
 `verify_dep_order.py` 默认递归扫所有 `**/Cargo.toml`,**不**自动跳过任何目录。ctares 与 hyperlane 的 `crate-cli/tmp/test_*/Cargo.toml` 与 `cli/tmp/test_*/Cargo.toml` 是 crate-cli 集成测试期间动态生成的临时 fixture 目录,**不入版本控制**(`.gitignore` 不存在但 worktree 不 commit 它们),**CI `cargo check --workspace` 不包含这些**(workspace.members 列表不引用 tmp/)。审计读法:
 
@@ -2739,7 +2712,7 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 
 修复路径(可选,非阻塞):在 `verify_dep_order.py` 的递归扫描里加 `if any(p.name.startswith("tmp") for p in path.parents) and (path / "Cargo.toml").exists(): continue`(路径前缀过滤),把临时 fixture 永久豁免;不豁免也不影响 CI,因为 CI workspace check 走 `cargo metadata`,tmp 不入 workspace。
 
-## §71 delegated sub-agent 报告 "工作区干净" 不等于目标仓分支干净(2026-09-27)
+## §71 delegated sub-agent 报告 "工作区干净" 不等于目标仓分支干净
 
 派 `delegate_task` 让子 agent 在 `/Users/sqs/code/{hyperlane,euv,ctares}` 做改动时,**子 agent 的 cwd 是它自己的 sandbox**,不一定是父 agent 期望的仓库。子 agent 报告 "git status clean" 是相对它所在仓当前分支,**不是**父 agent 通过 `git -C <repo>` 看到的目标分支。常见症状:
 
@@ -2749,11 +2722,11 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 
 **预防**:在任务 goal 末尾显式要求子 agent 跑绝对路径 `git -C <绝对仓库路径> status --short` 而非相对 `git status`;并指定工作目录 `cd <绝对仓库路径> && git ...`。验证:子 agent 完成后父 agent 立刻独立跑 `git -C <repo> status --short` 与子 agent 报告交叉核对,不一致立刻 steer 重做。
 
-具体场景(ctares PR #15):子 agent 在自己 sandbox 把 9 crate 全部完成,父 agent 在 `/Users/sqs/code/ctares` 看到 clean tree —— 实际子 agent 的仓是 worktree 模式隔离的 master HEAD sandbox,**与父 agent 期望的工作分支无交集**。最终通过父 agent 亲验 `git -C /Users/sqs/code/ctares branch -a` + worktree list 才发现。
+具体场景(ctares ):子 agent 在自己 sandbox 把 9 crate 全部完成,父 agent 在 `/Users/sqs/code/ctares` 看到 clean tree —— 实际子 agent 的仓是 worktree 模式隔离的 master HEAD sandbox,**与父 agent 期望的工作分支无交集**。最终通过父 agent 亲验 `git -C /Users/sqs/code/ctares branch -a` + worktree list 才发现。
 
 更根本的预防:hyperlane 这种 "worktree-based" 仓(pitfall 提到的),派子 agent 时传入 `worktree: /Users/sqs/.hermes/cache/scratch/hyperlane-pr` 而不是主仓路径,子 agent 在 worktree 操作,父 agent 复用同一 worktree 验证。如果 worktree 已经被一个并行 agent 占用,**不要**让父 agent / 子 agent 抢占 —— 改在 `~/.hermes/cache/scratch/hyperlane-pr-<purpose>` 再开一个独立 worktree。
 
-## §73 verify_dep_order.py 误接受缺 middle blank 的违规(2026-09-27 本轮 fix_dep_order.py 接入发现)
+## §73 verify_dep_order.py 误接受缺 middle blank 的违规(本轮 fix_dep_order.py 接入发现)
 
 `check_file_v2` 比较 actual_seq vs expected_seq 时对两边都执行"trim trailing blanks"：
 
@@ -2777,7 +2750,7 @@ while expected_seq and expected_seq[-1][1]:
 
 验证:violating fixture(`[dependencies]` 只有 local 组 + 一行 third-party,local 与 third-party 间无 blank)报 1 violation,合规 fixture(有 boundary blank)报 0。
 
-## §74 fix_dep_order.py serialize_block 的"双空行"陷阱(2026-09-27 同上轮)
+## §74 fix_dep_order.py serialize_block 的"双空行"陷阱(同上轮)
 
 最初版 serialize_block 用 list chunk + `"\n".join(...)` 拼接:每条 entry 后 append `""`(entry 终止),若 `followed_by_blank=True` 再 append `""`。join 后 entry 之间变成 `\n\n\n`(三 newline = 双空行),不是单空行。
 
@@ -2785,14 +2758,14 @@ while expected_seq and expected_seq[-1][1]:
 
 验证:fix --write 后 verifier 必须 0 violations;再次 dry-run 必须报"Nothing to do"。两轮幂等才证明 serializer 写盘格式正确。
 
-## §75 parse / sort / serialize 三函数的契约(2026-09-27, audit-pitfalls §48 的 verifier+fixer 共用 parse 原则的细化)
+## §75 parse / sort / serialize 三函数的契约(audit-pitfalls §48 的 verifier+fixer 共用 parse 原则的细化)
 
 为了让 verifier 和 fixer 完全一致,**两边都用同一个 parse 函数**(verifier 里 inline parse 的 `followed_by_blank` 字段、fixer 的 `parse_entries` 输出),sort 后所有 entry 的 `followed_by_blank` 全部重置为 False,**只有 boundary 那一条**(`out[-1]`)设为 True。然后 serialize_block 看到 True 就输出双换行,False 输出单换行。
 
 这是 verifier 与 fixer 共享 parse logic 的核心约束(见 SKILL.md "新增 audit check 的硬性流程" 第 2 步)。任何偏离都会导致 verifier 报 0 但文件实际有违规,或者 fixer 越改越多空行。
 
 
-## §76 rust_pre_commit.py — 闭环脚本的"何时退"原则(2026-09-27)
+## §76 rust_pre_commit.py — 闭环脚本的"何时退"原则
 
 `rust_pre_commit.py` 设计的核心约束:Phase 1 ↔ Phase 2 loop **最多 3 次**就退。为什么不是无限 loop?
 
@@ -2802,13 +2775,13 @@ while expected_seq and expected_seq[-1][1]:
 
 **反例**:如果 loop 设无限次,fix_dep_order idempotent 跑 1000 次也只 PASS 一次,但 self.field 这种 1000 次还是 FAIL,user 等不到结束信号。**3 次是 sweet spot**:够 auto-fixer 收敛,够 audit 报告稳定的真违规清单。
 
-## §77 audit-pipeline.md 与 rust_pre_commit.py 的关系(2026-09-27)
+## §77 audit-pipeline.md 与 rust_pre_commit.py 的关系
 
 `references/audit-pipeline.md` 是**架构文档**(为什么这 5 步、为什么这顺序、双 fixture 模式如何工作);`rust_pre_commit.py` 是**执行器**(把 5 步自动化 + 加 loop + 单条命令)。
 
 **AI agent 完工标准**:跑 `rust_pre_commit.py` 看到 "PASS — all phases clean" + exit 0 才算完工。**不要**写"我跑了 audit 看了 38/38 通过所以 commit 了" —— 没跑 fmt / clippy / test 编译 = 不算闭环。
 
-## §78 "scripts 偶尔不触发"的根因诊断(2026-09-27 user 提出)
+## §78 "scripts 偶尔不触发"的根因诊断(user 提出)
 
 旧模式下 AI 漏跑 phase 的根因,按发生频率排序:
 
@@ -2817,7 +2790,7 @@ while expected_seq and expected_seq[-1][1]:
 3. **autocomplete 误判文件类型**:看到 .rs 觉得 "只是 refactor",跳过 skill 加载直接动笔。**根除**:SKILL.md 顶部加了硬性 loop 规则 + description 字段强调任何 .rs 任务必加载 skill。
 4. **`/target/` / `tests/` 豁免区被误读为"全 skip"**:phase 实际仍跑(这些豁免在 verifier 内部 brace 跟踪),AI 把豁免 = "不需要跑脚本"。**根除**:脚本的日志明确打印每个 phase 的 PASS/FAIL,豁免区不显示为 SKIP。
 
-## §79 "fmt idempotence" 不要用 `git status --short` 做哨兵(2026-09-27 rust_pre_commit.py 接入时实测)
+## §79 "fmt idempotence" 不要用 `git status --short` 做哨兵(rust_pre_commit.py 接入时实测)
 
 写"formatter 是否 idempotent"检查时,**第一直觉**是:`cargo fmt && git status --short` — 期待空输出 = idempotent。**这是错的**,原因:Phase 4 (`cargo clippy --all-targets`) 和 Phase 5 (`cargo test --no-run`) 会创建 `Cargo.lock`(workspace 第一次跑会从无到有生成) + 可能产生 build artifacts。`git status --short` 把这些与 fmt 无关的"仓库变更"和 fmt 漂移混在一起,Phase 3 看到 `M src/lib.rs` + `?? Cargo.lock`,无法判断到底是 fmt 没 idempotent 还是 clippy 留下的锁文件。
 
@@ -2839,7 +2812,7 @@ cargo fmt --check                # 退出 0 = idempotent,非零 = 没收敛
 
 **反例扩展**(同类陷阱):fixer 默认 dry-run 模式不要靠"git diff 是空"证明没改文件 —— 应该靠 fixer 自己用 `if write:` 控制写盘(§45 / SKILL.md 已说)。两者同根:**外部副作用观察(grep git diff / git status)不能替代内部 controlled-mutation 标志**。
 
-## §80 auto-fixer 必须自给自足,不依赖仓库是 git 仓(2026-09-27 实测)
+## §80 auto-fixer 必须自给自足,不依赖仓库是 git 仓(实测)
 
 `doc_comment_audit.py` 用 `git ls-files` 列文件,而不是 `find` 或 `pathlib.rglob`。**后果**:对非 git 仓库(包括 `/tmp` 测试 fixture / `cargo new test-repo`)跑 fixer → git 命令 exit 128(`fatal: not a git repository`) → fixer 把 git stderr 当成"未跟踪文件"列表 → 0 个文件被处理 → 报 "0 violations, 0 files fixed" 但实际从未读源码。
 
@@ -2857,7 +2830,7 @@ def list_rust_files(repo: Path) -> list[Path]:
 
 **适用**:任何 auto-fixer 都应能跑在非 git 仓库(temporary fixture / fresh clone / 单文件测试场景),不能假设 `git ls-files` 一定可用。验证:fixer 跑在 `cargo new tmp_repo` 创建的空 cargo 项目上必须工作。
 
-## §81 max-iters 3 不是无限 loop 的设计意图(2026-09-27)
+## §81 max-iters 3 不是无限 loop 的设计意图
 
 `rust_pre_commit.py` 的 Phase 1 ↔ Phase 2 循环**硬上限 3 次**。这是有意识的设计,不是 bug。原因:
 
@@ -2867,9 +2840,9 @@ def list_rust_files(repo: Path) -> list[Path]:
 
 **反例**(不要这么设计):"max-iters=∞ until clean" 看似更严格,实际是死循环 — `self.field` 永远清不掉,user 不知道何时 Ctrl-C。
 
-**调试**:`--max-iters N` 子标志调到 5-10 用于排查 fixer 是否需要额外迭代(eg. doc_comment_audit 偶尔跨文件牵动需要第二轮);正常完工用默认 3。**常见误用**:把 max-iters 调到 100 指望"总有一次能清干净"——如果 3 次没清完,问题不是迭代次数,是人没改 source。
+**调试**:`--max-iters N` 子标志调到 5-10 用于排查 fixer 是否需要额外迭代(eg. doc_comment_audit 偶尔跨文件牵动需要 );正常完工用默认 3。**常见误用**:把 max-iters 调到 100 指望"总有一次能清干净"——如果 3 次没清完,问题不是迭代次数,是人没改 source。
 
-## §82 pre-commit hook staged-file strategy(2026-09-27)
+## §82 pre-commit hook staged-file strategy
 
 `~/.git-hooks/pre-commit` 的关键设计决策:**只检查 staged 文件,绝不扫整个 repo**。
 
@@ -2880,7 +2853,7 @@ def list_rust_files(repo: Path) -> list[Path]:
 
 **staged-file 模式的盲点**:
 - 只跑 file-level verifier(check 35 doc-comment / 36 lib.rs doc / 37 use-as-rename / 38 self.field / 21 dep-order)
-- 不跑需要全局上下文的 check(check 23 keyword-file 全树扫描 / check 26 import 集中化 / check 32/33 显式类型标注 等)
+- 不跑需要全局上下文的 check(check 23 keyword-file 全树扫描 / check 26 import 集中化 / check 32/33 显式类型标注等)
 - 这些全局 check 由 `rust_pre_commit.py` Phase 2 完整 audit 兜底
 
 **因此两层都必须跑**:
@@ -2891,7 +2864,7 @@ def list_rust_files(repo: Path) -> list[Path]:
 
 **为什么不直接用 `pre-commit` framework 装**:`pre-commit` 是 Python 项目,要写 `.pre-commit-config.yaml`,对单文件 Rust 仓 overhead 大。直接 bash + git diff + 全局 hooksPath 更轻量,符合 eastspire 仓最小依赖原则。
 
-## §83 hook 的 4 个 verifier 选择标准(2026-09-27)
+## §83 hook 的 4 个 verifier 选择标准
 
 hook 不跑 `audit_rust_standards.py` 38 项 audit,只跑 5 个 verifier,选择标准:
 
@@ -2907,7 +2880,7 @@ hook 不跑 `audit_rust_standards.py` 38 项 audit,只跑 5 个 verifier,选择�
 
 这些检查的正确执行点 = `rust_pre_commit.py` Phase 2,不是 hook。
 
-## §84 verify_dep_order.py 跨段空行规则的实现陷阱(2026-09-27)
+## §84 verify_dep_order.py 跨段空行规则的实现陷阱
 
 `check_cross_section_blanks` 实现时踩了 2 个真实坑,记下来给后续维护者。
 
@@ -2925,7 +2898,7 @@ hook 不跑 `audit_rust_standards.py` 38 项 audit,只跑 5 个 verifier,选择�
 
 如果 last_entry_line 没找到(`gap` 全是 blank),fallback 到 section header 自身(`last_entry_line = idx`),这样空 sections 之间不会有 false positive(但 `cargo new` 不会生成空 section)。
 
-## §85 §13.7.2a 真仓命中数据(2026-09-27)
+## §85 §13.7.2a 真仓命中数据
 
 跑 `python3 verify_dep_order.py` 在三仓:
 
@@ -2935,7 +2908,7 @@ hook 不跑 `audit_rust_standards.py` 38 项 audit,只跑 5 个 verifier,选择�
 | hyperlane | 35 | 0(全部合规)|
 | ctares | (待测)| (待测)|
 
-**euv / hyperlane 完全合规**:这两仓早期 round-3 阶段 user 已经手动整理过文件,跨段都正好 1 空行。新规则没产生 false positive,也不用大规模 sweep PR。
+**euv / hyperlane 完全合规**:这两仓早期阶段 user 已经手动整理过文件,跨段都正好 1 空行。新规则没产生 false positive,也不用大规模 sweep PR。
 
 **Fixture**:`~/.hermes/cache/scratch/verifier-fixtures/cross-section-blank-{compliant,violating}`:compliant 0/exit 0(3 段每段之间 1 空行),violating 2/exit 1(0 空行 + 2 空行各 1 hit)。
 
@@ -2943,7 +2916,7 @@ hook 不跑 `audit_rust_standards.py` 38 项 audit,只跑 5 个 verifier,选择�
 
 **Skill §13.7.2a 文档**:`references/13-dependency.md` 新增 §13.7.2 一节(注:不是 §13.7.3,因为它是"跨段规则",与"块内规则 §13.7.3"并列;原 §13.7.2 块内顺序往后挪到 §13.7.3),原 §13.7.3-§13.7.9 全部 +1 编号到 §13.7.4-§13.7.10。inline cross-reference 也同步更新。
 
-## §86 verify_use_aggregation.py(§6.6,check 41)— 无 root 的 `use { ... }` re-export 块会造成大规模假阳性(2026-09-27)
+## §86 verify_use_aggregation.py(§6.6,check 41)— 无 root 的 `use { ... }` re-export 块会造成大规模假阳性
 
 新规则"同 root 的 `use` 必须聚合"(check 41 / `verify_use_aggregation.py`)接入时踩到的坑,全部是**真实假阳性**,如果不修会把 audit 数字撑到完全不可信。
 
@@ -2970,7 +2943,7 @@ use { js_sys::*, lombok_macros::*, wasm_bindgen::prelude::*, web_sys::* };
 
 **坑 3:`#[cfg(...)]` gate 的 import 绝不能合并。**
 
-ctares `server-manager/src/lib.rs` 形态(该 crate 已于 2026-10-24 移出 ctares;同一形态现在可在 hyperlane `bench/runner/src/lib.rs:13-26` 看到 —— 一个 `use std::{...}` brace 块,后跟 `#[cfg(unix)] use std::os::unix::fs::PermissionsExt;`):
+ctares `server-manager/src/lib.rs` 形态(该 crate 已于移出 ctares;同一形态现在可在 hyperlane `bench/runner/src/lib.rs:13-26` 看到 —— 一个 `use std::{...}` brace 块,后跟 `#[cfg(unix)] use std::os::unix::fs::PermissionsExt;`):
 
 ```rust
 use std::{ fs, path::{Path, PathBuf}, pin::Pin, ... };
@@ -2997,7 +2970,7 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 
 **hook 接入**:`staged_file_gate.py` 的 `VERIFIERS` 字典加 `"verify_use_aggregation": "use aggregation §6.6"`,靠 importlib 走 `audit_one()`,绕过 argv 契约。实测:HEAD 已有违规的旧文件 staged → `0 new violations — commit allowed`(历史债不拦);在干净 HEAD 上新引入拆分 → `+1 new (verify_use_aggregation)` + `commit BLOCKED` exit 1。双向都通。
 
-## §N — proc-macro crate: §1.3c / chk38 CANNOT be satisfied for `///` doctest examples (2026-09-28)
+## §N — proc-macro crate: §1.3c / chk38 CANNOT be satisfied for `///` doctest examples
 
 `verify_hardcoded_strings.py` flags every string literal >= 4 chars inside a `///` doc comment, including lines inside ```rust code fences. For a `proc-macro = true` crate those hits are **structurally unfixable**:
 
@@ -3011,9 +2984,9 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 
 **同一规则的 macro 参数面**:`format_args!` 不在 `verify_hardcoded_strings.py` 的 `FORMAT_MACROS` 白名单里,所以 `f.write_fmt(format_args!("{:?}", self))` 会被误报,改写成 `write!(f, "{:?}", self)` 即可通过(语义等价,两者都在 FORMAT_MACROS 内)。
 
-## §87 verify_no_sibling_dirs.py(§1.3d,check 44)— 代码文件与子目录同级的规则,以及"豁免名单"必须精确到 4 个文件(2026-09-28)
+## §87 verify_no_sibling_dirs.py(§1.3d,check 44)— 代码文件与子目录同级的规则,以及"豁免名单"必须精确到 4 个文件
 
-新规则(2026-09-28 user 原话:"如果 rust 代码文件同级有目录,需要报错提示代码文件不能和目录在同一级,注意 lib.rs main.rs build.rs mod.rs 这些除外")接入为 `scripts/verify_no_sibling_dirs.py` + audit check 44。
+新规则(user 原话:"如果 rust 代码文件同级有目录,需要报错提示代码文件不能和目录在同一级,注意 lib.rs main.rs build.rs mod.rs 这些除外")接入为 `scripts/verify_no_sibling_dirs.py` + audit check 44。
 
 ### 为什么不是把 `mod.rs` 也禁掉
 
@@ -3031,7 +3004,7 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 
 ### 坑 3:git-ignored 目录必须排除,否则数字是幻觉
 
-`ctares/crate-cli/tmp/` 有 26 个 scratch crate(被 `/tmp/` 规则 ignore;2026-10-23 re-measure — the count drifts as crate-cli's integration tests generate more fixtures, so re-read it rather than trusting any fixed number),它们的 `src/` 布局违规无论修不修都不可能进任何 commit。verifier 用**一次批量** `git check-ignore --stdin` 过滤目录(与 `verify_hardcoded_strings.py` / `verify_doc_comment_format.py` 的 `_drop_git_ignored()` 同策略),并且同时剔除被忽略目录的**子目录**(父目录被 ignore 时子目录的相对路径也可能不在输出里)。
+`ctares/crate-cli/tmp/` 有 26 个 scratch crate(被 `/tmp/` 规则 ignore; re-measure — the count drifts as crate-cli's integration tests generate more fixtures, so re-read it rather than trusting any fixed number),它们的 `src/` 布局违规无论修不修都不可能进任何 commit。verifier 用**一次批量** `git check-ignore --stdin` 过滤目录(与 `verify_hardcoded_strings.py` / `verify_doc_comment_format.py` 的 `_drop_git_ignored()` 同策略),并且同时剔除被忽略目录的**子目录**(父目录被 ignore 时子目录的相对路径也可能不在输出里)。
 
 ### 与 pre-commit hook 的关系
 
@@ -3045,7 +3018,7 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 - audit 端到端:check 44 在 violating 侧 `FAIL ... 4 hits`、edge-cases 侧 `FAIL ... 2 hits`、compliant 侧 `PASS`。
 - 三仓实测:**euv 5 处 / ctares 4 处 / hyperlane 0 处** —— 全部是 `const.rs` / `impl.rs` / `struct.rs` / `fn.rs` 与子目录同级,数字小到可以在一个 sweep commit 里修完,不需要 §45 说的两 PR 分离。
 
-## §88 新规则的"标准修法"必须先跑 clippy 验证 —— verifier 报得出违规 ≠ 修法干净(2026-09-28)
+## §88 新规则的"标准修法"必须先跑 clippy 验证 —— verifier 报得出违规 ≠ 修法干净
 
 §1.3d 当天上线、当天收窄,根因是这个断层:**verifier 能报出违规,和修法本身不引入新 lint,是两件独立的事,而规范里没有任何机制校验后者。**
 
@@ -3053,7 +3026,7 @@ naive `line.count('{') - line.count('}')` 会被 `let s = "{";`、`r#"raw { stri
 
 - **标准修法本身引入 clippy 警告。** 修法是 `const.rs` → `const/{const.rs, mod.rs}`,新 `mod.rs` 里必须 `mod r#const;` —— 模块名与目录同名 = `module_inception`(默认 `warn`)。实测 euv **+2**、ctares **+5**,而两仓 master 都是 **0 warning** 基线。
 - **规范凭空发明了代码库没有的模式。** `X/X.rs` 在 euv 和 ctares 的 master 里**一个都不存在**。首版把它当"标准形态"写进文档,实际上是无中生有。
-- **豁免名单漏了一整类合法文件。** ctares 有 **23 个 `macro.rs`** 与子目录同级(`clonelicious/src/`、`future-fn/src/`、`std-macro-extensions/src/*/`),全是 §1.3a 意义上的合法叶子,首版全报违规。(2026-10-23 re-measure: 23, not the 24 recorded earlier — SKILL.md already carries this correction.)
+- **豁免名单漏了一整类合法文件。** ctares 有 **23 个 `macro.rs`** 与子目录同级(`clonelicious/src/`、`future-fn/src/`、`std-macro-extensions/src/*/`),全是 §1.3a 意义上的合法叶子,首版全报违规。(re-measure: 23, not the 24 recorded earlier — SKILL.md already carries this correction.)
 
 ### 更糟的一层:`rust_pre_commit.py` Phase 4 是坏的,所以没人会发现
 
@@ -3087,7 +3060,7 @@ euv 那 2 处是唯一剩下的真违规,而且修它们**不涉及关键字文�
 
 两个 subagent 的任务书都写了"跑 `rust_pre_commit.py` 直到 exit 0 = 唯一完工标准"。它们都做到了 exit 0 —— 因为 Phase 4 是坏的。**一个坏的 gate 比没有 gate 更危险**:它给出的 "PASS (0 warnings)" 是主动的误导,而且让两个独立执行者同时"通过"了一个不存在的检查。派发含验收标准的任务时,gate 本身的正确性要先确认,否则你派发的是"通过一个假检查"。
 
-## §89 规则写进 audit 不等于 hook 会拦 —— 目录级规则在 per-file gate 里读作恒定 0(2026-09-29)
+## §89 规则写进 audit 不等于 hook 会拦 —— 目录级规则在 per-file gate 里读作恒定 0
 
 §1.3d 上线的第二天,user 问:「skill hook 不是加了校验脚本吗?为什么 git 提交没有拦截这种文件?」实测确认:**hook 报的是 `0 new violations — commit allowed`,而工作区里正躺着 `stripe-pay-client/src/enum.rs` 这个肉眼可见的违规。**
 
@@ -3162,13 +3135,13 @@ worktree 已 `remove --force` + `prune`,euv 工作区确认干净。
 
 **"规则已写进规范"和"规则会拦人"是两个命题,中间隔着调用方注册。** 写新规则时的检查清单要加一条:grep 出所有会调用 verifier 的地方(`VERIFIERS` 字典、audit 的 CHECKS 列表、CI workflow 里的命令行),逐个确认它在里面。§7「verifier 和它的调用方一起发布」讲的是同一件事,但那次的读者是我自己,这次依然是。
 
-## §90 verify_pub_group_order.py(§18,check 48)— pub 项必须整组排在 pub(crate)/private 之前,fixer 是稳定分区不是全排序(2026-10-07)
+## §90 verify_pub_group_order.py(§18,check 48)— pub 项必须整组排在 pub(crate)/private 之前,fixer 是稳定分区不是全排序
 
 user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量。注意 pub crate 定义的位置在 pub api 位置之后,顺便更新到 skill 和 hook」。
 
 ### 规则形状
 
-`const.rs` / `static.rs` 内从上到下的可见性 rank 必须**非递增**:`pub`(2) → `pub(crate)`/`pub(super)`(1) → private(0)。一条 `pub const` 插在 `pub(crate) const` 之后 = 1 条 finding。组内顺序**不**检查 —— 存量 `(name_len, name_lex)` 排序约定继续只对新增 insert 生效,本规则只守组边界。
+`const.rs` / `static.rs` 内从上到下的可见性 rank 必须**非递增**:`pub` → `pub(crate)`/`pub(super)` → private。一条 `pub const` 插在 `pub(crate) const` 之后 = 1 条 finding。组内顺序**不**检查 —— 存量 `(name_len, name_lex)` 排序约定继续只对新增 insert 生效,本规则只守组边界。
 
 ### 为什么 fixer 是稳定分区而不是排序
 
@@ -3194,7 +3167,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 ---
 
-## §91 verify_const_visibility.py(§18 常量条款,check 49)— lib+bin 包的 src/main.rs 是外部消费者,声明点不算读者(2026-10-07)
+## §91 verify_const_visibility.py(§18 常量条款,check 49)— lib+bin 包的 src/main.rs 是外部消费者,声明点不算读者
 
 **事故链**:ctares 首跑 fix_const_visibility 后 `cargo check` 炸 `E0425: cannot find value CARGO_TOML`。`CARGO_TOML` 声明在 crate-cli/src/manifest/const.rs,全 crate 内部使用 —— 但 crate-cli 是 lib+bin 包,`src/main.rs` 经 `use crate_cli::*` glob 消费它。lib 里收窄成 pub(crate) 后,bin 的 glob 里符号消失,bin 报 E0425(**不是** E0603 —— glob 消失 vs 显式 import 被拒,两个错误码不同)。
 
@@ -3209,7 +3182,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 ---
 
-## §92 verify_no_pub_in_tests.py(§18 单测条款,check 50)— tests/ 里两种 pub 是承重的,只有单文件读者才可去(2026-10-07)
+## §92 verify_no_pub_in_tests.py(§18 单测条款,check 50)— tests/ 里两种 pub 是承重的,只有单文件读者才可去
 
 **事故链**:user 指令「所有的单测都不需要 pub」。第一版 verifier 把 tests/ 内所有 column-0 `pub` 一律判违规,fixer 三仓连剥 74 处 → euv 22 errors、ctares 20 errors(hyperlane 0)。编译器证明两种 tests/ pub 是**承重的**,不是摆设:
 
@@ -3220,11 +3193,11 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **收窄后的规则(narrow)**:只有「名字在本 tests/ 树其他文件零出现」的 pub item 才算摆设(`#[test] pub fn`、同文件 helper、声明后没人读的常量)。`pub use` 与被父 glob 的子模块 item 永不标。fixture 必须带四种:跨文件 const(留)、mod.rs pub use(留)、同文件 pub fn(剥)、字符串里的 "pub fn"(不报)。
 
-**更正(同日第二轮,user 钦定「所有单测 tests 目录下的禁止出现 pub use」后实测)**:上面第 2 条判错了。`use`(无 pub 前缀)的 re-export 绑定**可以**沿祖先 glob 链传到子孙模块 —— euv-cli tests/mod.rs 的 `use std::{...}`(无 pub)经两跳 `use super::*;` 到 fn.rs 编译全过。Rust 语义:子孙模块对祖先的私有项(含 use 绑定)可见,glob 拾取可见绑定。真正承重的只有第 1 条(父从子模块 glob,方向反了)。**新规则由此落地**:tests/ 内 `pub use` / `pub(crate) use` / `pub(super) use` 一律禁止,全部改纯 `use`,三仓(euv 5 / hyperlane 4 / ctares 5 处)改完 `--all-targets` 0 error。verify_no_pub_in_tests.py 已把 pub-marked use 列为独立违规类。
+**更正(同日 ,user 钦定「所有单测 tests 目录下的禁止出现 pub use」后实测)**:上面第 2 条判错了。`use`(无 pub 前缀)的 re-export 绑定**可以**沿祖先 glob 链传到子孙模块 —— euv-cli tests/mod.rs 的 `use std::{...}`(无 pub)经两跳 `use super::*;` 到 fn.rs 编译全过。Rust 语义:子孙模块对祖先的私有项(含 use 绑定)可见,glob 拾取可见绑定。真正承重的只有第 1 条(父从子模块 glob,方向反了)。**新规则由此落地**:tests/ 内 `pub use` / `pub(crate) use` / `pub(super) use` 一律禁止,全部改纯 `use`,三仓(euv 5 / hyperlane 4 / ctares 5 处)改完 `--all-targets` 0 error。verify_no_pub_in_tests.py 已把 pub-marked use 列为独立违规类。
 
 **配套事实**:lib+bin 包(euv-cli)的 112 个 pub const 全部收窄后,编译器一轮点名回退 112/112 —— cli 的常量 pub 面被 tests/ + main.rs 完全消费,机械规则 0 可收。这类「测试驱动 pub 面」要收窄只能改测试(断言行为而非 const 表)或挪成 src 内 #[cfg(test)] 单测,是 user 级决策,不是脚本决策。
 
-## §93 常量绝对禁令的落地陷阱(depub 内联污染 + rustc 坐标驱动修复法,2026-10-07)
+## §93 常量绝对禁令的落地陷阱(depub 内联污染 + rustc 坐标驱动修复法)
 
 **背景**:user 两轮裁决「常量是肯定不需要pub的」+「单测里常量不需要验证」。euv 全量落地:157 个常量去 pub(131 小值内联进 tests、24 大值逐字内联、2 零读者删除)+ 常量验证类测试整套删除(global_css/css_consts/fmt_consts 目录、cli_api 常量表 4 测试)。过程炸出 435+ 编译错误,教训如下。
 
@@ -3241,7 +3214,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 **教训 6:example 等下游消费数学常量,迁移目标是 std 不是本地副本。** engine 的 PI/TWO_PI/HALF_PI 本就是 std 重导出(facade),按反 facade 原则直接删,下游 mod.rs 根部 `use std::f64::consts::{FRAC_PI_2, PI};` 沿 glob 链下放(§92);EPSILON=1e-6 是 engine 语义值不是 std 值,消费方各持 mirror const(写注释 `// Mirrors the engine's math EPSILON`)。同名 const 别放进会被祖先 glob 聚合的位置(page/mod.rs `pub(crate) use {game_3d::*, raytrace::*}` 会让两个同名 HALF_PI 对 fn.rs 歧义 E0659)—— 消歧优先改用 std 名(FRAC_PI_2)而不是加本地别名。
 
 
-## §94 verify_no_toml_mod_comments.py(§2.5 绝对化,check 51)— TOML 进 gate 的四个落地坑(2026-10-09)
+## §94 verify_no_toml_mod_comments.py(§2.5 绝对化,check 51)— TOML 进 gate 的四个落地坑
 
 **背景**:user directive「toml文件和mod.rs禁止注释」。旧执行面:check 5 只扫 diff 且正则 `^\s*//[^/!]` 只捕 `//`(SKILL.md 文字声称捕 `///`,实测 `[^/!]` 把 `///` 也排除了,文档与脚本不一致);TOML 零覆盖;check 26 的 mod.rs 注释分支豁免第 1 行 `///`。落地后四个坑:
 
@@ -3252,15 +3225,15 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **check 26 对齐**:`verify_module_imports_centralized.py` 的 mod.rs 注释分支已删除(注释统一归 check 51),配套 self_test_no_module_imports_centralized.py 两处断言改成「注释不归本 check」。
 
-## §95 fix_dep_order.py 吞掉跨段空行的回归(§74 修复实际失效,2026-10-09)
+## §95 fix_dep_order.py 吞掉跨段空行的回归(§74 修复实际失效)
 
 **事故**:euv 根 Cargo.toml 删 2 行注释后顺手跑 `fix_dep_order.py --write`(hyperlane entry 归位触发 block 重序列化),结果 `[workspace.dependencies]` 最后一个 entry(多行 web-sys)与 `[dependencies]` 之间的空行被吃掉,verify_dep_order 立刻报 §13.7.2a「expected exactly 1 blank line; got no blank line」。**三函数契约断裂位置在 sort 不在 serialize**:§74 修的是 `serialize_block` 让 last entry 也 honour `followed_by_blank`,但 `sort_block_items` 把**全部** input flag 当噪声丢弃,只重设 local/third 组边界那一条 —— last entry 的 flag 永远到不了 serialize,§74 的修复形同虚设。教训:三函数契约(parse → sort → serialize)的任何一环「丢 flag 再重建」时,必须枚举**所有**承重 flag,不只是当前 bug 报告里点名的那一个。**修法**:`plan_changes` 在 sort 之后按「块后是否还有下一个 section」(`sp[1] < len(text)`)重设 `expected[-1].followed_by_blank` —— 边界 flag 的权威来源是 span 几何,不是源文件 whitespace。验证:synthetic repro(乱序 block + 多行 last entry + 后继 section)rewrite 后空行存活 + verify 0 + 二次 fix "Nothing to do";hyperlane/ctares 无 phantom rewrite(Comparator 对 trailing blank 本来就容忍,决策不变)。
 
-## §96 verify_lib_rs_order.py 属性行吃掉空行(§6.1 空行规则 vs rustfmt 不可兼得,2026-10-09)
+## §96 verify_lib_rs_order.py 属性行吃掉空行(§6.1 空行规则 vs rustfmt 不可兼得)
 
 **事故**:euv `ui/tests/wasm_fallback/mod.rs` 与 `engine/tests/wasm_fallback/mod.rs` 被 check 27 报「`mod` group and `private` group touch without a blank line」,实际文件在 `mod r#fn;` 与 `#[cfg(target_arch = "wasm32")] use super::*;` 之间**有**空行。根因:verifier 把 `#[cfg]` 属性行当「非 decl 代码行」处理,统一 `blank_before = False`,把属性上方那个空行作废。按 verifier 的唯一合规写法(空行挪到属性与 use 之间)rustfmt `--check` 必挂 —— **rustfmt 不允许属性与被装饰项之间有空行**,两个工具不可能同时满足。**修法**:属性行(`#` 开头)不再重置 `blank_before`,只透传 —— 属性属于**下一个** decl,空行归属权在属性上方。非属性非 decl 行保持原行为(代码行粘连仍是违规)。验证:无空行的 `mod` + `#[cfg]` + `use` 仍报违规(属性透传 False),有空行版本通过;`self_test_no_lib_rs_order.py` fixtures + 6 mutations 全 PASS。**教训:空行类规则遇到属性行,先想清楚属性归属于上一行还是下一行 —— Rust 的外层属性恒属下一行。**
 
-## §97 verify_no_qualified_std_path.py / fix_no_qualified_std_path.py(R6.3 std 收编,check 47)— 203-hit 清扫的八个落地坑(2026-10-09)
+## §97 verify_no_qualified_std_path.py / fix_no_qualified_std_path.py(R6.3 std 收编,check 47)— 203-hit 清扫的八个落地坑
 
 1. **字符字面量正则必须恰好一个字符**:`'(?:\\.|[^'\\])'`。写成 `*` 时,lifetime `'a`/`'_` 的撇号会和同一行(或跨行)下一个引号误配成"字符串",把中间的真代码吞进 blanking —— ctares 实测 27/203 hits 因此静默消失(verifier 逐行扫、fixer 整文件扫,两套行为还会互相不一致)。established scripts(depub_consts / verify_no_impl_trait_params / verify_no_pub_in_tests / verify_no_redundant_accessor_attr)一直都是恰好一字符,新脚本抄它们,别自己造。
 2. **raw string 必须 backreference 配对**:`b?r(#*)".*?"\1`。写成 `r?#*"..."#*` 时 `r#"{"a":1}"#` 在第一个内嵌 `"` 处提前闭合,后续引号连锁误配,跨行吞掉真实代码(crate-cli/tests/bump/fn.rs 的 JSON fixture 后方 3 个 hit 就是这么丢的)。
@@ -3271,7 +3244,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 7. **fixer 部分应用不可自愈**:sub-file rewrite 全落盘、root import 按序写入的架构下,中途崩溃 = 已改写的现场等不到 import,而重跑时 verifier 已报 0 hits → 不再生成 plan → 永不修复。恢复路径只有 rustc 坐标 loop(编译错误列出全部缺 import 的 bare name,按 crate 补齐再编译)。教训:root import 应先于 sub-file rewrite 落盘,或 plan 可重入。
 8. **R6.3 清扫的连锁反应**:root 追加单行 `use std::...;` 会立刻触发 check 43(§6.6 同根聚合,实测 17 个 root)→ 聚合成单条 brace form;签名从 `std::error::Error` 变 bare 后 doc `# Returns` 字面量失配触发 check 37(§2.2 Layer 4,实测 6+3 处)→ doc 同步改。**清扫类 fixer 的完工定义永远是被牵连 check 全部归零,不是目标 check 单独归零。**
 
-## §98 doc_comment_audit.py 会往 tests/ 树写 doc 注释,与 §14.5 对打(2026-10-09 实测)
+## §98 doc_comment_audit.py 会往 tests/ 树写 doc 注释,与 §14.5 对打(实测)
 
 1. **症状**: `rust_pre_commit.py` 在 tests/ 内有改动的仓上永远 loop 不收敛 —— Phase 1 的 `doc_comment_audit.py` 给 tests/ 内的 helper fn(无 `#[test]` 属性的自由函数,如 `start_server_with`)和 `#[test]` fn 体内的嵌套 fn 补写 `/// Body of the ...` doc 块;Phase 2 的 check 28(`verify_no_test_comments.py`,§14.5 tests/ 零注释)立刻把它们全报出来;下一轮 Phase 1 又写回去。3 轮迭代后 FAIL 出局。实测 hyperlane 仓 `core/tests/server/fn.rs` 被注入 19 处违规。
 2. **根因**: fixer 的豁免逻辑 `_scan_test_regions` 只跳过 `#[cfg(test)]` mod 块和紧跟 `#[test]`/`#[tokio::test]` 属性的 fn,**不按路径豁免 tests/ 目录**;而 verifier 侧(`verify_doc_comment_format.py` / `verify_no_test_comments.py`)对整个 tests/ 树免疫。fixer 制造 verifier 必报的违规 = 三函数契约撕裂的变体(§73-75 同类)。
@@ -3279,19 +3252,19 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 4. **修复方向(未做)**: `doc_comment_audit.py` 应在文件发现阶段就排除 `**/tests/**`,与 `verify_doc_comment_format.py` 的 tests/ 豁免对齐。修之前任何触及 tests/ 的改动都走上面的绕行路径。
 5. **关联发现(版本 bump 触发 §13.7 重排)**: dep entry 的排序键含 entry 全文字符数,所以 `hyperlane = "21.7.8"` → `"21.12.0"` 这种纯版本号改动会改变排序键,要求 entry 在 dep 块内移位(hyperlane-quick-start playground 实测 2 处)。**修法不是手排,是跑 `fix_dep_order.py --write`** —— 它按 verifier 同一套 parser 重排,跑完 verify_dep_order 归零。
 
-## §98 verify_const_visibility.py 常量表 crate 配置豁免(rust-standards.toml,check 49 首个配置字段,2026-10-09)
+## §98 verify_const_visibility.py 常量表 crate 配置豁免(rust-standards.toml,check 49 首个配置字段)
 
-**裁决**:http-constant 这类「整个 crate 的公开 API 就是常量本身」的常量表 crate 不适用 §18 绝对禁令 —— 但豁免**不写死在 verifier 里**,走仓根 `rust-standards.toml` 的 `pub_const_exempt = ["constant"]`(字符串数组,**元素是仓根相对的目录/文件 glob 模式,不是包名** —— 2026-10-09 同日二次裁决:首版用 `[package].name`,user 改为路径写法并要求支持 `**`)。匹配语义是 gitignore-lite 自己实现(`*`/`?` 不跨段、`**` 跨任意段含零段,裸目录前缀自动等价 `dir/**`),不用 pathlib.PurePath.match(它的 `**` 行为随版本漂移)也不引 pathspec 依赖。这是 rust-standards 工具链的第一个仓级配置文件,立下的先例:(1) 字段级配置用平铺 key = string-array,不加注释(§2.5 对一切 TOML 生效,包括自己的配置文件);(2) 本机 python3 无 tomllib(Xcode 自带 < 3.11),平铺字段用定向 regex 解析即可,别为这一个字段引依赖;(3) 豁免只影响 **owning 侧**(命中文件不报,violation/unwired 双桶都跳),reader 侧保留 —— 别的 crate 的常量读者语料照算;(4) main() 把豁免名单打 stderr,audit 只数 stdout 行不受影响,且豁免不静默;(5) `audit_one`(staged_file_gate)与 fixer 共用 `analyze()`,豁免自动覆盖 gate 与 depub 工具,不需要第二处注册。**连带效果**:大池子(2114 hits)豁免后露出 3 条真违规(compress 的 CONTENT_ENCODING/EMPTY_STR、request 的 APP_NAME),其"外部读者"全是与 http_constant 同名的保守计数,depub 后 cargo check 全绿;depub 若让一个 `pub use r#const::*` glob 不再转出任何 pub 项,clippy `unused_imports` 会报 —— 改 `pub(crate) use`(§6.2 的 crate 内部分发形式),不要删 glob 让链断掉。
+**裁决**:http-constant 这类「整个 crate 的公开 API 就是常量本身」的常量表 crate 不适用 §18 绝对禁令 —— 但豁免**不写死在 verifier 里**,走仓根 `rust-standards.toml` 的 `pub_const_exempt = ["constant"]`(字符串数组,**元素是仓根相对的目录/文件 glob 模式,不是包名** —— 同日二次裁决:首版用 `[package].name`,user 改为路径写法并要求支持 `**`)。匹配语义是 gitignore-lite 自己实现(`*`/`?` 不跨段、`**` 跨任意段含零段,裸目录前缀自动等价 `dir/**`),不用 pathlib.PurePath.match(它的 `**` 行为随版本漂移)也不引 pathspec 依赖。这是 rust-standards 工具链的第一个仓级配置文件,立下的先例: 字段级配置用平铺 key = string-array,不加注释(§2.5 对一切 TOML 生效,包括自己的配置文件); 本机 python3 无 tomllib(Xcode 自带 < 3.11),平铺字段用定向 regex 解析即可,别为这一个字段引依赖; 豁免只影响 **owning 侧**(命中文件不报,violation/unwired 双桶都跳),reader 侧保留 —— 别的 crate 的常量读者语料照算; main 把豁免名单打 stderr,audit 只数 stdout 行不受影响,且豁免不静默; `audit_one`(staged_file_gate)与 fixer 共用 `analyze()`,豁免自动覆盖 gate 与 depub 工具,不需要第二处注册。**连带效果**:大池子(2114 hits)豁免后露出 3 条真违规(compress 的 CONTENT_ENCODING/EMPTY_STR、request 的 APP_NAME),其"外部读者"全是与 http_constant 同名的保守计数,depub 后 cargo check 全绿;depub 若让一个 `pub use r#const::*` glob 不再转出任何 pub 项,clippy `unused_imports` 会报 —— 改 `pub(crate) use`(§6.2 的 crate 内部分发形式),不要删 glob 让链断掉。
 
-## §99 check 26 扩到 tests 树(§6.1 outermost,2026-10-09 user 裁决)— 三种现存形态与各自收法
+## §99 check 26 扩到 tests 树(§6.1 outermost, user 裁决)— 三种现存形态与各自收法
 
-**裁决**:`use std::mem;` 这类导入「应该在 tests 最外层 mod 已有的 std 里导入,而不是每个文件导入」—— check 28 的 `audit_one` 原本整树跳过 `tests/`(`OUTERMOST_PARENTS` 早含 "tests",是 audit_one 的入口过滤把它挡了),扩面后 tests 树只执行 §6.1 outermost 一条:tests/ 直下的 mod.rs 是树根(可带 std / 外部 crate / `use <crate>::*;`),更深层 mod.rs 任何非链导入都报。首跑三仓实测 12 hits,收法按形态分三类:(1) **crate glob 住在内层**(stripe-pay-server/client:外层 tests/mod.rs 只有 mod 声明、内层各带 `use stripe_pay_server::*;`)→ glob 上提到外层,内层补 `use super::*;` 收尾;(2) **内层 narrowed crate import**(stripe-pay-core/tests/payment 的 `use stripe_pay_core::{CardBrand, ...};`)→ 外层已有同名 glob 时 narrowed 行是纯冗余,直接删,不要也提一份到外层;(3) **内层 std/外部 crate 块**(euv engine 4 处 + ctares tcp/udp-request 的 std 块)→ 并集进外层 tests/mod.rs 既有 std 块(注意 euv 外层早已 `use {..., js_sys::*, ...};` glob,内层 `use js_sys::Object;` 是 glob 冗余,删掉即可不用提)。两个执行细节:合并进既有 std 块时按 rustfmt 排序习惯写(`thread::{spawn, JoinHandle}` 小写在前),否则 `crate fmt --check` 会反过来咬你;euv 的 engine tests 树在 host 上可编译可跑(js-sys 在非 wasm target 只编不跑),`cargo test -p euv-engine` 就是 tests 树的编译门禁,不必纠结 `cargo check --all-targets --target wasm32` 报的那批 `wasm_bindgen_test` attr 错(存量构建形态,CI 也没有这个 job)。self-test 用 fixtures/module-imports-centralized/{violating,compliant}/tests/ 固化:内层 std 导入必报、外层携带豁免。
+**裁决**:`use std::mem;` 这类导入「应该在 tests 最外层 mod 已有的 std 里导入,而不是每个文件导入」—— check 28 的 `audit_one` 原本整树跳过 `tests/`(`OUTERMOST_PARENTS` 早含 "tests",是 audit_one 的入口过滤把它挡了),扩面后 tests 树只执行 §6.1 outermost 一条:tests/ 直下的 mod.rs 是树根(可带 std / 外部 crate / `use <crate>::*;`),更深层 mod.rs 任何非链导入都报。首跑三仓实测 12 hits,收法按形态分三类: **crate glob 住在内层**(stripe-pay-server/client:外层 tests/mod.rs 只有 mod 声明、内层各带 `use stripe_pay_server::*;`)→ glob 上提到外层,内层补 `use super::*;` 收尾; **内层 narrowed crate import**(stripe-pay-core/tests/payment 的 `use stripe_pay_core::{CardBrand, ...};`)→ 外层已有同名 glob 时 narrowed 行是纯冗余,直接删,不要也提一份到外层; **内层 std/外部 crate 块**(euv engine 4 处 + ctares tcp/udp-request 的 std 块)→ 并集进外层 tests/mod.rs 既有 std 块(注意 euv 外层早已 `use {..., js_sys::*, ...};` glob,内层 `use js_sys::Object;` 是 glob 冗余,删掉即可不用提)。两个执行细节:合并进既有 std 块时按 rustfmt 排序习惯写(`thread::{spawn, JoinHandle}` 小写在前),否则 `crate fmt --check` 会反过来咬你;euv 的 engine tests 树在 host 上可编译可跑(js-sys 在非 wasm target 只编不跑),`cargo test -p euv-engine` 就是 tests 树的编译门禁,不必纠结 `cargo check --all-targets --target wasm32` 报的那批 `wasm_bindgen_test` attr 错(存量构建形态,CI 也没有这个 job)。self-test 用 fixtures/module-imports-centralized/{violating,compliant}/tests/ 固化:内层 std 导入必报、外层携带豁免。
 
-## §100 pre-commit 的 .toml dep-order 子门改 new-violation 模型(2026-10-09 FrameworkBenchmarks 事故)
+## §100 pre-commit 的 .toml dep-order 子门改 new-violation 模型(FrameworkBenchmarks 事故)
 
-**事故**:hook 的 toml 块(`grep '\.toml$'` 命中后对**全仓**跑 verify_dep_order,非零即把锅扣在 staged 文件上)在上游跟踪型 fork 上等于永久锁死 —— FrameworkBenchmarks 37 个 manifest 有 34 个上游继承的 §13.7 存量债,任何 toml 提交都被拦,而债务修复与本次提交毫无关系(且下次 upstream merge 又带回来)。修法与 .rs 子门 2026-09-27 那次同构:逐 staged manifest 用 scratch 单文件目录分别审计 staged blob(`git show :path`)与 HEAD blob(`git show HEAD:path`),`new_count > old_count` 才拦;不在 staged 集合里的债务文件根本不进检查。同一仓库两个副本(~/.git-hooks/pre-commit 与 references/hooks/pre-commit)必须同步。**转义教训(patch 工具会翻倍反斜杠)**:patch 替换 bash 单行正则时,old/new_string 里写 `\\.` 落盘成了两个反斜杠,`grep '\\.toml$'` 在 BRE 下永远匹配不到 Cargo.toml —— 门禁瞬间变成恒定 0(不拦也不报,死寂)。发现路径只有一条:scratch 仓造一个真违规 staged 提交看 hook 是否 FAIL(三向:好 manifest 过 / 新违规拦 / 存量债不拦)。改 hook 之后必须跑这三向,不能改完就走。
+**事故**:hook 的 toml 块(`grep '\.toml$'` 命中后对**全仓**跑 verify_dep_order,非零即把锅扣在 staged 文件上)在上游跟踪型 fork 上等于永久锁死 —— FrameworkBenchmarks 37 个 manifest 有 34 个上游继承的 §13.7 存量债,任何 toml 提交都被拦,而债务修复与本次提交毫无关系(且下次 upstream merge 又带回来)。修法与 .rs 子门那次同构:逐 staged manifest 用 scratch 单文件目录分别审计 staged blob(`git show :path`)与 HEAD blob(`git show HEAD:path`),`new_count > old_count` 才拦;不在 staged 集合里的债务文件根本不进检查。同一仓库两个副本(~/.git-hooks/pre-commit 与 references/hooks/pre-commit)必须同步。**转义教训(patch 工具会翻倍反斜杠)**:patch 替换 bash 单行正则时,old/new_string 里写 `\\.` 落盘成了两个反斜杠,`grep '\\.toml$'` 在 BRE 下永远匹配不到 Cargo.toml —— 门禁瞬间变成恒定 0(不拦也不报,死寂)。发现路径只有一条:scratch 仓造一个真违规 staged 提交看 hook 是否 FAIL(三向:好 manifest 过 / 新违规拦 / 存量债不拦)。改 hook 之后必须跑这三向,不能改完就走。
 
-## §101 三件套拼在一起 = `Data`(§17.16,check 53)—— 换 derive 时属性不改、行为不变(2026-10-14)
+## §101 三件套拼在一起 = `Data`(§17.16,check 53)—— 换 derive 时属性不改、行为不变
 
 **规则**:`#[derive(…, Getter, GetterMut, Setter)]` → `#[derive(…, Data)]`。等价性不是推论,是 lombok 的同一个函数:`Getter`→`inner_lombok_data(input, true, false, false)`、`GetterMut`→`(false, true, false)`、`Setter`→`(false, false, true)`、`Data`→`(true, true, true)`(10.2.4 `src/lib.rs`)。且 `Data` 的 `attributes(get, get_mut, set)` 是三宏的**并集**,所以字段上的 `#[get(pub(crate))]` / `#[get_mut(skip)]` / `#[set(type(Into))]` / `#[get(type(copy))]` 一个字都不用动。
 
@@ -3307,7 +3280,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **自测必须能证明自己抓得住**:三个变异(把 `TRIO.issubset` 短路掉 / 放开 struct 作用域 / 关掉注释与字面量屏蔽)每个都让自测 FAIL,还原才 PASS。恒过的自测比没有自测更危险 —— 它让人以为规则在跑(pitfalls §A 的同一教训:0 行输出先确认脚本真扫到了文件)。
 
-## A 0-violation script run is not proof the change is safe (2026-10-13)
+## A 0-violation script run is not proof the change is safe
 
 Turning check 52 from FAIL to PASS required two follow-on fixes that the check itself
 did not report. Both were found by running the compiler and the full test suite, not
@@ -3333,7 +3306,7 @@ between two parallel tests. Key the fixture directory by the per-test `TempDir` 
 so each test owns its canary. Verify with 15+ consecutive full-suite runs, because a
 1-in-3 flake will look green on a single run.
 
-## §102 注册进 `staged_file_gate.py` 还不够 —— `core.hooksPath` 可能指向不存在的目录(2026-10-16)
+## §102 注册进 `staged_file_gate.py` 还不够 —— `core.hooksPath` 可能指向不存在的目录
 
 §17.17 加 verifier 时实测发现的:**euv 的 pre-commit hook 根本没在跑**。
 
@@ -3356,7 +3329,7 @@ for r in ~/code/*; do
 done
 ```
 
-**本机四条路径,三种内容**(2026-10-16 实测):
+**本机四条路径,三种内容**(实测):
 
 | 仓库 | `core.hooksPath` | 状态 |
 |---|---|---|
@@ -3384,7 +3357,7 @@ _git(root, "diff", "-U0", "origin/master", "HEAD", "--", rel)
 Both read git objects, never the working tree. Consequences:
 
 - It reports violations a fixed-in-the-worktree change has already resolved,
-  until that change is actually committed. Verified 2026-10-17: hyperlane
+  until that change is actually committed. Verified : hyperlane
   reported 2 hits against `type/src/stream/transport/impl.rs`
   (`rustls::Error` annotations) that the working tree had replaced with the
   local alias `PeerError`; committing the worktree into a throwaway clone
@@ -3406,7 +3379,7 @@ containing `async fn`. The crate is edition 2024 and compiles clean. Treat
 these as harness artifacts and confirm with
 `cargo check --workspace --all-targets` rather than the patch lint.
 
-## A doc block above TWO attributes reads as undocumented (2026-10-21)
+## A doc block above TWO attributes reads as undocumented
 
 `doc_comment_audit.py` used to stop at the INNERMOST attribute when it
 walked up from a fn and look at the line above it. With one attribute that
@@ -3435,7 +3408,7 @@ Two attributes in a row is not exotic: `#[prologue_macros(...)]` plus
 carrying both was what the audit flagged. The regression case lives in
 `self_test_doc_comment_audit.py` (`multi_attribute_doc_block_survives`).
 
-## §103 `crate fmt` 的作用域是 cwd 的 package,不是整个 workspace(2026-10-23 实测)
+## §103 `crate fmt` 的作用域是 cwd 的 package,不是整个 workspace(实测)
 
 旧文案写 "`crate fmt` 默认等于 `cargo fmt --all`,覆盖 workspace 全 member"。实测不成立,
 且失败方向是**静默漏改** —— 命令 exit 0、workspace 里另一个 crate 仍然是脏的。

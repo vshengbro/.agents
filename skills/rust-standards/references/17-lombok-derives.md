@@ -28,7 +28,7 @@
 | `DisplayDebug` | `Display` 用 `{:?}` 格式 | 调试输出兼 `Display` |
 | `DisplayDebugFormat` | `Display` 用 `{:#?}` 格式 | 多行调试输出 |
 
-> **⚠️ 版本敏感:本节与 §17.8 的签名结论以 `lombok-macros` 10.x 为准(2026-10-13 对 10.2.4 源码 + 实编译复核;**2026-10-25 对 ctares 在用的 10.3.0 源码逐条复核,结论不变**)**。2.x 的行为与本表**不一致**(例如 `#[get(pub, copy)]` 在 2.0/2.1 里 `copy` 被忽略恒返回 `&T`,10.2.4 里生效)。锁在 2.x 的仓库必须以该版本 `cargo expand` / 编译为准,不能照抄本表。锁 10.x 的仓库直接用本表。
+> **⚠️ 版本敏感:本节与 §17.8 的签名结论以 `lombok-macros` 10.x 为准(对 10.2.4 源码 + 实编译复核;** 对 ctares 在用的 10.3.0 源码逐条复核,结论不变**)**。2.x 的行为与本表**不一致**(例如 `#[get(pub, copy)]` 在 2.0/2.1 里 `copy` 被忽略恒返回 `&T`,10.2.4 里生效)。锁在 2.x 的仓库必须以该版本 `cargo expand` / 编译为准,不能照抄本表。锁 10.x 的仓库直接用本表。
 
 **标准组合**:
 
@@ -80,7 +80,7 @@ pub struct Args {
 //   pub fn try_get_maybe(&self) -> &Option<PathBuf>   { &self.maybe }
 ```
 
-**踩坑实证**(2026-09-18 euv-docs `Args::index_html` 字段,`cargo expand` 输出):
+**踩坑实证**(euv-docs `Args::index_html` 字段,`cargo expand` 输出):
 ```text
 pub fn get_index_html(&self) -> PathBuf {
     self.index_html.clone().unwrap()
@@ -98,7 +98,7 @@ pub fn try_get_index_html(&self) -> &Option<PathBuf> {
 3. **想设字段值** → 用 `set_*` (始终是 `&mut self`),与字段类型无关
 
 **常见反模式**:
-- `let x: Option<&T> = args.get_optional_field()`  — 编译失败 (`get_*` 返回 `T`,不是 `Option<&T>`)
+- `let x: Option<&T> = args.get_optional_field()` — 编译失败 (`get_*` 返回 `T`,不是 `Option<&T>`)
 - `args.get_optional_field()` 在 `None` 分支会直接 panic,不带任何类型信号
 - 期望 `get_*` 返回 `Option<&T>` 是 Rust 标准库约定(例如 `HashMap::get`),**Lombok 不遵循这个约定**
 
@@ -110,7 +110,7 @@ pub fn try_get_index_html(&self) -> &Option<PathBuf> {
 - 优先使用 `Debug`,如果某些字段无法 `Debug`, 再换成 `CustomDebug` 来替代标准 `#[derive(Debug)]`,没有实现 `Debug` 的字段需要标注 `#[debug(skip)]`
 - **不要**重复 `#[derive(Debug)]`(否则产生冲突 impl)
 
-## 17.6 Lombok 生成 setter 的两个真实陷阱(2026-09-12 euv PR #209 实测)
+## 17.6 Lombok 生成 setter 的两个真实陷阱(euv 实测)
 
 把 `self.x = value` 改成 `self.set_x(value)` 看似一行替换,**实际有两个坑会触发编译错误**。修复它们之后 setter 路径才真能用。
 
@@ -179,7 +179,7 @@ pub struct Tween<T: Interpolable + Copy> { ... }
 
 这种 struct 文档会**显式说明**为何不 derive Lombok,需保留手写 accessor。在仓库里 grep `Lombok-shaped counterpart` 或 `not deriving \`Data\`` 找这种例外,不要强改 setter。
 
-## 17.8 Lombok `get_*` 的返回类型由 `type(...)` 决定 —— 基线是 `&T`(2026-10-13 对 lombok-macros 10.2.4 源码 + 实编译复核;2026-10-25 对 10.3.0 源码复核结论不变)
+## 17.8 Lombok `get_*` 的返回类型由 `type(...)` 决定 —— 基线是 `&T`(对 lombok-macros 10.2.4 源码 + 实编译复核; 对 10.3.0 源码复核结论不变)
 
 **基线行为(不写 `type(...)`)**:所有 `get_*` 返回 `&T`(引用类型字段返回 `&&T`,双层引用)。
 
@@ -216,13 +216,13 @@ if *args.get_release() { ... }
 .command.arg(*args.get_name())
 ```
 
-### §17.8.1 `#[get(type(copy))]` 是**强制**要求,不是可选优化(2026-10-13 user 钦定)
+### §17.8.1 `#[get(type(copy))]` 是**强制**要求,不是可选优化(user 钦定)
 
 **基础类型(`bool` / 整型 / 浮点 / `char` / `&'static str` 等)的 getter 必须显式写 `#[get(type(copy))]`**,否则生成 `&bool` 让每个调用点都要 `*` 解引用。
 
-lombok 10.2.4 源码 `generate/fn.rs::build_named_get_quote` 的 `ReturnType::Copy` 分支生成 `{ self.field }`,`generate_return_type` 把返回类型设为字段类型本身 —— `copy` **生效**。(2026-10-25 在 10.3.0 源码复核:`generate/fn.rs` 的 `ReturnType::Clone | ReturnType::Copy => quote! { #field_type }` 分支仍在,结论不变)
+lombok 10.2.4 源码 `generate/fn.rs::build_named_get_quote` 的 `ReturnType::Copy` 分支生成 `{ self.field }`,`generate_return_type` 把返回类型设为字段类型本身 —— `copy` **生效**。(在 10.3.0 源码复核:`generate/fn.rs` 的 `ReturnType::Clone | ReturnType::Copy => quote! { #field_type }` 分支仍在,结论不变)
 
-**⚠️ 版本差异(重要)**:`lombok-macros` **2.0 / 2.1 实测忽略 `copy`**,不论是否写都返回 `&T`(euv-docs PR #31 / hyperlane request crate 历史结论)。**10.2.4 起 `copy` 生效**。所以:
+**⚠️ 版本差异(重要)**:`lombok-macros` **2.0 / 2.1 实测忽略 `copy`**,不论是否写都返回 `&T`(euv-docs / hyperlane request crate 历史结论)。**10.2.4 起 `copy` 生效**。所以:
 
 - 锁 **10.x** 的仓库:`#[get(type(copy))]` 是基础类型 getter 的**规范写法**,按本节执行。
 - 锁 **2.x** 的仓库:写了也不生效,调用点仍需 `*` 解引用 —— 必须以该版本编译为准,不要照抄本节。
@@ -276,9 +276,9 @@ pub fn probe_api(p: &Probe) {
 }
 ```
 
-## 17.9 `CustomDebug` 与 `Debug` 互斥(2026-09-18 实测)
+## 17.9 `CustomDebug` 与 `Debug` 互斥(实测)
 
-**反例**(踩坑,eastspire/euv-docs PR #31 第一版):
+**反例**(踩坑,eastspire/euv-docs 第一版):
 
 ```rust
 use lombok_macros::{Data, New, CustomDebug};
@@ -313,7 +313,7 @@ pub struct Args { ... }
 
 **反向陷阱**:如果只想用 `Data + New` 不要 Debug,同样**不要** `#[derive(Debug)]` —— `Data` / `New` 不会自动加 Debug,但如果标准 derive 加了 `Debug`,而后续又把 `CustomDebug` 加进 Lombok derive,就会撞 impl。
 
-## 17.10 `cargo fmt` 合并相邻 `#[derive]` 行(2026-09-18 实测)
+## 17.10 `cargo fmt` 合并相邻 `#[derive]` 行(实测)
 
 **§17.2 "标准组合" 示例**用了两行 `#[derive(...)]`:
 
@@ -332,7 +332,7 @@ pub struct Args { ... }
 
 **对策**:写完后跑 `cargo fmt --all && cargo fmt --all -- --check` —— 如果 `cargo fmt` 改动了 `#[derive]` 行,**接受** 合并后的版本,不要写 `.rustfmt.toml` 配置强行保留两行(formatting config 跨 crate 不通用,会污染下游项目)。
 
-## 17.11 Lombok `#[derive(Getter, Setter)]` 静默失效时的手写 accessor 三件套(2026-09-26 hyperlane request crate 实测)
+## 17.11 Lombok `#[derive(Getter, Setter)]` 静默失效时的手写 accessor 三件套(hyperlane request crate 实测)
 
 §17.3 假定 Lombok 的 `#[derive(Data)]` / `#[derive(Getter, Setter)]` 会自动生成 `get_*` / `set_*` 方法。**实测 hyperlane `request/src/response/struct.rs` 中 `#[derive(Getter, Setter)]` 标注在 `HttpResponse` 上,但 `cargo check` 后 impl 块中没有任何 `get_status_code` / `set_status_code` 之类的方法被生成** —— Lombok 的 getter/setter 生成对某些字段类型(尤其嵌套 `HashMap` / `Vec<u8>` / 自定义 struct)的支持不完整,会**静默失败**(编译通过,但零产出)。
 
@@ -344,7 +344,7 @@ grep -nE '^    pub fn (set|get)_' <crate>/src/<module>/<struct>/struct.rs
 # 如果 0 行命中,但 struct 顶部确实有 Lombok derive —— Lombok 静默失效
 ```
 
-**强制规则(2026-09-26 user 钦定,user 原话:"request里所有字段避免直接self访问,使用self的get和set")**:即使 Lombok derive 标注到位,所有跨 impl block 的字段读写**必须**经过 `get_<field>` / `set_<field>` 方法,**禁止** `self.field` 直接读写。Lombok 静默失效时**必须手写** accessor 三件套:
+**强制规则(user 钦定,user 原话:"request里所有字段避免直接self访问,使用self的get和set")**:即使 Lombok derive 标注到位,所有跨 impl block 的字段读写**必须**经过 `get_<field>` / `set_<field>` 方法,**禁止** `self.field` 直接读写。Lombok 静默失效时**必须手写** accessor 三件套:
 
 ```rust
 // 1. clone getter (返回 owned T,用于 fn 调用传值场景)
@@ -396,9 +396,9 @@ pub fn set_field(&mut self, value: FieldType) -> &mut Self {
 - 跨 impl block 的字段访问(`impl A { fn foo(&self, b: &B) { use b.field; } }` 也不行,b 也要有 getter)
 - builder / 工厂方法内部的字段组装(`fn build(&mut self) { self.field = read_field(); }` 必须改成 `self.set_field(read_field())`)
 
-**反向引证**(2026-09-26 hyperlane request/):session 中 35 处 `self.headers` / `self.body` / `self.config` / `self.tmp` / `self.url` 直读全部重写为 accessor,build 与 clippy 干净,12/12 test pass。这是项目级强制规则,新加字段**默认**先写 accessor 三件套,不要先写完 `self.field` 直读再"以后"重构。
+**反向引证**(hyperlane request/):session 中 35 处 `self.headers` / `self.body` / `self.config` / `self.tmp` / `self.url` 直读全部重写为 accessor,build 与 clippy 干净,12/12 test pass。这是项目级强制规则,新加字段**默认**先写 accessor 三件套,不要先写完 `self.field` 直读再"以后"重构。
 
-## 17.13 `self.field` 禁令的可执行校验(2026-09-26 第七轮,user 原话:"禁止通过self直接操作字段,使用Data宏的get和set")
+## 17.13 `self.field` 禁令的可执行校验(user 原话:"禁止通过self直接操作字段,使用Data宏的get和set")
 
 §17.3 / §17.12 的规则现在有可执行脚本:`scripts/verify_no_self_field_access.py`,被 `audit_rust_standards.py` **check 38** 调用。
 
@@ -421,7 +421,7 @@ pub fn set_field(&mut self, value: FieldType) -> &mut Self {
 - 普通 struct → `#[derive(Data)]`(lombok 生成全套)
 - Lombok 静默失效 / 字段含生命周期引用(如 `&'a mut TcpStream`)→ 按 §17.11 手写三件套,命名对齐 Lombok(`get_x` / `get_x_ref` / `get_x_mut` / `set_x`)
 
-### 三仓收敛基线(2026-09-26 第七轮启动时)
+### 三仓收敛基线(启动时)
 
 hyperlane 94 / euv 203 / ctares 91 处违规(request crate 虽经 §17.12 清扫,但 AsyncRead/AsyncWrite wrapper 委托与 builder 残留 50 处当时未覆盖 —— 本轮规则文本已含 trait impl)。
 
@@ -433,23 +433,23 @@ hyperlane 94 / euv 203 / ctares 91 处违规(request crate 虽经 §17.12 清扫
 
 accessor 方法每次调用都借用整个 self,**一个表达式里要同时 mut 借用两个字段时 accessor 无法表达**(如 `ReadBuf::new(&mut self.buffer)` + `poll_read(&mut self.stream)`)。合规写法是解构 `let Self { buffer, stream, .. } = self;` 拿到 disjoint 字段借用 —— 解构模式不匹配 `self.<ident>` 语法,不属于"直接字段访问"禁令范围(hyperlane `PooledReader::poll_fill_buf` / `fill_http_from_stream` 的 `Request { headers, host, .. }` 解构实测)。
 
-### Pitfall(method 名以 `get_` 开头 ≠ 豁免 accessor body,2026-09-27 ctares 第二波清扫实测)
+### Pitfall(method 名以 `get_` 开头 ≠ 豁免 accessor body, ctares 第二波清扫实测)
 
 `verify_no_self_field_access.py` 用 `fn <name>` 的名字匹配 (`get_*` / `set_*` / `try_get_*` / `new`) 来豁免 accessor body —— 但 `fn get_display_str_cow` 这种**计算型 method**(不返回字段、计算并构造新值)、`fn get_udp_socket_or_local_addr`(读锁 + 内部字段组合)、`fn get_chunk_str`(组装字符串),名字正好以 `get_` 开头 → verifier 误判为 accessor body 豁免 → 直访 `self.field` 不报错,**实际却是业务方法**。
 
 修复 verifier:豁免判断必须按 **(a) fn 签名返回类型与目标字段类型完全一致且 (b) 函数体只有 1~2 行 deref-or-copy** 才豁免。计算型 method(body > 2 行 / 含 format! / 含 if/match 分支)无论命名如何一律不豁免。当前 verifier 仅按名字判断,会有 false-negative —— 跑 verify 报 0 之后**必跑人工 grep**:`grep -nE 'fn (get|set|try_get)_[a-z_]+' --include='*.rs' -A1 <repo> | grep 'self\.[a-z]'` 确认每条以 `get_*` / `set_*` 开头的 fn 体内自访都 ≤ 2 行。
 
-### Pitfall(struct.rs 之外文件里手写 getter/setter 也要按 §17.11 三件套命名,2026-09-27 hyperlane 重构实测)
+### Pitfall(struct.rs 之外文件里手写 getter/setter 也要按 §17.11 三件套命名, hyperlane 重构实测)
 
 lombok `derive(Data)` 静默失效时(字段含 `&'a mut T`、已发布 API 兼容性、attribute macro 干扰),手写 accessor 三件套**必须**放 `impl.rs`(不在 struct.rs 关键字文件里),命名严格对齐 Lombok:`get_x()` / `get_x_ref()` / `get_x_mut()` / `set_x()`。命名不一致(例如手写 `pub fn buffer_mut(&mut self) -> &mut [u8]` 与 Lombok `get_buffer_mut` 不一致)→ 调用点混用 grep 检索失效、`self.field` 收敛时容易漏改、§17.14 visibility 检查脚本以 `get_*` / `set_*` 名匹配会漏。
 
-## §17.14 accessor 可见性默认 `pub`,不需要暴露的必须在字段上显性标注(2026-09-27 user 原话:"默认 get 和 set 都是 pub 的,对于不应该暴露的应该使用 pub crate 或者 pub super 限制";2026-10-13 重申"宏生成 fn 默认 pub,如果明确不需要 pub 必须要显性在字段里标注可见性")
+## §17.14 accessor 可见性默认 `pub`,不需要暴露的必须在字段上显性标注(user 原话:"默认 get 和 set 都是 pub 的,对于不应该暴露的应该使用 pub crate 或者 pub super 限制"; 重申"宏生成 fn 默认 pub,如果明确不需要 pub 必须要显性在字段里标注可见性")
 
-**三条硬规则**(2026-10-13 user 钦定,顺序即检查顺序):
+**三条硬规则**(user 钦定,顺序即检查顺序):
 
 1. **宏生成的 fn 默认就是 `pub`** —— 不写任何可见性属性 = 生成 `pub fn get_x()` / `pub fn set_x()` / `pub fn get_mut_x()`。这是 lombok 的 `Visibility::default() == Public`(`visibility/enum.rs` `#[derive(Default)] enum Visibility { #[default] Public, PublicCrate, PublicSuper, Private }`)决定的,不是约定。
 2. **默认 `pub` 只在"字段本身已经是 pub"时安全**。字段是 `pub(crate)` / `pub(super)` / private 时,**必须显式在字段上标注可见性**,让生成面 == 字段暴露面。漏标 = 把 crate 内部字段静默升格成公开 API。
-   **前提:struct 本身必须是 `pub`**。模块私有 struct 上的 `pub fn get_x()` 对 crate 外不可达,不构成泄漏(2026-10-13 用跨 crate consumer 实测确认)—— 这种情况下不要求标注。
+   **前提:struct 本身必须是 `pub`**。模块私有 struct 上的 `pub fn get_x()` 对 crate 外不可达,不构成泄漏(用跨 crate consumer 实测确认)—— 这种情况下不要求标注。
 3. **确实不需要某个 accessor 的 API(如敏感字段、只写字段、内部缓存)** → 用 `#[get(skip)]` / `#[set(skip)]` / `#[get_mut(skip)]` **显式跳过**,让 API 不存在,而不是生成一个没人该调的 `pub fn get_secret()`。裸 `#[skip]` **不存在**(编译报 `cannot find attribute 'skip'`),skip 必须挂在具体 accessor 属性上;`new` 用 `#[new(skip)]`、`Debug` 用 `#[debug(skip)]` 各自独立,见 §17.14.0。
 
 ```rust
@@ -463,16 +463,16 @@ pub struct ServerData {
 ```
 
 - 属性可组合:`#[get(pub(crate), type(copy))]`(可见性 + 类型转换同 attr,逗号分隔;**逗号前后顺序都实测有效**)。也可以拆成两行 `#[get(type(copy))]` + `#[get(pub(crate))]`,效果相同。
-- 收窄档位只有三个合法值:`pub(crate)` / `pub(super)` / `private`,三者**均已实编译验证收窄生效**(2026-10-13:`#[get(private)]` 的 `get_token` 在兄弟模块调用报 `E0624: method 'get_token' is private`)。lombok 的 `parse/fn.rs` 只识别 `pub` / `pub(crate)` / `pub(super)` / `private` 四个 token(`const.rs`: `PUB` / `PUB_CRATE` / `PUB_SUPER` / `PRIVATE`),**其它写法(如 `pub(in path)`)会被静默忽略** —— 不报错也不生效,别用。
+- 收窄档位只有三个合法值:`pub(crate)` / `pub(super)` / `private`,三者**均已实编译验证收窄生效**(:`#[get(private)]` 的 `get_token` 在兄弟模块调用报 `E0624: method 'get_token' is private`)。lombok 的 `parse/fn.rs` 只识别 `pub` / `pub(crate)` / `pub(super)` / `private` 四个 token(`const.rs`: `PUB` / `PUB_CRATE` / `PUB_SUPER` / `PRIVATE`),**其它写法(如 `pub(in path)`)会被静默忽略** —— 不报错也不生效,别用。
 - 字段本身是 `pub` 的 → pub accessor 不放大暴露面,无需 attr。
-- **既有 pub accessor API 不回收**(semver):已发布 crate 的存量 `pub fn get_x()`(如 ctares jwt-service/color-log、udp config/response/panic/context、tcplane ServerData getter;`server-manager` 已于 2026-10-24 移出 ctares)换成宏后保持 pub;只有"新增 accessor"或"原为 pub(crate)/字段直访"的才收紧。
+- **既有 pub accessor API 不回收**(semver):已发布 crate 的存量 `pub fn get_x()`(如 ctares jwt-service/color-log、udp config/response/panic/context、tcplane ServerData getter;`server-manager` 已于移出 ctares)换成宏后保持 pub;只有"新增 accessor"或"原为 pub(crate)/字段直访"的才收紧。
 - 收紧档位选 `pub(crate)`(跨模块可用)而非 `pub(super)`(仅限父模块下),除非确认只在本模块树用。
 - integration tests(tests/ 目录)是**外部消费者**,只能调 pub accessor——收紧后测试 E0624 即说明该 accessor 原为 pub API,应恢复 pub。
 - 未使用的 pub(crate) accessor 会连锁触发 `field is never read`(accessor 死代码→字段死代码):该字段若无任何读者,要么 accessor 提为 pub(内省 API),要么字段本来就不该存。
 
-### §17.14.0 用 `skip` 显式声明"这个 API 不存在"(2026-10-13 user 钦定)
+### §17.14.0 用 `skip` 显式声明"这个 API 不存在"(user 钦定)
 
-需求形态是"**有些 API 不需要**"。**裸 `#[skip]` 不存在** —— 每个 skip 必须挂在**具体 accessor 属性**上(2026-10-13 实编译:裸 `#[skip]` 报 `error: cannot find attribute 'skip' in this scope`)。
+需求形态是"**有些 API 不需要**"。**裸 `#[skip]` 不存在** —— 每个 skip 必须挂在**具体 accessor 属性**上(实编译:裸 `#[skip]` 报 `error: cannot find attribute 'skip' in this scope`)。
 
 | 意图 | 写法 | 生成结果 |
 |---|---|---|
@@ -496,7 +496,7 @@ pub struct Credentials {
 }
 ```
 
-**三个必须记住的坑(2026-10-13 实编译踩到)**:
+**三个必须记住的坑(实编译踩到)**:
 
 1. **`#[get(skip)]` 不影响 `new`** —— `PerSkip { #[get(skip)] secret, scope }` 的 `new` **仍然要求两个参数**(实测 `this function takes 3 arguments but 2 were supplied`)。要排除必须单独写 `#[new(skip)]`。
 2. **`#[debug(skip)]` 需要 `CustomDebug` derive** —— 只有 `#[derive(Data)]` 时写 `#[debug(skip)]` 报 `error: cannot find attribute 'debug' in this scope`(提示:`` `debug` is an attribute that can be used by the derive macro `CustomDebug` ``)。
@@ -506,7 +506,7 @@ pub struct Credentials {
 
 `#[skip]` / `#[get(skip)]` 是**携带真实信息的属性**,不受 §17.14.2 裸属性禁令约束(和 `#[get(pub(crate))]` 同级),必须保留。
 
-### §17.14.1 显式 `pub` 是冗余的,禁止书写(2026-09-27 user 钦定)
+### §17.14.1 显式 `pub` 是冗余的,禁止书写(user 钦定)
 
 §17.14 讲「什么时候**必须**加可见性」;本节是它的反面 —— 「什么时候**不许**加」。
 
@@ -546,7 +546,7 @@ pub(crate) enum Visibility {
 )]   // 禁止
 ```
 
-> verifier `verify_no_redundant_accessor_attr.py` 的 `BARE_RE` 已覆盖裸形式与空括号形式两种写法(2026-10-17 补齐,此前 `#[get()]` 可绕过拦截)。有意义的三类写法 `#[get(pub(crate))]` / `#[get(type(copy))]` / `#[get(skip)]` 仍然豁免。
+> verifier `verify_no_redundant_accessor_attr.py` 的 `BARE_RE` 已覆盖裸形式与空括号形式两种写法(补齐,此前 `#[get()]` 可绕过拦截)。有意义的三类写法 `#[get(pub(crate))]` / `#[get(type(copy))]` / `#[get(skip)]` 仍然豁免。
 
 **收窄可见性不受影响、必须保留** —— `pub(crate)` / `pub(super)` 是 §17.14 要求的收紧,不是冗余:
 
@@ -562,7 +562,7 @@ pub(crate) enum Visibility {
 **执行脚本**: `scripts/verify_no_redundant_accessor_pub.py`,audit check 23 调用。Fixture `~/.hermes/cache/scratch/accessor-pub-fixtures/{violating,compliant,tricky}`。实测 euv 仓 111 处、hyperlane 仓 12 处真违规。
 
 
-### §17.14.2 裸 `#[get]` / `#[get_mut]` / `#[set]` 也禁止 —— 默认都是生成的(2026-09-27 user 钦定)
+### §17.14.2 裸 `#[get]` / `#[get_mut]` / `#[set]` 也禁止 —— 默认都是生成的(user 钦定)
 
 user 原话:「新增校验 `#[get]`,`#[get_mut]` 和 `#[set]` 不应该存在,默认都是生成的」。
 
@@ -608,7 +608,7 @@ pub struct S {
 **豁免是 item 级、不是文件级**: 某个 struct/enum 的 derive 集合里没有任何 accessor 生成型 derive(`Data` / `Getter` / `GetterMut` / `Setter`)→ **只跳过这一个 item**,该文件里其他带 derive 的 struct 照常检查。同一文件里 `#[derive(Getter)]` 的字段 `#[set]` 放行、`#[derive(Data)]` 的字段 `#[get]` 报错,是预期行为。
 
 
-## §17.15 `&mut self` 方法封装:disjoint-borrow 在 target struct 上更干净的解法(2026-09-27)
+## §17.15 `&mut self` 方法封装:disjoint-borrow 在 target struct 上更干净的解法
 
 §17.13 给出"解构"作为 disjoint-borrow 的 escape hatch。但 free-standing fn 拿不到外部 `&mut self`,解构模式不适用。**更干净的替代**:把 free fn 改成 target struct 的 `&mut self` 方法,把 disjoint-borrow 收进 fn 体内部:
 
@@ -643,11 +643,11 @@ request.get_http_headers(&mut reader, &config).await?
 
 适用场景:目标 struct 已经有 `&mut self` 方法语义;free fn 是从更早的"无 self"API 演化过来的过渡形态。check 38 仍 PASS(方法体内 `let Request { headers, host, .. } = self;` 是解构,不是 `self.<ident>` 直访),clippy 仍 0 warning。
 
-## §17.16 同时需要 Setter / Getter / GetterMut 时,直接写 `Data`(2026-10-14 user 钦定)
+## §17.16 同时需要 Setter / Getter / GetterMut 时,直接写 `Data`(user 钦定)
 
 user 原话:「如果同时需要 Setter,Getter,GetterMut,直接写 Data 宏,等效三个宏的效果」。
 
-`Data` **不是**「三选一的另一种写法」,它**就是**三合一 —— 这是 lombok 自己的生成器给的事实,不是约定(`lombok-macros` 10.2.4 `src/lib.rs`,四个 derive 都调同一个 `inner_lombok_data`,只差三个 bool;2026-10-25 在 10.3.0 源码复核:`Getter`/`GetterMut`/`Setter`/`Data` 仍分别调 `inner_lombok_data(input, true, false, false)` / `(false, true, false)` / `(false, false, true)` / `(true, true, true)`,结论不变):
+`Data` **不是**「三选一的另一种写法」,它**就是**三合一 —— 这是 lombok 自己的生成器给的事实,不是约定(`lombok-macros` 10.2.4 `src/lib.rs`,四个 derive 都调同一个 `inner_lombok_data`,只差三个 bool; 在 10.3.0 源码复核:`Getter`/`GetterMut`/`Setter`/`Data` 仍分别调 `inner_lombok_data(input, true, false, false)` / `(false, true, false)` / `(false, false, true)` / `(true, true, true)`,结论不变):
 
 | derive | `inner_lombok_data(input, …)` | 生成 |
 |---|---|---|
@@ -684,9 +684,9 @@ pub struct RouteMatcher { /* … */ }
 
 **执行脚本**:`scripts/verify_no_redundant_accessor_derive.py`,audit **check 53** 调用(`--rule trio`),已注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则)。自测 `scripts/self_test_no_redundant_accessor_derive.py`(compliant 0 / violating 4 精确 / tricky 0 / audit_one 双向 / gate 四向:暂存 trio 拦、`Data` 放行、历史债不拦、新 trio 照拦),并做过**变异验证**:关掉规则 → FAIL、放开 struct 作用域 → FAIL、关掉注释/字面量屏蔽 → FAIL,还原 → PASS —— 证明自测抓得住「规则被改宽/被关掉」,不是恒过测试。Fixture `scripts/fixtures/accessor-derive/{compliant,violating,tricky}`。**真仓命中:hyperlane 3(`core/src/route/struct.rs:22` `RouteMatcher` / `type/src/request/model/struct.rs:44` / `type/src/response/struct.rs:7`)/ euv 0 / ctares 0(`lombok-macros/debug/src/main.rs:25` 是 `Getter + Setter` **两个**,没有合并宏,按规则放行)/ vice-city-web 0 / hyperlane-drop 0。
 
-## §17.16.1 所有字段都跳过 mutator 时,`Data` 应该是 `Getter`(2026-10-18 user 钦定)
+## §17.16.1 所有字段都跳过 mutator 时,`Data` 应该是 `Getter`(user 钦定)
 
-§17.16 说 `Data` **就是**三合一,但三半是**逐字段、独立开关**的 —— `#[get_mut(skip)]` / `#[set(skip)]` 各自关掉对应的生成(`lombok-macros` 10.2.7 `src/parse/fn.rs`:`config.skip_flags.insert(FuncType::GetMut / Set)`;2026-10-25 在 10.3.0 源码复核,该 insert 仍在)。所以一个 `Data` struct 可以**一个可变 accessor 都不生成**,这时描述它的 derive 就是 `Getter`,不是 `Data`。
+§17.16 说 `Data` **就是**三合一,但三半是**逐字段、独立开关**的 —— `#[get_mut(skip)]` / `#[set(skip)]` 各自关掉对应的生成(`lombok-macros` 10.2.7 `src/parse/fn.rs`:`config.skip_flags.insert(FuncType::GetMut / Set)`; 在 10.3.0 源码复核,该 insert 仍在)。所以一个 `Data` struct 可以**一个可变 accessor 都不生成**,这时描述它的 derive 就是 `Getter`,不是 `Data`。
 
 ```rust
 // ❌ 违规:Data 承诺了没有任何字段会生成的 get_mut_* / set_*
@@ -726,7 +726,7 @@ pub struct RayTraceScene {
 
 **重复属性必须按真实宏语义判定**:lombok-macros 10.2.7 在生成方法前先合并所有字段属性里的 skip flags(10.3.0 源码复核仍在)。因此任一同名属性带 `skip` 就禁用该类 accessor,顺序无关;不能把它误当作「首个 non-skip 总会生成」。用锁定版本的真实方法调用验证,缺失方法必须得到 E0599,而不是只让 checker 与自己的错误预期互相证明。迁移前后通过 rustdoc JSON 比较 getter 名称、签名、可见性及泛型约束,确认旧版与新版都不生成 mutator;再跑真实 hook 正反例和全审计。
 
-## §17.17 有 `new` 就用 `New` 宏,不要自己实现 —— `#[new(skip)]` 支持字段跳过(2026-10-16 user 钦定)
+## §17.17 有 `new` 就用 `New` 宏,不要自己实现 —— `#[new(skip)]` 支持字段跳过(user 钦定)
 
 user 原话:「如果 new fn 需要使用 New 宏,而不是自己去实现,New 支持字段跳过」。
 

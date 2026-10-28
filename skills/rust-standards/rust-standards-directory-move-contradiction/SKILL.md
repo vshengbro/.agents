@@ -14,7 +14,7 @@ description: Use when a §1.3d fix says "move foo.rs to foo/mod.rs".
 任何 Wave 0 / 「只做文件搬迁」的任务书里出现这句话:
 「把 `foo.rs` 搬进 `foo/` 子目录, 改名 `mod.rs`」。
 
-## 实测(vice-city-web, 2026-10-12, 基线 audit 41/51)
+## 实测(vice-city-web, , 基线 audit 41/51)
 
 把 `src/*.rs` 13 个文件全部改成 `<name>/mod.rs` 的模拟结果:
 
@@ -33,7 +33,7 @@ check 26 +10 `forbidden decl in mod.rs file`, check 51 +115。
 1. **`verify_keyword_file_purity.py` 的 `FORBIDDEN_DECLS["mod.rs"]`** 覆盖
    `struct|enum|fn|trait|impl|type|const|static`。mod.rs 是**唯一不许放声明**的
    关键字文件 —— §1.3 表格里它的职责是「组织导出与导入」。
-2. **`verify_no_toml_mod_comments.py`(check 51, 2026-10-09 绝对化)** 要求
+2. **`verify_no_toml_mod_comments.py`(check 51, 绝对化)** 要求
    每个 mod.rs **零注释**。而这些文件顶部都有 `//!` 模块说明(几行到十几行)、
    每个 item 带 `///` 文档。搬一次就是几万条违规。
 3. **§1.4 的名字约束是双向的**:只要文件名不是关键字名,放哪个目录都违规。

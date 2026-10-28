@@ -19,6 +19,13 @@ by exact file set + sha256 (addition / deletion / modification), reports
 before→after byte and line counts, and flags references left dangling by a
 deleted skill.
 
+It also runs the **history-debt checker** over the protected subtree
+(`skills/rust-standards/scripts/verify_no_history_debt.py`): that skill must
+state only the current rules, so a dated provenance marker, an iteration
+label, a PR reference, a withdrawn-rule marker or a superseded-rule table
+fails the audit. The checker ships with the skill it polices; a tree without
+the protected skill skips the check instead of failing on its absence.
+
 ```shell
 python3 scripts/audit_skills.py \
   --baseline /path/baseline.json \

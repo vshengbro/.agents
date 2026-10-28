@@ -557,16 +557,16 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-24T18:28:40.038Z",
-      "skillFolderHash": "5d06ccfe39bbef95702c3049acdcf844102e250a"
+      "updatedAt": "2026-10-28T15:57:20.267Z",
+      "skillFolderHash": "8c355a146fd38c792f227cb23941b64906eefade"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",
       "sourceType": "local",
       "skillPath": "skills/rust-standards/rust-standards-directory-move-contradiction/SKILL.md",
       "installedAt": "2026-10-20T14:58:41.039Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "a1e1429226e96d3c3f5ef58e930ef2455a2f921f"
+      "updatedAt": "2026-10-28T15:55:17.570Z",
+      "skillFolderHash": "650884b97ef9dc784486e4e993ebe3676ea1151a"
     },
     "x-post-via-browser": {
       "source": "local",

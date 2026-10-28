@@ -5,8 +5,8 @@
 > existing verifier).
 
 This document codifies the workflow that emerged across check 23–38
-(2026-09-26 sixth-round rollout, 2026-09-27 Layer 4 doc-comment + self.field
-enforcement).  The SKILL.md mentions these steps inline under
+(sixth-round rollout, Layer 4 doc-comment + self.field
+enforcement). The SKILL.md mentions these steps inline under
 "始终生效的工程原则", but this file is the **single reusable checklist** for
 any new check or strengthening.
 
@@ -26,13 +26,13 @@ A new verifier is **not** needed when:
 ## Step-by-step rollout
 
 The five steps below must all complete before the new check is enabled in
-`audit_rust_standards.py`.  Doing them in a different order produces the
+`audit_rust_standards.py`. Doing them in a different order produces the
 failures called out in §45–§67 of `audit-pitfalls.md`.
 
 ### 1. Write `scripts/verify_<rule>.py`
 
 Single source of truth: exit 0 = compliant, exit 1 = violations, exit 2 = usage
-error.  Output format: one violation per line on stdout, summary line
+error. Output format: one violation per line on stdout, summary line
 `=== <rule-name>: N violation(s) in M file(s) ===` at the end (audit wrapper
 filters this via `grep -v`).
 
@@ -59,10 +59,10 @@ tests/), add a **third fixture**:
   exercises every exempt path AND every non-exempt violation pattern
 
 Why three fixtures, not two: a compliant/violating pair catches "happy path
-works" + "obvious violations caught".  A rule with many exempt categories
+works" + "obvious violations caught". A rule with many exempt categories
 additionally needs to prove **each exempt path is correctly excluded AND each
 violation pattern is correctly caught** — both in the same fixture, with a
-deterministic violation count.  The fixture header documents both the rule
+deterministic violation count. The fixture header documents both the rule
 semantics and the expected count.
 
 #### Edge-case fixture template
@@ -83,7 +83,7 @@ semantics and the expected count.
 ```
 
 Layout: each exempt pattern gets a single-method test, each violation
-pattern gets a single-method test, all in one file.  The expected count
+pattern gets a single-method test, all in one file. The expected count
 appears as a comment in the file header AND in the verifier's stdout summary.
 
 Verified working examples in
@@ -129,7 +129,7 @@ After wiring, run the full audit on each fixture and confirm:
 - `*-edge-cases/` (if exists) → check NN **FAIL** with exact expected count
 
 Pitfall (audit-pitfalls §45): the wrapper and the verifier script must be in
-the **same commit**.  Adding a wrapper reference to a script that lives in an
+the **same commit**. Adding a wrapper reference to a script that lives in an
 unmerged branch produces a "file not found" fallback that audit treats as 0
 violations — a green check that means nothing.
 
@@ -148,7 +148,7 @@ Format consistent with §45–§67.
 ### 6. (When violations are large) Separate sweep PR
 
 When the verifier produces ≥ 50 violations on euv or hyperlane, **do not
-enable audit enforcement in the same commit** as the verifier.  Two-PR
+enable audit enforcement in the same commit** as the verifier. Two-PR
 sequence:
 
 1. **PR A** — verifier + fixtures + wrapper + audit-pitfalls §XX (audit
@@ -208,7 +208,7 @@ Two parallel fixture roots exist:
 - `verifier-fixtures/` — newer checks (e.g. rename, self-field, layer4)
 
 **Use `verifier-fixtures/` for all new checks** — it is the de-facto
-canonical location since 2026-09-26.
+canonical location since .
 
 ## When a check is strengthened (Layer N → Layer N+1)
 
@@ -265,10 +265,10 @@ every `git commit` and **only checks staged files** (not the whole repo).
 Six file-level verifiers invoked per staged `.rs` / `.toml`:
 - `verify_doc_comment_format.py` (§2.1/§2.2)
 - `verify_no_import_rename.py` (§6.5)
-- `verify_use_aggregation.py` (§6.6) — added 2026-09-27
+- `verify_use_aggregation.py` (§6.6) — added
 - `verify_no_self_field_access.py` (§17.3/§17.12)
 - `verify_lib_rs_doc_comment.py` (§1.3c/§2.4)
-- `verify_dep_order.py` (§13.7 round 4)
+- `verify_dep_order.py` (§13.7 )
 
 Why staged-file strategy: the rule is "block NEW violations, not legacy
 debt." Whole-repo scan would lock out repos with existing tech debt

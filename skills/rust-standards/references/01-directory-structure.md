@@ -61,7 +61,7 @@ grep -nE '^(pub |pub\(crate\) )?(struct|enum|trait|impl|type)' \
 # 期望: 零行(或仅注释/doc string 中的引用)
 ```
 
-### 1.3b raw-string-aware 检测 — WGSL shader 内 decl 是 false positive (2026-09-12 教训)
+### 1.3b raw-string-aware 检测 — WGSL shader 内 decl 是 false positive (教训)
 
 **陷阱**:`const.rs` 经常包含 WGSL shader raw string literal:
 
@@ -118,9 +118,9 @@ for i, line in enumerate(lines, 1):
 
 **踩坑**:audit script rule 15 (R1.3a raw-string-aware) 实测 38 false positives → 0 false positives 后 PASS。验证方法:临时插一个 `pub(crate) struct INVALID_TEST { ... }` 到非 `struct.rs` 文件,看 audit 是否 FAIL。
 
-### 1.3c literal purity — `fn.rs` 内禁止硬编码 byte/char/string literals(2026-09-14)
+### 1.3c literal purity — `fn.rs` 内禁止硬编码 byte/char/string literals
 
-**反例**(踩坑,euv PR #233 minify_html_template):
+**反例**(踩坑,euv minify_html_template):
 ```rust
 // fn.rs 内 ❌
 pub fn minify_html_template(html: &str) -> String {
@@ -183,43 +183,34 @@ pub fn minify_html_template(html: &str) -> String {
 - error message string 模板(format! 用)
 - log 输出 message(动态组装)
 
-**检测**(audit script 新增 check 18,2026-09-14 加):
+**检测**(audit script 新增 check 18, 加):
 - 扫所有 PR 改动的 `fn.rs` / `impl.rs` / `mod.rs` 文件
 - 在 fn body / if / while / match 表达式位置匹配 `b"<bytes>"` / `b'<char>'` / 多字符 `"<string>"`
 - 排除:doc-comment 行(`///` `//!`)、测试块(`#[cfg(test)]` / `#[test]`)、const/let 一次性 binding、`r#"..."#` raw string
 
-**踩坑来源**:user 原话(2026-09-14):"硬编码的字符,没有遵守rust standard skill,定义到const.rs"。任何 `fn.rs` 写完提交前,grep `b"\|b'` 自检,出现则必须先抽 const 或加 inline `// §1.3c exception: <reason>` 注释(注意§9.5 一般禁 fn 体注释,但本例外明确允许一行说明)。
+**踩坑来源**:user 原话"硬编码的字符,没有遵守rust standard skill,定义到const.rs"。任何 `fn.rs` 写完提交前,grep `b"\|b'` 自检,出现则必须先抽 const 或加 inline `// §1.3c exception: <reason>` 注释(注意§9.5 一般禁 fn 体注释,但本例外明确允许一行说明)。
 
 **与 §1.3a 的关系**:§1.3a 管 top-level declaration(struct/enum/impl...),§1.3c 管 fn/impl body 内的 literal。两者互补,audit script 的 check 16 检 §1.3a,新增 check 18 检 §1.3c。
 
-### 1.3d 代码文件不能与目录同级(2026-09-28 钦定 → **2026-09-29 收紧**)
+### 1.3d 代码文件不能与目录同级(钦定 → ** 收紧**)
 
-**user 原话(2026-09-28)**:"如果 rust 代码文件同级有目录,需要报错提示代码文件不能和目录在同一级,注意 lib.rs main.rs build.rs mod.rs 这些除外"。
+**user 原话**:"如果 rust 代码文件同级有目录,需要报错提示代码文件不能和目录在同一级,注意 lib.rs main.rs build.rs mod.rs 这些除外"。
 
-**user 原话(2026-09-29 收紧)**:"除了 mod.rs lib.rs main.rs build.rs 之外的 rust 代码文件,同级如果有目录,你一个将此文件移动到合理的目录,如果没有应该根据功能做新增目录,补全到 rust standard hook 里还有 git hook"。
+**user 原话(收紧)**:"除了 mod.rs lib.rs main.rs build.rs 之外的 rust 代码文件,同级如果有目录,你一个将此文件移动到合理的目录,如果没有应该根据功能做新增目录,补全到 rust standard hook 里还有 git hook"。
 
 **规则**:一个目录只要拥有**子目录**,就不能再放任何 `.rs` 文件。
 
 | 豁免 | 文件 | 为什么豁免 |
 |------|------|-----------|
-| 入口文件(4) | `lib.rs` / `main.rs` / `build.rs` / `mod.rs` | 职责就是统领子模块 |
+| 入口文件 | `lib.rs` / `main.rs` / `build.rs` / `mod.rs` | 职责就是统领子模块 |
 
 **关键字文件不再豁免。** `const.rs` / `static.rs` / `fn.rs` / `enum.rs` / `struct.rs` / `trait.rs` / `impl.rs` / `type.rs` / `macro.rs` **一律必须搬走**。
 
-#### 为什么 2026-09-29 收紧(旧实现读作恒定 0)
+#### 豁免名单必须精确到入口文件
 
-旧实现是 `EXEMPT = ENTRY_FILE_NAMES | KEYWORD_FILE_NAMES`,于是:
+豁免名单多写一个关键字文件,规则就会对真实形态读作永久的零 —— 这与 audit-pitfalls §89 是同一个失效模式(规则写进了 audit,但对真实形态永远报 0)。豁免名单只能从"这个文件有没有模块归属"推到底:入口 4 个 + 关键字 9 个 + `macro.rs`,而不是从举例继承。verifier 侧的常量是 `EXEMPT_FILE_NAMES = ENTRY_FILE_NAMES`。
 
-```
-engine/src/renderer/
-  const.rs  enum.rs  fn.rs  impl.rs  struct.rs  trait.rs   ← 6 个关键字文件
-  mod.rs                                             ← 入口(豁免)
-  webgl/                                             ← 子目录
-```
-
-这个目录**同时有子目录和 6 个关键字文件,verifier 依然报 0 违规**。规则在真实场景根本没有约束力 —— 这与 audit-pitfalls §89 是同一个失效模式(规则写进了 audit,但对真实形态读作永久的零)。收紧只需一行:`EXEMPT_FILE_NAMES = ENTRY_FILE_NAMES`。
-
-收紧后同一目录立即报 1 条,euv 全仓从 0 变成 **4 violations in 4 dirs**:`engine/src/renderer` / `core/src/vdom` / `ui/src/component/router` / `ui/src/style/class`。
+euv 全仓实测 **4 violations in 4 dirs**:`engine/src/renderer` / `core/src/vdom` / `ui/src/component/router` / `ui/src/style/class`。
 
 #### 标准修法:搬进语义化子目录,文件名保持关键字名
 
@@ -248,9 +239,9 @@ renderer/
   canvas/      Canvas2D 后端(Camera2D CanvasRenderer DrawList ...)
 ```
 
-**不能按后端拆。** 实测 `webgl/` 对 `FilterMode`(2 文件)/ `AddressMode`(3)/ `CompareFunction`(3)/ `BlendFactor`(2)/ `IndexFormat`(2)/ `GpuTextureFormat`(2)/ `DrawArgs`(1)/ `DrawIndexedArgs`(1)/ `VertexBufferLayout`(1) 都有引用 —— 这些是 **WebGL 与 WebGPU 共用**的。按后端拆到 `webgpu/` 下,会让 `webgl/` 依赖兄弟模块。
+**不能按后端拆。** 实测 `webgl/` 对 `FilterMode`(2 文件)/ `AddressMode`/ `CompareFunction`/ `BlendFactor`/ `IndexFormat`/ `GpuTextureFormat`/ `DrawArgs`/ `DrawIndexedArgs`/ `VertexBufferLayout` 都有引用 —— 这些是 **WebGL 与 WebGPU 共用**的。按后端拆到 `webgpu/` 下,会让 `webgl/` 依赖兄弟模块。
 
-**保留的 lesson(2026-09-28)**:新规则的"标准修法"必须先跑 clippy 与 master 基线对比 —— **verifier 报得出违规 ≠ 修法干净**,后者是 git 状态,两者之间没有自动校验。
+**保留的 lesson**:新规则的"标准修法"必须先跑 clippy 与 master 基线对比 —— **verifier 报得出违规 ≠ 修法干净**,后者是 git 状态,两者之间没有自动校验。
 
 **验证脚本**:`scripts/verify_no_sibling_dirs.py`,被 `audit_rust_standards.py` check 44 调用,**按违规目录报 1 条**。双向 fixture `~/.hermes/cache/scratch/s13d-fixtures/{compliant,violating}`:compliant 0/exit 0(4 个入口文件各配子目录 + 无子目录的叶子目录),violating 2 dirs/exit 1(renderer 6 个 + vdom 2 个关键字文件)。**hook 层**:`staged_file_gate.VERIFIERS["verify_no_sibling_dirs"]` 已注册,靠 `audit_one(path)` 适配层映射到 staged 文件路径;实测对 `engine/src/renderer/struct.rs` 报 +1、对 `mod.rs` 报 0,**不是恒定 0**。残留缺口:orphan 未 staged 而新增子目录 staged 的组合 gate 抓不到,**check 44 全仓审计仍是权威**。
 
