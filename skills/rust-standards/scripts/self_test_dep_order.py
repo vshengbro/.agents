@@ -37,6 +37,8 @@ def write_manifest(path: Path, patch_block: str, deps: str = 'serde = "1.0"\n') 
         'version = "0.1.0"\n'
         'edition = "2024"\n'
         "\n"
+        "[workspace]\n"
+        "\n"
         "[dependencies]\n"
         + deps
         + "\n"
@@ -66,6 +68,50 @@ def run(script: Path, root: Path, *extra: str) -> tuple[int, str]:
         text=True,
     )
     return proc.returncode, proc.stdout + proc.stderr
+
+
+def check_nested_workspaces() -> None:
+    with tempfile.TemporaryDirectory(prefix="dep-order-nested-") as directory:
+        root = Path(directory)
+        backend = root / "backend"
+        frontend = root / "frontend"
+        app = frontend / "app"
+        shared = frontend / "shared"
+        for path, name in ((backend, "serde"), (app, "app"), (shared, "shared")):
+            (path / "src").mkdir(parents=True)
+            (path / "src/lib.rs").write_text("")
+            (path / "Cargo.toml").write_text(
+                f'[package]\nname = "{name}"\nversion = "0.1.0"\nedition = "2024"\n'
+            )
+        (root / "Cargo.toml").write_text(
+            '[workspace]\nmembers = ["backend"]\n\n'
+            '[workspace.dependencies]\nserde = { path = "backend" }\n'
+        )
+        (frontend / "Cargo.toml").write_text(
+            '[workspace]\nmembers = ["app", "shared"]\n\n'
+            '[workspace.dependencies]\nshared = { path = "shared" }\n\nserde = "1"\n'
+        )
+        manifest = app / "Cargo.toml"
+        header = manifest.read_text()
+        canonical = header + '\n[dependencies]\nshared = { workspace = true }\n\nserde = { workspace = true }\n'
+        manifest.write_text(canonical)
+        for boundary in (root, frontend):
+            code, out = run(VERIFY, boundary)
+            if code != 0:
+                raise AssertionError(f"nested workspace uses the wrong local names:\n{out}")
+        code, out = run(FIX, root, "--write", "--files", str(manifest))
+        if code != 0 or manifest.read_text() != canonical:
+            raise AssertionError(f"scoped fixer lost the owning workspace:\n{out}")
+        manifest.write_text(header + '\n[dependencies]\nserde = { workspace = true }\n\nshared = { workspace = true }\n')
+        code, out = run(VERIFY, root)
+        if code == 0 or str(manifest) not in out:
+            raise AssertionError(f"incorrect nested ordering escaped verification:\n{out}")
+        code, out = run(FIX, root, "--write", "--files", str(manifest))
+        if code != 0 or manifest.read_text() != canonical:
+            raise AssertionError(f"scoped nested fix did not preserve dependency values:\n{out}")
+        code, out = run(FIX, root, "--write", "--files", str(manifest))
+        if code != 0 or manifest.read_text() != canonical:
+            raise AssertionError(f"nested fixer is not idempotent:\n{out}")
 
 
 def main() -> int:
@@ -154,7 +200,8 @@ def main() -> int:
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
-    print("SELF-TEST PASS: verify_dep_order + fix_dep_order (incl. [patch.*])")
+    check_nested_workspaces()
+    print("SELF-TEST PASS: verify_dep_order + fix_dep_order (patches + nested workspaces)")
     return 0
 
 

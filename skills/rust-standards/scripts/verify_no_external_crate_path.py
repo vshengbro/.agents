@@ -69,7 +69,17 @@ def changed_sub_files(root: Path) -> list[str]:
     not a module entry point (mod.rs / lib.rs / main.rs) and is not a
     test.  That works for both layouts.
     """
-    out = _git(root, "diff", "--name-only", "origin/master", "HEAD", "--", "*.rs")
+    out = ""
+    has_head = bool(_git(root, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"))
+    if has_head and _git(root, "rev-parse", "--verify", "--quiet", "origin/master^{commit}"):
+        out += _git(root, "diff", "--name-only", "origin/master", "--", "*.rs")
+        out += "\n" + _git(root, "diff", "--cached", "--name-only", "origin/master", "--", "*.rs")
+    elif has_head:
+        out += "\n" + _git(root, "diff", "--name-only", "HEAD", "--", "*.rs")
+        out += "\n" + _git(root, "diff", "--cached", "--name-only", "HEAD", "--", "*.rs")
+    else:
+        out += "\n" + _git(root, "diff", "--cached", "--name-only", "--", "*.rs")
+    out += "\n" + _git(root, "ls-files", "--others", "--exclude-standard", "--", "*.rs")
     return [
         f for f in out.strip().split("\n")
         if f
@@ -116,8 +126,27 @@ def external_crates(root: Path, files: list[str]) -> set[str]:
 
 
 def added_lines(root: Path, rel: str) -> list[str]:
-    out = _git(root, "diff", "-U0", "origin/master", "HEAD", "--", rel)
-    return [ln[1:] for ln in out.split("\n") if ln.startswith("+") and not ln.startswith("+++")]
+    has_head = bool(_git(root, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"))
+    out = ""
+    if has_head and _git(root, "rev-parse", "--verify", "--quiet", "origin/master^{commit}"):
+        out += _git(root, "diff", "-U0", "origin/master", "--", rel)
+        out += "\n" + _git(root, "diff", "--cached", "-U0", "origin/master", "--", rel)
+    elif has_head:
+        out += "\n" + _git(root, "diff", "-U0", "HEAD", "--", rel)
+        out += "\n" + _git(root, "diff", "--cached", "-U0", "HEAD", "--", rel)
+    else:
+        out += "\n" + _git(root, "diff", "--cached", "-U0", "--", rel)
+    lines = [ln[1:] for ln in out.split("\n") if ln.startswith("+") and not ln.startswith("+++")]
+    if _git(root, "ls-files", "--others", "--exclude-standard", "--", rel).strip():
+        try:
+            lines.extend((root / rel).read_text().splitlines())
+        except (OSError, UnicodeDecodeError):
+            pass
+    try:
+        current = (root / rel).read_text()
+    except (OSError, UnicodeDecodeError):
+        current = ""
+    return list(dict.fromkeys(line for line in lines if line in current))
 
 
 def main() -> int:
@@ -125,7 +154,7 @@ def main() -> int:
     if not root.is_dir():
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
-    files = changed_sub_files(root)
+    files = list(dict.fromkeys(changed_sub_files(root)))
     if not files:
         print("\n=== no-external-crate-path (R6.4): 0 violation(s) in 0 file(s) ===")
         return 0

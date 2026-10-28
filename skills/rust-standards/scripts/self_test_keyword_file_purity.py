@@ -98,6 +98,26 @@ def main() -> int:
             f"got {code}: {out[-240:]}",
         )
 
+    print("self_test_keyword_file_purity: ignored and tracked sources")
+    with tempfile.TemporaryDirectory(prefix="keyword-ignore-") as directory:
+        root = Path(directory)
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        (root / ".gitignore").write_text("generated/\n")
+        generated = root / "generated/code.rs"
+        generated.parent.mkdir()
+        generated.write_text("pub fn invalid_file_name() {}\n")
+        code, out = run(root)
+        check("gitignored runtime sources are excluded", code == 0, out[-300:])
+        source = root / "src/code.rs"
+        source.parent.mkdir()
+        source.write_text("pub fn invalid_file_name() {}\n")
+        code, out = run(root)
+        check("unignored source violations remain visible", code == 1 and "src/code.rs" in out, out[-300:])
+        source.unlink()
+        subprocess.run(["git", "-C", str(root), "add", "-f", "generated/code.rs"], check=True)
+        code, out = run(root)
+        check("tracked sources cannot hide behind gitignore", code == 1 and "generated/code.rs" in out, out[-300:])
+
     if failures:
         print(f"\nself_test_keyword_file_purity: FAIL ({len(failures)} check(s))")
         for name in failures:

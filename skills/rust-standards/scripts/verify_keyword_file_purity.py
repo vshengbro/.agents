@@ -184,7 +184,20 @@ def _list_rs_files(root: Path) -> list[Path]:
         if not line:
             continue
         out.append(Path(line))
-    return out
+    if not out:
+        return out
+    names = [str(path.resolve()) for path in out]
+    try:
+        ignored = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "-z", "--stdin"],
+            input="\0".join(names) + "\0", capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return out
+    if ignored.returncode not in (0, 1):
+        return out
+    ignored_names = set(ignored.stdout.split("\0"))
+    return [path for path, name in zip(out, names) if name not in ignored_names]
 
 
 def _is_exempt(path: Path, root: Path) -> bool:

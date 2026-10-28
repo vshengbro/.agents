@@ -71,6 +71,30 @@ def read_local_crate_names(path: Path) -> set[str]:
                 )
                 if sn:
                     names.add(sn.group(1))
+    for section in ("dependencies", "dev-dependencies", "build-dependencies", "workspace.dependencies"):
+        for key, lines in parse_block(text, section):
+            if re.search(r"(?:^|[,{])\s*path\s*=", "\n".join(lines), re.M):
+                names.add(key)
+    return names
+
+
+def local_crate_names_for_manifest(path: Path, root: Path) -> set[str]:
+    """Resolve local names inside the nearest workspace, never another one.
+
+    An outer workspace's member named `serde` must not turn a nested
+    workspace's registry dependency into a local crate. This also resolves
+    context when a scoped fixer receives only a member manifest.
+    """
+    names = read_local_crate_names(path)
+    boundary = root.resolve()
+    directory = path.resolve().parent
+    while directory == boundary or boundary in directory.parents:
+        manifest = directory / "Cargo.toml"
+        if manifest.is_file() and re.search(r"^\s*\[workspace\]\s*$", manifest.read_text(), re.M):
+            return names | read_local_crate_names(manifest)
+        if directory == boundary:
+            break
+        directory = directory.parent
     return names
 
 
@@ -396,29 +420,12 @@ def main() -> int:
         print(f"No Cargo.toml files found under {root}", file=__import__("sys").stderr)
         return 2
 
-    # Local crate names are workspace-wide. Find the workspace root
-    # (the Cargo.toml that contains [workspace]) and use its member set.
-    workspace_root = None
-    for f in files:
-        text = f.read_text()
-        if re.search(r"^\[workspace\]", text, re.M):
-            workspace_root = f
-            break
-    if workspace_root is None:
-        # No workspace — assume each crate is its own root
-        local_set_global: set[str] = set()
-    else:
-        local_set_global = read_local_crate_names(workspace_root)
-
     total_violations = 0
     for f in files:
         # Skip crate-cli test fixtures (they live under */tmp/test_*/)
         if "/tmp/test_" in str(f):
             continue
-        # Sub-crates may also be standalone (publish = false). Use the
-        # workspace-wide local set so e.g. example's [dependencies] sees
-        # euv / euv-engine / euv-ui as local.
-        local_set_for_file = read_local_crate_names(f) | local_set_global
+        local_set_for_file = local_crate_names_for_manifest(f, root)
         for v in check_file_v2(f, local_set_for_file):
             print(v)
             total_violations += 1

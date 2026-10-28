@@ -54,7 +54,7 @@ from verify_dep_order import (  # noqa: E402
     entry_sort_key,
     expected_order_flat,
     find_cargo_tomls,
-    read_local_crate_names,
+    local_crate_names_for_manifest,
 )
 
 DEP_SECTIONS = [
@@ -250,16 +250,6 @@ def plan_changes(root: Path, write: bool, only: set[Path] | None = None) -> tupl
     if not files:
         return 0, ["No Cargo.toml files found"]
 
-    workspace_root = None
-    for f in files:
-        if re.search(r"^\[workspace\]", f.read_text(), re.M):
-            workspace_root = f
-            break
-    if workspace_root is None:
-        local_set_global: set[str] = set()
-    else:
-        local_set_global = read_local_crate_names(workspace_root)
-
     rewrites = 0
     skipped_test_dirs = 0
     changes_log: list[str] = []
@@ -270,7 +260,7 @@ def plan_changes(root: Path, write: bool, only: set[Path] | None = None) -> tupl
             skipped_test_dirs += 1
             continue
         text = f.read_text()
-        local_set = read_local_crate_names(f) | local_set_global
+        local_set = local_crate_names_for_manifest(f, root)
         sections_to_fix: list[tuple[str, list[dict]]] = []
         for sec in DEP_SECTIONS + PATCH_SECTIONS:
             sp = _block_span(text, sec)
@@ -314,6 +304,8 @@ def plan_changes(root: Path, write: bool, only: set[Path] | None = None) -> tupl
             if args.backup:
                 f.with_suffix(f.suffix + ".bak").write_text(text)
             f.write_text(new_text)
+    if not rewrites:
+        changes_log.append(f"{len(files)} Cargo.toml files checked; dependency blocks already canonical")
     return rewrites, changes_log
 
 
