@@ -196,6 +196,47 @@ waives the description-length and keyword-dump budgets for this subtree
 — frontmatter shape, name/folder match, global name uniqueness, relative
 links, line budget — still applies.
 
+## `sync-minimax-skills.sh` — vendor the MiniMax skill library (`MiniMax-AI/skills`)
+
+`skills/minimax-skills/` holds the skill library from
+[MiniMax-AI/skills](https://github.com/MiniMax-AI/skills) — 16 skills
+vendored verbatim, plus the upstream `LICENSE`, `LICENSES/` and `CREDITS.md`
+for attribution.
+
+The script fetches upstream, copies each folder under the upstream `skills/`
+directory to `skills/minimax-skills/<skill-name>/`, and renames a folder when
+the upstream frontmatter `name` differs from the upstream folder name (upstream
+ships `minimax-multimodal-toolkit/` with the skill name `mmx-cli`), so the
+folder always matches the skill name.
+
+`android-native-dev` is **not** vendored: this library already carries a
+curated, narrowed version of the same upstream skill under
+`skills/android-native-dev/`, and skill names must be unique. The skip and
+its reason are recorded in `skills/minimax-skills/UPSTREAM.md`.
+
+```shell
+bash scripts/sync-minimax-skills.sh                 # sync from upstream main
+bash scripts/sync-minimax-skills.sh --ref v1.2.3     # sync a tag/branch
+bash scripts/sync-minimax-skills.sh --source-dir DIR # reuse an existing clone
+bash scripts/sync-minimax-skills.sh --dry-run        # show what would change
+bash scripts/sync-minimax-skills.sh --check          # verify vendored == upstream
+```
+
+It also refreshes `.skill-lock.json`: the vendored skills are recorded with
+`source: MiniMax-AI/skills`, `ref`, `subpath` and `upstreamCommit`.
+
+`--check` compares every vendored skill against a freshly rewritten copy of
+upstream and exits 1 on drift; it also flags vendored folders that no longer
+exist upstream.
+
+**Do not hand-edit `skills/minimax-skills/<skill>/`** — the next sync
+overwrites it. Local edits belong in a separate skill.
+
+Upstream text is not ours to rewrite, so `audit_skills.py` waives the
+description budgets, the entry line budget and the relative-link / anchor
+checks for this subtree; frontmatter shape, name/folder match and global
+name uniqueness still apply.
+
 ## Why a custom script instead of git submodules / symlinks?
 
 docs-pages is a **private** VuePress monorepo with hundreds of pages, nested subdirs, and VuePress-specific frontmatter. Submodules drag in the whole tree; symlinks break on Windows + confuse the `read_file` tool. A flat curated list under each skill:

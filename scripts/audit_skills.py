@@ -66,12 +66,14 @@ MAX_DESCRIPTION_WORDS = 60  # a "keyword dump" reads far denser than a trigger
 DEFAULT_PROTECTED_PREFIXES = ("skills/rust-standards/",)
 
 # Subtrees vendored verbatim from an upstream repository (see
-# scripts/sync-mcode-stack.sh). Their SKILL.md text belongs to the upstream
-# author: we must not rewrite it, so the local description-length and
-# keyword-dump budgets do not apply to them. Everything else (frontmatter
-# shape, name/folder match, global name uniqueness, relative links, line
-# budget) is still enforced — only the description budget is waived.
-DEFAULT_VENDORED_PREFIXES = ("skills/mcode-stack/",)
+# scripts/sync-mcode-stack.sh and scripts/sync-minimax-skills.sh). Their
+# SKILL.md text belongs to the upstream author: we must not rewrite it, so
+# the local budgets that assume locally authored text do not apply to them.
+# Everything else (frontmatter shape, name/folder match, global name
+# uniqueness) is still enforced. Waived for a vendored subtree:
+# description length and keyword dump, the entry line budget, and the
+# relative-link and anchor checks (upstream links may be broken upstream).
+DEFAULT_VENDORED_PREFIXES = ("skills/mcode-stack/", "skills/minimax-skills/")
 
 # Relative links carrying any of these are documentation placeholders, not
 # claims about a real file. They are reported in `skipped` — never dropped
@@ -586,6 +588,7 @@ def main(argv: list[str] | None = None) -> int:
         rel = str(d.relative_to(skills_dir.parent))
         now_paths.add(f"{rel}/SKILL.md")
         is_protected = rel_skill in protected_rels or under(rel, prefixes)
+        is_vendored = under(rel, vendored)
         raw = (d / "SKILL.md").read_bytes()
         # splitlines() semantics (a final newline does not add a line), so
         # counts are directly comparable with the baseline's `lines` field.
@@ -599,17 +602,17 @@ def main(argv: list[str] | None = None) -> int:
 
         data = check_frontmatter(d / "SKILL.md", rel_skill, rep,
                                  enforce_budget=not is_protected,
-                                 waive_description_budget=under(rel, vendored))
+                                 waive_description_budget=is_vendored)
         name = (data or {}).get("name") or d.name
         if name in seen_names:
             rep.fail("name.global_unique", rel_skill,
                      f"duplicate skill name {name!r}, already used by {seen_names[name]}")
         else:
             seen_names[name] = rel_skill
-        if not is_protected and n_lines > args.max_entry_lines:
+        if not is_protected and not is_vendored and n_lines > args.max_entry_lines:
             rep.fail("entry.line_budget", rel_skill,
                      f"{n_lines} lines > {args.max_entry_lines} budget for a non-protected entry")
-        if not is_protected:
+        if not is_protected and not is_vendored:
             check_links(d / "SKILL.md", rel_skill, rep, skills_dir)
 
     # ---- supporting .md: only new/changed vs baseline -------------------
@@ -620,7 +623,7 @@ def main(argv: list[str] | None = None) -> int:
     supporting_skipped = 0
     for md in sorted(skills_dir.rglob("*.md")):
         rel = str(md.relative_to(repo))
-        if md.name == "SKILL.md" or under(rel, prefixes):
+        if md.name == "SKILL.md" or under(rel, prefixes) or under(rel, vendored):
             continue
         rec = base_files.get(rel)
         unchanged = bool(rec and rec.get("sha256")) and rec["sha256"] == sha256_of(md)
