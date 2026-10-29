@@ -113,6 +113,17 @@ resending a reply that may already be live is how a duplicate is made.
 A row in `claimed` that never crossed the boundary goes back to the
 queue, because nothing was sent for it.
 
+## A refusal that leaves the reply in doubt
+
+Some refusals happen AFTER the click: the send button was pressed and
+the reply's own link did not appear, or it did not mount on its own
+permalink, or the landed text was not the copy that was sent. In those
+cases the reply may be live under an address nobody recorded.
+
+The reply is NOT resent. The account's own replies timeline is read, the
+comment's text is unique, and the reply is found there. What the
+account shows is what the ledger records.
+
 ## What the reply does to the account's state
 
 The parent's id is recorded when the reply renders, not after the last
