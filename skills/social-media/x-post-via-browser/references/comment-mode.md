@@ -65,6 +65,40 @@ not show a reply that WAS under it. "My reply is not on the parent's
 page" is not evidence that the reply is not under that parent -- the
 reply's own page is the place to look.
 
+## Finding the parent
+
+A comment needs a parent, and the home feed cannot supply one: the posts
+there are whatever the timeline held, and a given project is rarely
+among them. The parent is chosen by the one thing the topic has -- its
+name -- and the SEARCH for that name returns the posts that talk about
+it.
+
+The search is read off the rendered timeline and the rows are filtered:
+the account's own posts out (a reply to yourself is not a reply), posts
+already answered out (the account-wide memory of what has been
+answered), posts that do not actually mention the project out, and posts
+too short to answer out. The remaining rows are written in the shape the
+scripts read -- `who`, `sid`, `len`, `text` -- and the caller names one
+by its INDEX.
+
+The search is a MECHANICAL step, so it is done by a script, not by the
+person writing the comment. The writing is the judgement part.
+
+## A reply that went live under an address nobody recorded
+
+A run that dies between the click boundary and the click leaves the row
+ambiguous: the reply may be live under an address the ledger does not
+hold. The answer to that is NOT to resend -- a resend of a live reply is
+a duplicate, and a duplicate on the account is a public defect.
+
+So the reply is FOUND. The account's own REPLIES timeline
+(`/<handle>/with_replies`) carries every reply it made, and the
+comment's text is unique, so the reply is located by its text and the
+row is completed from what the account says. A reply that is NOT found
+stays ambiguous, because not finding it is not evidence that it was
+never sent -- the timeline is paginated, and a reply can be older than
+the range that loads.
+
 ## A reply has an extra state the post path does not
 
 The post path's states are pending, approved, claimed, posting,
