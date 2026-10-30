@@ -185,6 +185,15 @@ VERIFIERS = {
     # TOML_AWARE exists: the gate now lets staged .toml through the pipeline
     # but every other verifier still sees .rs only.
     "verify_no_toml_mod_comments": "no comments in *.toml / mod.rs §2.5",
+    # §14.4. The audit's check 8 was the only enforcement of "no inline
+    # `#[cfg(test)] mod tests { ... }` in a production file", and it was
+    # diff-scoped: a violation already sitting in a production file was
+    # never reported, and an unrelated edit to that file left it in place
+    # while the check stayed silent.  Found by planting an inline test
+    # block and watching the gate report 0 while the audit check could
+    # not see it either.  `audit_one` reads only the path it is handed,
+    # so the gate's before/after baselines compare.
+    "verify_no_inline_cfg_test": "inline #[cfg(test)] mod tests in a production file §14.4",
 }
 
 # Verifiers that only make sense for a specific file name.

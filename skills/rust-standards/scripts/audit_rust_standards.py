@@ -176,8 +176,26 @@ git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -vE "/(mod|lib|r
   fi
 done
 '''),
-    ('#[cfg(test)] in production', '''cd {{target}}
-git diff -U0 origin/master -- "*.rs" 2>/dev/null | grep -F "#[cfg(test)]" | grep -v "^[+][+][+] b/" | grep "^[+]" | grep -v "^\\+[/!]" | grep -v "^\\+\\s*\\*\\s*#\\[cfg" | head -20
+    # check 8 — §14.4 no inline `#[cfg(test)] mod tests { ... }` in a
+    # production file.  This used to be a git-diff-scoped pipeline over
+    # `git diff -U0 origin/master`, which (a) could only ever see lines
+    # the branch ADDS, so a violation already sitting in a production
+    # file was never reported, and (b) matched ANY added `#[cfg(test)]`
+    # line — including the SANCTIONED include form
+    # (`#[cfg(test)] #[path = "../tests/mod.rs"] mod tests;`) that keeps
+    # the production/test boundary expressed by file path.  The companion
+    # script distinguishes the two structurally and scans the whole tree.
+    # Registered in staged_file_gate.py too: a rule the audit runs but the
+    # hook does not is not enforced at commit time.
+    ('#[cfg(test)] in production', '''
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_inline_cfg_test.py" "{{target}}" \\
+    | grep -v -E '^=== inline #\\[cfg\\(test\\)\\]'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_inline_cfg_test.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
     ('long-path use crate::xxx in sub-files', '''cd {{target}}
 git diff origin/master -- "*.rs" 2>/dev/null | grep -E "^\\+.*\\buse crate::" | grep -v "/tests/" | head -20
@@ -1240,38 +1258,70 @@ exit "$exit_code"
 ]
 
 
+def _is_wrapper_template(shell_template: str) -> bool:
+    """True when the template propagates a verdict through its exit code.
+
+    Two template shapes live in CHECKS:
+
+    * wrapper — runs a companion verifier and ends with an explicit
+      `exit "$exit_code"`, so the verifier's verdict travels through the
+      process exit status.  The wrapper's own stdout may carry the
+      verifier's success trailer, so stdout must NOT be read as hits.
+    * inline — a bare shell pipeline (usually `... | head -N`) whose exit
+      status is that of the LAST stage, i.e. `head` or `grep`.  Such a
+      template carries NO verdict: it exits 0 whether it printed one hit
+      or a thousand.  Its stdout IS the hit list.
+
+    The distinction has to be explicit.  Deciding every check by exit code
+    (as this function used to) made all 14 inline checks structurally
+    unfailable — a `| head -20` pipeline always exits 0 — so a real
+    violation reported PASS.  Deciding every check by stdout (the older
+    behaviour) instead turned every wrapper's success trailer into a hit.
+    Each shape therefore gets the signal that actually carries its verdict.
+    """
+    return 'exit "$exit_code"' in shell_template
+
+
 def run_check(name, shell_template, target):
     cmd = shell_template.replace('{target}', target)
     r = subprocess.run(['bash', '-c', cmd], capture_output=True, text=True, cwd=target)
-    # A wrapper propagates its verifier's verdict through the exit code, so
-    # rc == 0 means "this check found nothing" no matter what the verifier
-    # printed.  Historically the verdict was decided purely by "did stdout
-    # print anything", which turned every verifier's own success trailer
-    # into a hit: a wrapper whose `grep -v` filter had drifted out of sync
-    # with the verifier's summary string reported a permanent, unfixable
-    # false positive.  Trusting the exit code removes that whole class of
-    # bug instead of chasing each summary string.  The per-wrapper
-    # `grep -v` filters stay in place as a second line of defence.
-    if r.returncode == 0:
-        return name, []
     out = [l for l in r.stdout.strip().split('\n') if l]
-    # A check that produces NO stdout can mean two very different things:
-    # "scanned everything and found nothing" (a real pass) or "the
-    # verifier script does not exist / crashed before printing" (a
-    # vacuous pass).  python3 reports a missing file on stderr and
-    # exits 2, so r.returncode catches that case — but the FAIL trailer
-    # must go to stderr too, or it would be counted as a hit (see
-    # pitfalls 45).  Guard on the script name appearing in stderr.
-    if not out:
-        missing = [
-            l for l in r.stderr.split('\n')
-            if 'No such file or directory' in l and '.py' in l
-        ]
-        if missing:
-            return name, ['FAIL: companion verifier is missing — ' + missing[0].strip()]
-        return name, [
-            f'FAIL: check exited {r.returncode} with no stdout — {r.stderr.strip()[:200]}'
-        ]
+    if _is_wrapper_template(shell_template):
+        # A wrapper propagates its verifier's verdict through the exit
+        # code, so rc == 0 means "this check found nothing" no matter what
+        # the verifier printed.  Historically the verdict was decided
+        # purely by "did stdout print anything", which turned every
+        # verifier's own success trailer into a hit: a wrapper whose
+        # `grep -v` filter had drifted out of sync with the verifier's
+        # summary string reported a permanent, unfixable false positive.
+        # Trusting the exit code removes that whole class of bug instead
+        # of chasing each summary string.  The per-wrapper `grep -v`
+        # filters stay in place as a second line of defence.
+        if r.returncode == 0:
+            return name, []
+        # A check that produces NO stdout can mean two very different
+        # things: "scanned everything and found nothing" (a real pass) or
+        # "the verifier script does not exist / crashed before printing"
+        # (a vacuous pass).  python3 reports a missing file on stderr and
+        # exits 2, so r.returncode catches that case — but the FAIL
+        # trailer must go to stderr too, or it would be counted as a hit
+        # (see pitfalls 45).  Guard on the script name appearing in
+        # stderr.
+        if not out:
+            missing = [
+                l for l in r.stderr.split('\n')
+                if 'No such file or directory' in l and '.py' in l
+            ]
+            if missing:
+                return name, ['FAIL: companion verifier is missing — ' + missing[0].strip()]
+            return name, [
+                f'FAIL: check exited {r.returncode} with no stdout — {r.stderr.strip()[:200]}'
+            ]
+        return name, out
+    # Inline template: stdout IS the hit list.  A non-empty stdout is a
+    # violation; empty stdout is a pass.  The exit code is ignored on
+    # purpose — for a `... | head -N` pipeline it is `head`'s status and
+    # carries no information about whether a hit was found.
     return name, out
 
 

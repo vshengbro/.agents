@@ -3408,6 +3408,44 @@ Two attributes in a row is not exotic: `#[prologue_macros(...)]` plus
 carrying both was what the audit flagged. The regression case lives in
 `self_test_doc_comment_audit.py` (`multi_attribute_doc_block_survives`).
 
+## §104 audit 的 verdict 不能一律看 exit code —— inline 模板的 exit code 不带任何信息
+
+`audit_rust_standards.py` 的 `run_check()` 一度**只用 exit code** 判 PASS/FAIL。
+这对 wrapper 模板是对的(它以 `exit "$exit_code"` 把 companion verifier 的结论透传出来),
+对 **inline 模板是结构性错误**。
+
+两种模板形状:
+
+- **wrapper** —— 跑 companion verifier,结尾显式 `exit "$exit_code"`。结论走 exit code,
+  stdout 可能带 verifier 自己的成功 trailer(`OK: N file(s) checked`),所以 stdout 不能当命中读。
+- **inline** —— 裸 shell pipeline,通常是 `git diff ... | grep ... | head -20`。
+  它的 exit status 是**最后一段**(`head` / `grep`)的,打印 1 条命中和打印 1000 条命中
+  **都是 0**。它的 stdout 才是命中列表。
+
+实测后果:audit 的 **前 14 条检查全是 inline 形状**,于是**结构上永远无法 FAIL** ——
+R11.4(production unwrap/expect/panic)、R14(`#[allow]` in production)、
+R5.1(implicit `Vec::new()`)、`#[test]` / `#[cfg(test)]` in production、
+long-path `use crate::`、inline generic bounds、非关键字 production 文件名、
+`r#` 用在非关键字文件、mod.rs 的 `use super::*;` 规则 —— **全部报 PASS,哪怕真违规**。
+
+**为什么早先没发现**:exit-code 判定是为修另一个 bug 引入的(wrapper 的 `grep -v` 与
+verifier summary 串了,导致永久假阳性)。修对了那一半,顺手把另一半也换成了 exit code,
+而那一半**永远不会红**。两半各自看起来都合理,合起来就是 14 条恒过的检查。
+
+**修法**:按模板形状分流 —— wrapper 看 exit code,inline 看 stdout。
+`_is_wrapper_template()` 以 `exit "$exit_code"` 为标记(实测 40 wrapper / 14 inline,
+无一例外)。self-test `scripts/self_test_audit_verdict.py` 双向断言:
+inline 模板有命中必须 FAIL、wrapper 的成功 trailer 不得算命中、wrapper 的
+companion 缺失必须 FAIL(不是静默过)。
+
+**同族坑(一起查)**:`#[cfg(test)] in production` 这条规则**在 hook 里根本没有执行者** ——
+audit 的 check 8 是 diff-scoped 的 inline 模板(恒过),`staged_file_gate.py` 的
+VERIFIERS 里也没有对应条目。查一个规则是否真的被执行,不能只看 audit 的 CHECKS 列表,
+要把 audit 的每条模板和 hook 的注册表**交叉比对**。
+
+**判据**:任何一条"只靠 diff 或只靠 stdout 就能恒过"的检查,都是**恒 0 坏 gate**。
+看到一条检查在真违规 fixture 上不红,先怀疑它的判定信号,而不是怀疑 fixture。
+
 ## §103 `crate fmt` 的作用域是 cwd 的 package,不是整个 workspace(实测)
 
 旧文案写 "`crate fmt` 默认等于 `cargo fmt --all`,覆盖 workspace 全 member"。实测不成立,
