@@ -114,7 +114,10 @@ git diff origin/master -- "*.rs" 2>/dev/null | while read line; do
 done | head -20
 '''),
     ('#[test] in production', '''cd {{target}}
-git diff origin/master -- "*.rs" 2>/dev/null | grep -B5 "^\\+.*#\\[test\\]" | grep "^\\+\\+\\+ b/" | grep -v "/tests/" | head -5
+git diff origin/master -- "*.rs" 2>/dev/null | awk '
+  /^\\+\\+\\+ b\\// { f = substr($0, 7); next }
+  /^\\+/ && /#\\[test\\]/ { if (f !~ /\\/tests\\//) print f }
+' | sort -u | head -20
 '''),
     ('// comments in mod.rs (DEPRECATED — see check 51)', '''cd {{target}}
 for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$"); do

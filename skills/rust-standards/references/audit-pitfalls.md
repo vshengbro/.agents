@@ -3446,6 +3446,23 @@ VERIFIERS 里也没有对应条目。查一个规则是否真的被执行,不能
 **判据**:任何一条"只靠 diff 或只靠 stdout 就能恒过"的检查,都是**恒 0 坏 gate**。
 看到一条检查在真违规 fixture 上不红,先怀疑它的判定信号,而不是怀疑 fixture。
 
+### 同一条检查里的第二个 bug:`grep -B5` + BRE 的 `\+`
+
+修好判定信号后,逐条检查"在真违规 fixture 上会不会红",发现 check 4
+(`#[test] in production`)**仍然不红** —— 它的模板本身还有两个错:
+
+1. `grep -B5 "^\+.*#\[test\]" | grep "^\+\+\+ b/"` 用 **-B5 回看 5 行找文件头**。
+   一个 `#[test]` 距 hunk 头部超过 5 行时就找不到 `+++ b/`,**命中无法归到文件**,
+   模板输出为空。改成 awk 顺着 diff 流跟踪 `+++ b/` 头,每条 `+#[test]` 都能归位。
+2. 同一条管道里的 `"^\+.*#\[test\]"` 在 GNU grep 的 **BRE** 里是**非法表达式**:
+   `\+` 是"重复一次或多次"的操作符,`^\+` 就是"对 ^ 重复",实测报
+   `grep: repetition-operator operand invalid`。也就是说这条模板**从来就没跑成过**,
+   错误只写 stderr,stdout 为空 —— 在旧的"只看 exit code"判定下同样是 PASS。
+
+**教训**:修好 gate 的判定信号之后,**必须再逐条跑一次"真违规 fixture → 必须 FAIL"**。
+判定信号错了和模板本身错了是**两层独立缺陷**,修一层不代表另一层好了。
+grep 的 BRE/ERE 差异(`\+` vs `\+`、`\(...)` vs `(...)`)是常见的第二层坑。
+
 ## §103 `crate fmt` 的作用域是 cwd 的 package,不是整个 workspace(实测)
 
 旧文案写 "`crate fmt` 默认等于 `cargo fmt --all`,覆盖 workspace 全 member"。实测不成立,

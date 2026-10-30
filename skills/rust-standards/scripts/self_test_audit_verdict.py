@@ -35,6 +35,8 @@ Run: python3 self_test_audit_verdict.py
 from __future__ import annotations
 
 import importlib.util
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -87,6 +89,14 @@ def run(template: str) -> tuple[str, list[str]]:
     return audit.run_check("probe", template, "/tmp")
 
 
+def check_index(name: str) -> int:
+    """1-based index of a check in the audit's CHECKS list."""
+    for index, (check_name, _template) in enumerate(audit.CHECKS, start=1):
+        if check_name == name:
+            return index
+    raise KeyError(name)
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -133,6 +143,78 @@ def main() -> int:
                 f"inline check {check_name!r} contains an explicit exit; it "
                 "would be classified by the wrong verdict signal"
             )
+
+    # --- every inline template must actually FIRE on a violation ---
+    # A correct verdict signal is only half the job: the template itself
+    # can still be broken (check 4 once was — `grep -B5` could not reach
+    # the file header, and its BRE pattern `^\+` was invalid).  Each
+    # inline template is run against a synthetic diff that violates it,
+    # and must print something.
+    inline_violations = [
+        ("#[allow] in production", "+#[allow(dead_code)]\n"),
+        ("production unwrap/expect/panic", "+    v.unwrap();\n"),
+        ("#[test] in production", "+#[test]\n"),
+        ("long-path use crate::xxx in sub-files", "+use crate::x::Y;\n"),
+        ("inline generic bounds", "+fn f<Abc: Clone>(v: Abc) {}\n"),
+        ("implicit Vec::new() without type", "+    let v = Vec::new();\n"),
+    ]
+    for check_name, added_line in inline_violations:
+        template = dict((n, t) for n, t in audit.CHECKS)[check_name]
+        idx = check_index(check_name)
+        # Build a diff stream whose added line sits far from the file
+        # header, which is the case the old `grep -B5` template missed.
+        diff = (
+            "diff --git a/src/probe.rs b/src/probe.rs\n"
+            "--- a/src/probe.rs\n"
+            "+++ b/src/probe.rs\n"
+            "@@ -1,3 +1,20 @@\n"
+            " context\n"
+            " context\n"
+            " context\n"
+            " context\n"
+            " context\n"
+            " context\n"
+            " context\n"
+            " context\n"
+            + added_line
+        )
+        cmd = template.replace("{{target}}", "/tmp").replace(
+            "{{audit_script_dir}}", str(SCRIPT_DIR))
+        # Replace the git diff with the synthetic stream.  The pattern
+        # must consume the WHOLE command up to the pipe, otherwise the
+        # heredoc terminator ends up glued to `| awk` and the filter
+        # never runs.  `cat` is used (not `echo`) so the diff arrives
+        # verbatim on stdin.
+        cmd, count = re.subn(
+            r"git diff[^\n]*?(?=\s*\|\s*|\s*$)",
+            "cat > /tmp/_audit_selftest_diff <<'DIFF_EOF'\n" + diff + "DIFF_EOF",
+            cmd,
+            count=1,
+        )
+        if count == 0 or "DIFF_EOF" not in cmd:
+            failures.append(
+                f"check {idx} ({check_name}) does not read a git diff; the "
+                "non-vacuity assertion could not be applied"
+            )
+            continue
+        # Feed the synthetic diff in through the same path the template
+        # uses: replace the git diff invocation with `cat <file>`.
+        cmd = cmd.replace(
+            "cat > /tmp/_audit_selftest_diff <<'DIFF_EOF'\n" + diff + "DIFF_EOF",
+            "cat /tmp/_audit_selftest_diff",
+        )
+        Path("/tmp/_audit_selftest_diff").write_text(diff)
+        proc = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        Path("/tmp/_audit_selftest_diff").unlink(missing_ok=True)
+        if not proc.stdout.strip():
+            failures.append(
+                f"check {idx} ({check_name}) printed nothing on a violating "
+                "diff — the template itself is broken"
+            )
+            if proc.stderr.strip():
+                failures.append(
+                    f"  (stderr: {proc.stderr.strip()[:120]})"
+                )
 
     if failures:
         print("SELF-TEST FAIL:")
