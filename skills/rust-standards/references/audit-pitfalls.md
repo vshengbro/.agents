@@ -3494,3 +3494,67 @@ grep 的 BRE/ERE 差异(`\+` vs `\+`、`\(...)` vs `(...)`)是常见的第二层
 附带一条:`cargo clippy --fix` 失败会让 `crate fmt` **退出码 = 1**(报
 `cargo clippy --fix failed`)。所以 "crate fmt 跑挂了" 有时是**编译错误**而不是格式问题 ——
 看到非零退出码先读日志里的 `cargo clippy --fix failed`,不要只当格式问题去反复 fmt。
+
+## §105 `--no-scope` 模式下 auto-fixer 一个都没跑 —— 整仓扫描是空转的(实测)
+
+`rust_pre_commit.py` 的 `--no-scope`(整仓扫描)模式**从来没真正跑过任何 fixer**。
+它的 banner 照样打印 "scope: WHOLE-REPO (--no-scope) — fixers may rewrite any file",
+Phase 1 却**一行 fixer 都不打**。
+
+根因是**两层独立的缺陷**,必须分开修,修一层不代表另一层好了:
+
+**第一层 —— `continue` 守卫无条件生效。** 整仓模式下 `scope is None`,
+于是 `rs_scope` / `toml_scope` / `toml_mod_scope` 三个列表**全为空**。
+原代码无条件执行:
+
+```python
+if "{rs_files}" in template and not rs_scope:
+    continue
+```
+
+列表为空 → `not rs_scope` 为真 → **每个 fixer 都在真正被调用之前就被 `continue` 掉了**。
+守卫的本意是"scoped 模式下某个 fixer 没有对应文件就别让它退化成整仓改写",
+但它没有区分 `scope is None`(整仓,列表本来就该是空的)和 `scope == []`(scoped,确实没文件)。
+修法:守卫加上 `if scope is not None:` 前置条件。
+
+**第二层 —— argv 里留了个空的 `--files`。** 即使放行守卫,整仓模式下拼出来的 argv 是
+`[..., "--files"]`,`--files` 后面**没有值**。`nargs="*"` 把这种写法解析成
+**空列表**,而不是"不限制"。而各 fixer 对空列表的理解**并不一致**:
+
+| fixer | 空 `--files` 的含义 | 后果 |
+|---|---|---|
+| `fix_dep_order.py` | 不限制 | 恰好正确 |
+| `fix_no_toml_mod_comments.py` | 不限制 | 恰好正确 |
+| `strictify_tests_layout.py` | **空 scope** | **什么都不改** |
+| `doc_comment_audit.py` | **空 scope** | **什么都不改** |
+
+也就是说"两个碰巧对"掩盖了"两个其实不对"。修法:整仓模式下**整个 `--files` 标志删掉**,
+让每个 fixer 回到它自己文档化的整仓默认值(新增 `_drop_empty_files_flag()`)。
+
+**第三处 —— drift 检测在整仓模式下全是假阳性。** `scope_resolved` 在整仓模式下
+算出来是**空集合**,于是 `_sandbox_drift()` 会把**每一个**被改动的文件都报成
+"OUTSIDE the change scope"。修法:`scope_resolved` 传 `None` 表示"整仓,一切都在 scope 内",
+`_sandbox_drift()` 见到 `None` 直接返回空列表。
+
+**第四处 —— 整仓改写是静默的。** 整仓模式下所有文件都在 scope 内,没有 drift 报告,
+于是 fixer 改了什么**完全不可见**。`doc_comment_audit.py` 在有历史债的仓里
+一次能改 84 个文件 / +7165 行(见 `phase_fixers` 的 docstring,2026-09-27 ctares 实测)。
+修法:整仓模式下单独打印 "rewrote N file(s) (whole-repo sweep)" 并列出文件。
+
+**实测验证(2026-10-30)**:修好之后在 hyperlane 的克隆上跑 `--no-scope`,
+4 个 fixer 全部执行,整仓扫描改写了 **16 个文件 / +33 行**(全是历史遗留的缺失 doc 注释),
+与交付 PR `01cd18d` 的改动文件**零重叠**;audit 仍 54/54 PASS。
+回归测试见 `scripts/self_test_pre_commit_scope.py`,含
+"真违规 fixture → 必须 FAIL"的 11 项断言,以及两个 mutation:
+把守卫改回无条件 / 把裸 `--files` 放回去,**两个都会被抓住**。
+
+**教训**:
+1. **"空的作用域"和"不限的作用域"在 argparse 里是两回事** —— `--files` 不带值
+   不是"不限制",是"空列表"。凡是拿 `nargs="*"` 传可选列表的地方,
+   "不传这个标志"和"传一个空列表"必须当成**两种不同的语义**来写。
+2. **守卫条件要区分"作用域为空"的原因**:`scope is None`(整仓)和 `scope == []`
+   (scoped 但无文件)在数据上都是"空列表",在语义上却完全相反。
+3. **banner 写了什么不重要,日志里有没有对应动作才重要**。"fixers may rewrite any file"
+   配一个 Phase 1 一行不打的输出,是最典型的自欺。
+4. 修完 gate 之后**先在克隆仓上跑一遍看真实 blast radius**,再去动真仓;
+   顺带能发现"整仓扫描到底会改多少"这个之前没人知道的事实。

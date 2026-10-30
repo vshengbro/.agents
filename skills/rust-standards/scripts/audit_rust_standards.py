@@ -113,6 +113,14 @@ git diff origin/master -- "*.rs" 2>/dev/null | while read line; do
   fi
 done | head -20
 '''),
+    # check 4 — a `#[test]` attribute in a production file.  The old
+    # template piped the diff through `grep -B5 "^\+.*#\[test\]" |
+    # grep "^\+\+\+ b/"`, i.e. it looked BACK 5 lines for the file
+    # header to attribute the hit to a file.  A `#[test]` more than 5
+    # lines into a hunk has its header further away than that, so the
+    # template produced NO output for any real violation — the rule
+    # could never fire.  awk tracks the `+++ b/` header as it goes, so
+    # every added `#[test]` is attributed to the file it is in.
     ('#[test] in production', '''cd {{target}}
 git diff origin/master -- "*.rs" 2>/dev/null | awk '
   /^\\+\\+\\+ b\\// { f = substr($0, 7); next }

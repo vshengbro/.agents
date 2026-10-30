@@ -125,6 +125,26 @@ def _expand(argv: list[str], root: Path) -> list[str]:
     return out
 
 
+def _drop_empty_files_flag(argv: list[str]) -> list[str]:
+    """Remove a trailing `--files` that has no values after it.
+
+    `--files` with `nargs="*"` and nothing following it parses as an
+    EMPTY list, not as "no restriction". fix_dep_order.py and
+    fix_no_toml_mod_comments.py read an empty list as "no restriction",
+    but strictify_tests_layout.py and doc_comment_audit.py read it as
+    "an empty scope" and fix nothing at all. Dropping the flag makes
+    every fixer fall back to its own documented whole-repo default.
+    """
+    out = list(argv)
+    while "--files" in out:
+        idx = out.index("--files")
+        if idx + 1 < len(out) and not out[idx + 1].startswith("-"):
+            # The flag has values — leave it alone.
+            break
+        del out[idx]
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Phase 1 — auto-fixers
 # ---------------------------------------------------------------------------
@@ -195,8 +215,14 @@ def _sandbox_snapshot(root: Path) -> dict[str, int]:
     return snapshot
 
 
-def _sandbox_drift(before: dict[str, int], after: dict[str, int], scope: set[str]) -> list[str]:
-    """Files whose size changed but that are NOT in `scope`."""
+def _sandbox_drift(before: dict[str, int], after: dict[str, int], scope: set[str] | None) -> list[str]:
+    """Files whose size changed but that are NOT in `scope`.
+
+    `scope=None` means whole-repo mode, where every file is in scope by
+    definition and no drift is possible.
+    """
+    if scope is None:
+        return []
     drift: list[str] = []
     for path, size in after.items():
         if before.get(path) == size:
@@ -263,17 +289,28 @@ def phase_fixers(
             if placeholder in argv_template:
                 idx = argv_template.index(placeholder)
                 argv_template[idx : idx + 1] = values
+        # Whole-repo mode (scope is None): the file lists are all empty,
+        # so the splice above leaves a bare `--files` with no values.
+        # Every fixer reads that differently and none of them mean
+        # "whole repo": fix_dep_order / fix_no_toml_mod_comments treat an
+        # empty list as no restriction (accidentally correct), while
+        # strictify_tests_layout and doc_comment_audit treat it as an
+        # EMPTY scope and fix nothing at all. Dropping the flag entirely
+        # gives every fixer its own documented whole-repo default.
+        if scope is None:
+            argv_template = _drop_empty_files_flag(argv_template)
         argv = _expand(argv_template, root)
         # A scoped fixer with an empty file list must not fall back to
         # whole-repo: drop the flag entirely and skip the run instead.
         if scope and not (rs_scope or toml_scope or toml_mod_scope):
             continue
-        if "{rs_files}" in template and not rs_scope:
-            continue
-        if "{toml_files}" in template and not toml_scope:
-            continue
-        if "{toml_mod_files}" in template and not toml_mod_scope:
-            continue
+        if scope is not None:
+            if "{rs_files}" in template and not rs_scope:
+                continue
+            if "{toml_files}" in template and not toml_scope:
+                continue
+            if "{toml_mod_files}" in template and not toml_mod_scope:
+                continue
 
         before = _sandbox_snapshot(root)
         t0 = time.monotonic()
@@ -286,10 +323,31 @@ def phase_fixers(
                 print(f"    stderr: {stderr.strip()[:200]}")
         else:
             after = _sandbox_snapshot(root)
-            scope_resolved = {
-                str((root / f).resolve()) for f in (scope or [])
-            }
+            scope_resolved = (
+                None
+                if scope is None
+                else {str((root / f).resolve()) for f in scope}
+            )
             drift.extend(_sandbox_drift(before, after, scope_resolved))
+            if scope is None:
+                # Whole-repo mode: every file is in scope, so there is no
+                # "drift" to report. But the sweep CAN rewrite files, and
+                # a silent rewrite is exactly the surprise this mode must
+                # not spring. Report what changed.
+                touched = sorted(
+                    path
+                    for path, size in after.items()
+                    if before.get(path) != size
+                )
+                if touched:
+                    print(
+                        f"    rewrote {len(touched)} file(s) "
+                        f"(whole-repo sweep):"
+                    )
+                    for path in touched[:10]:
+                        print(f"      - {path}")
+                    if len(touched) > 10:
+                        print(f"      ... ({len(touched) - 10} more)")
             print(f"  Phase 1 [{label:24s}] PASS  ({dt:.1f}s)  {desc} [{scope_note}]")
     return not failures, failures, drift
 
