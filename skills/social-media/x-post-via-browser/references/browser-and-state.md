@@ -13,6 +13,20 @@ other.
 user's real Chrome profile and launches a headless Chrome against the
 COPY, in a private profile under the state directory.
 
+**The launch itself carries the user agent override.** `--headless=new`
+alone leaves Chrome identifying as HeadlessChrome, and x.com answers every
+document with 403 and a zero-length body. The launcher passes
+`--user-agent=` derived from the installed Chrome's version, so the string
+follows the real build instead of going stale on an upgrade.
+
+**A 403 is not a network failure, and an empty timeline is not a dead
+browser.** When a search returns nothing, read the status before
+concluding there are no posts: `Network.responseReceived` through CDP
+carries the real answer. A 403 with a zero-length body is the site
+refusing the client; the browser is up and the network is fine. The
+distinguishing signal is the response status, not the empty page — and
+the fix is the user agent, not a proxy hunt.
+
 - **The copy is a read-only sqlite backup**, not a file copy. Copying the
   `Cookies` file while a Chrome is running can miss a page still in the
   WAL, and the result is a profile that looks fine and is not signed in.
