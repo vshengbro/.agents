@@ -38,6 +38,7 @@ import importlib.util
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -153,7 +154,6 @@ def main() -> int:
     inline_violations = [
         ("#[allow] in production", "+#[allow(dead_code)]\n"),
         ("production unwrap/expect/panic", "+    v.unwrap();\n"),
-        ("#[test] in production", "+#[test]\n"),
         ("long-path use crate::xxx in sub-files", "+use crate::x::Y;\n"),
         ("inline generic bounds", "+fn f<Abc: Clone>(v: Abc) {}\n"),
         ("implicit Vec::new() without type", "+    let v = Vec::new();\n"),
@@ -161,6 +161,18 @@ def main() -> int:
     for check_name, added_line in inline_violations:
         template = dict((n, t) for n, t in audit.CHECKS)[check_name]
         idx = check_index(check_name)
+        # The list above is the set of INLINE checks.  A check that has
+        # been converted to a wrapper no longer reads a git diff, so the
+        # synthetic-diff probe cannot be applied to it — and leaving it in
+        # the list made this self-test fail for the wrong reason ("does
+        # not read a git diff") instead of catching the real regression.
+        # Keep the list honest instead.
+        if audit._is_wrapper_template(template):
+            failures.append(
+                f"check {idx} ({check_name}) is a wrapper but is listed as an "
+                "inline check in the non-vacuity probe"
+            )
+            continue
         # Build a diff stream whose added line sits far from the file
         # header, which is the case the old `grep -B5` template missed.
         diff = (
@@ -214,6 +226,64 @@ def main() -> int:
             if proc.stderr.strip():
                 failures.append(
                     f"  (stderr: {proc.stderr.strip()[:120]})"
+                )
+
+    # --- the real §14.4 wrappers must FIRE on a real violation ------
+    # The inline probe above can no longer cover the §14.4 checks: they
+    # are wrappers now, and a wrapper reads the TREE, not a diff.  A
+    # wrapper is unfailable in exactly the way an inline pipeline used to
+    # be — its exit code comes from the companion verifier, so if the
+    # verifier is wired wrong (wrong path, wrong argument, a `grep` that
+    # swallows everything) the check reports PASS forever.  Probe them
+    # against a real fixture directory: a violating production file must
+    # make the wrapper FAIL.
+    wrapper_fixtures = [
+        (
+            "#[test] in production",
+            "pkg/src/production.rs",
+            "pub fn helper() -> usize {\n    1\n}\n\n#[test]\nfn bare_test() {\n"
+            "    assert_eq!(helper(), 1);\n}\n",
+        ),
+        (
+            "#[cfg(test)] in production",
+            "pkg/src/production.rs",
+            "pub fn helper() -> usize {\n    1\n}\n\n#[cfg(test)]\nmod tests {\n"
+            "    use super::*;\n\n    #[test]\n    fn inner() {\n"
+            "        assert_eq!(helper(), 1);\n    }\n}\n",
+        ),
+    ]
+    with tempfile.TemporaryDirectory() as fixture_tmp:
+        for check_name, rel, content in wrapper_fixtures:
+            idx = check_index(check_name)
+            template = dict((n, t) for n, t in audit.CHECKS)[check_name]
+            if not audit._is_wrapper_template(template):
+                failures.append(
+                    f"check {idx} ({check_name}) was expected to be a wrapper"
+                )
+                continue
+            root = Path(fixture_tmp) / check_name.replace(" ", "_").replace(
+                "#", ""
+            ).replace("(", "").replace(")", "")
+            target_file = root / rel
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            (root / "pkg" / "Cargo.toml").write_text(
+                '[package]\nname = "pkg"\nversion = "0.1.0"\n'
+            )
+            target_file.write_text(content)
+            cmd = template.replace("{{target}}", str(root)).replace(
+                "{{audit_script_dir}}", str(SCRIPT_DIR)
+            )
+            proc = subprocess.run(
+                ["bash", "-c", cmd], capture_output=True, text=True, cwd=str(root)
+            )
+            if proc.returncode == 0:
+                failures.append(
+                    f"check {idx} ({check_name}) reported PASS on a violating "
+                    f"fixture — the wrapper cannot fail"
+                )
+            elif not proc.stdout.strip():
+                failures.append(
+                    f"check {idx} ({check_name}) failed but printed no detail"
                 )
 
     if failures:

@@ -194,6 +194,19 @@ VERIFIERS = {
     # not see it either.  `audit_one` reads only the path it is handed,
     # so the gate's before/after baselines compare.
     "verify_no_inline_cfg_test": "inline #[cfg(test)] mod tests in a production file §14.4",
+    # §14.4, the OTHER half of the same rule.  The audit's check 4 was the
+    # only enforcement of "no bare `#[test]` in a production file", and it
+    # was an inline shell pipeline over `git diff origin/master HEAD`: it
+    # only ever saw the lines the branch ADDS, so a violation already
+    # sitting in a production file was never reported and an unrelated edit
+    # to that file left it in place while the check stayed silent.  Same
+    # gap as §1.4 and R11.4, and the hook could not run the rule at all
+    # because it had no per-file script to drive.  `audit_one` reads only
+    # the path it is handed, so the gate's before/after baselines compare.
+    # The verifier skips test attributes that live inside an inline
+    # `#[cfg(test)] mod { }` block, because that shape is owned by
+    # `verify_no_inline_cfg_test` above — one mistake, one finding.
+    "verify_no_test_in_production": "bare #[test] in a production file §14.4",
 }
 
 # Verifiers that only make sense for a specific file name.

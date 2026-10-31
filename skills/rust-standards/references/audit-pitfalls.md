@@ -3558,3 +3558,75 @@ if "{rs_files}" in template and not rs_scope:
    配一个 Phase 1 一行不打的输出,是最典型的自欺。
 4. 修完 gate 之后**先在克隆仓上跑一遍看真实 blast radius**,再去动真仓;
    顺带能发现"整仓扫描到底会改多少"这个之前没人知道的事实。
+
+## §106 §14.4 的另一半 —— production 里的裸 `#[test]` 在 commit 时无人拦截(实测)
+
+§14.4 有两半:"production file 里不得有 inline `#[cfg(test)] mod tests { ... }` 块"
+(check 8,§104 已修),以及"单测必须在 `tests/` 目录里" —— 后者的另一半是
+**production file 里出现裸 `#[test]` 函数**。这一半**只有 audit 在管,hook 完全不管**。
+
+修之前的形状:audit check 4 是一条 inline 管道:
+
+```bash
+git diff origin/master -- "*.rs" | awk '... /^\+/ && /#\[test\]/ { if (f !~ /\/tests\//) print f }'
+```
+
+三个问题叠在一起:
+
+1. **只看 diff**。已经躺在 production file 里的 `#[test]` 永远不报;别人改同一个文件
+   时它继续躺���,check 保持沉默。**diff 看到的是 DIFF,不是 FILE**。
+2. **hook 根本跑不了这条规则**。`staged_file_gate.py` 是通过每个 verifier 的
+   `audit_one()` 入口驱动 per-file 检查的,check 4 没有对应的脚本 —— **audit 拦得住
+   而 hook 拦不住的规则,就不是规则**。同样的洞在 §1.4 / R11.4 / R11.5 上都踩过。
+3. **只认字面量 `#[test]`**。`#[tokio::test]` / `#[async_std::test]` /
+   `#[wasm_bindgen_test]` 同样标着一个测试函数,写成 async 测试就绕过了规则。
+
+**修法**:新增 `scripts/verify_no_test_in_production.py`(tree-wide,和
+`verify_no_inline_cfg_test.py` 同构),check 4 改成调用它的 wrapper,
+**同一个脚本注册进 `staged_file_gate.py`**。
+
+verifier 的判定要点:
+
+- **结构化区分属性族**:路径末段是 `test` / `wasm_bindgen_test`,或
+  `tokio::test` / `async_std::test` 这种 `::test` 形式。
+- **必须挂在 fn 上**:`#[test]` 只对函数有意义,所以要求下一个 item 是 `fn`
+  (可带 `pub` / `async` / `unsafe` / `const` / `extern` 前缀)。
+- **注释与字符串先屏蔽**:`///` 文档注释、块注释、字符串字面量、raw string 里
+  写的 `#[test]` 是**关于测试的散文**,不是测试。屏蔽后 brace 计数也只数代码,
+  不会被字面量里的 `{` 带偏。同一份屏蔽后的副本还被 §14.4 的 inline block
+  范围识别复用(判 inline `#[cfg(test)] mod { }` 块时需要 brace 计数)。
+- **字符字面量也必须屏蔽 —— 这一条是实测踩出来的**。`'{'` 里的 `{` 是不配对的,
+  它让 inline block 的 brace 计数以为块一直开到文件末尾,**后面每一个
+  `#[test]` 都从报告里静默消失**。判字符字面量的规则和
+  `verify_no_qualified_std_path.py` 同款:**恰好一个字符**(可转义),
+  `'(?:\\.|[^'\\])'` —— 写成 `*` 会把 lifetime `'a` / `'_` / `'static`
+  和远处一个引号配成一对,把中间的代码整段吞掉。
+- **inline block 内部不报**:`#[cfg(test)] mod tests { #[test] ... }` 这个形状
+  由 `verify_no_inline_cfg_test.py` 负责。两个 verifier 各报一次会让 gate 把
+  **一个错误数成四个**;一次错误一条 finding,归一个 owner。
+
+**实测验证(2026-10-31)**:
+
+| 层 | 结果 |
+|---|---|
+| verifier self-test | 24 项断言全过(6 个违规形状各报 1 条;8 个合规形状全不报) |
+| 三仓 blast radius | hyperlane / euv / ctares **0 false positive**(全是 0 violation) |
+| audit check 4 | 干净树 54/54 PASS;违规树 `FAIL: 4. #[test] in production: 1 hits`;`#[path]` include 形状 54/54 PASS |
+| 真实 pre-commit hook | 违规 fixture 被 **BLOCKED**,输出点名 `verify_no_test_in_production`;`#[path]` include fixture **ALLOWED** |
+| mutation | 把 check 4 的 wrapper 指向不存在的 verifier → `self_test_audit_verdict.py` 报 "failed but printed no detail",**抓到** |
+
+**教训**:
+1. **一条规则的每一半都要有自己的 owner,并且两个 owner 都要在 hook 里注册**。
+   "audit 管一半、hook 管另一半"是最容易漏的形状,因为 audit 看起来是绿的。
+2. **inline 检查和 tree-wide 检查要用不同的 fixture 形态**。inline 检查喂
+   synthetic diff,tree-wide 检查喂**真实目录树**;拿 synthetic diff 去测
+   tree-wide 检查会得到"这个检查不读 git diff"这种**假失败**,掩盖真正的回归。
+   `self_test_audit_verdict.py` 现在对 §14.4 两个 wrapper 用真实目录树探测。
+3. **fixture 要隔离无关规则**。§14.4 的 fixture 用 `src/lib.rs` + 合规的
+   `//!` 块 + 带 §2.1 文档注释的 fn,否则 doc-comment / lib.rs order /
+   keyword purity 会一起触发,gate 的非零退出就不能归因给目标规则了。
+4. **不要只认字面量**。`#[test]` 有 async / wasm 变体,规则要覆盖整个属性族,
+   否则"改个写法就绕过"是最廉价的绕过方式。
+5. **屏蔽字面量不是为了"少报",是为了"不少报"**。字符字面量里的不配对花括号
+   会让基于 brace 计数的范围识别整体偏移,后面真正该报的 `#[test]` 全部静默消失
+   —— 一个漏报比一个误报更难发现,因为报告看起来是"干净"的。

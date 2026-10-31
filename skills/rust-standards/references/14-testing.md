@@ -119,14 +119,27 @@ mod tests {
 
 **原"master 例外 pattern"已被 user 推翻**:14.4 之前文档说"可以保留 inline + master 风格注释",**user 现在不允许这个例外**。任何 inline `#[cfg(test)] mod tests` 块 = review reject,不管有没有注释。
 
-**检测脚本**(`scripts/audit_rust_standards.py` rule 8 + 新加的 rule 15):
+**检测脚本**(`scripts/verify_no_inline_cfg_test.py` + `scripts/verify_no_test_in_production.py`,
+audit check 8 + check 4,**两个都已注册进 `staged_file_gate.py`**):
+
+- `verify_no_inline_cfg_test.py` —— production file 里的 inline `#[cfg(test)] mod ... { }` 块。
+- `verify_no_test_in_production.py` —— production file 里的**裸 `#[test]` 函数**
+  (含 `#[tokio::test]` / `#[async_std::test]` / `#[wasm_bindgen_test]`)。
+
+两个脚本都 **tree-wide** 扫(不是 diff-scoped):production file 里**早就存在**的违规
+也要报,别人改同一个文件时它不能继续躺着。`#[path]` include 形状
+(`#[cfg(test)] #[path = "../tests/mod.rs"] mod tests;`)**不得误报**。
 
 ### 检测(每个 PR 改动的 sub-file)
 
 ```bash
-# 任何 + 行包含 #[cfg(test)] mod tests { 是 violation
-git diff -U0 origin/master HEAD -- '*.rs' | grep -E "^\+.*#\[cfg\(test\)\]"
-# 期望: 零行(注释 / 文档里的引用不算)
+# production file 里的任何测试属性(inline block 内的除外 —— 归上一个脚本)
+python3 scripts/verify_no_test_in_production.py <repo>
+# 期望: 0 violation(s)
+
+# production file 里的 inline #[cfg(test)] mod { } 块
+python3 scripts/verify_no_inline_cfg_test.py <repo>
+# 期望: 0 violation(s)
 
 # visibility 收紧变更检测(2026-09-12 加)
 # 反向:PR 是否把 fn/enum/struct 的 visibility 从 private 升级到 pub(crate)/pub

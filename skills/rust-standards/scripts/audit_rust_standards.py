@@ -119,13 +119,24 @@ done | head -20
     # header to attribute the hit to a file.  A `#[test]` more than 5
     # lines into a hunk has its header further away than that, so the
     # template produced NO output for any real violation — the rule
-    # could never fire.  awk tracks the `+++ b/` header as it goes, so
-    # every added `#[test]` is attributed to the file it is in.
-    ('#[test] in production', '''cd {{target}}
-git diff origin/master -- "*.rs" 2>/dev/null | awk '
-  /^\\+\\+\\+ b\\// { f = substr($0, 7); next }
-  /^\\+/ && /#\\[test\\]/ { if (f !~ /\\/tests\\//) print f }
-' | sort -u | head -20
+    # could never fire.  awk tracked the `+++ b/` header as it went, so
+    # every added `#[test]` was attributed to the file it was in — but
+    # awk still only saw the DIFF, so a violation already sitting in a
+    # production file was never reported and the pre-commit hook could
+    # not run the rule at all (no per-file script to drive).  The rule
+    # now lives in `verify_no_test_in_production.py`, tree-wide like the
+    # sibling `verify_no_inline_cfg_test.py` (check 8), and the SAME
+    # script is registered in `staged_file_gate.py`: a rule enforced in
+    # the audit but not in the hook is not a rule.
+    ('#[test] in production', '''
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_test_in_production.py" "{{target}}" \\
+    | grep -v -E '^=== bare #\\[test\\] in production'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_test_in_production.py exited $exit_code" >&2
+fi
+exit "$exit_code"
 '''),
     ('// comments in mod.rs (DEPRECATED — see check 51)', '''cd {{target}}
 for f in $(git diff --name-only origin/master -- "*.rs" 2>/dev/null | grep -E "/mod\\.rs$"); do
