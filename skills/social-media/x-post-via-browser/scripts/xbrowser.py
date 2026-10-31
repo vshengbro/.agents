@@ -181,6 +181,32 @@ def build_profile() -> Path:
     return private
 
 
+def chrome_user_agent(binary: str) -> str:
+    """A user agent that does not advertise itself as headless.
+
+    x.com answers HeadlessChrome with 403 while the same URL answers 200
+    with an ordinary agent from the same address in the same second. The
+    version is read from the installed browser so the string tracks the
+    real build instead of going stale against a Chrome upgrade.
+    """
+    major = "156"
+    try:
+        out = subprocess.run([binary, "--version"], capture_output=True,
+                             text=True, timeout=20).stdout.strip()
+        # "Google Chrome 156.0.8078.74"
+        for token in out.split():
+            if token[:1].isdigit() and "." in token:
+                major = token.split(".")[0]
+                break
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/%s.0.0.0 Safari/537.36" % major
+    )
+
+
 def launch() -> int:
     """Start the browser and record where it can be reached."""
     private = build_profile()
@@ -203,6 +229,9 @@ def launch() -> int:
         "--disable-sync", "--disable-features=Translate",
         "--headless=new",
         "--window-size=1280,900",
+        # Without this the browser identifies as HeadlessChrome and x.com
+        # answers 403. See chrome_user_agent.
+        "--user-agent=%s" % chrome_user_agent(binary),
         "about:blank",
     ]
     proxy = (os.environ.get("X_PROXY") or "").strip()
