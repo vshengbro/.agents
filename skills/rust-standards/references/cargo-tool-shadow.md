@@ -45,7 +45,7 @@ The same trap fires for any tool rustc/cargo `PATH`-spawn by bare name:
 `cc`, `c++`, `make`, `as`, `ld`, `ar`, `cargo` (for cargo subcommands invoked
 from build scripts), `git` (build scripts that run `git rev-parse`), `bash`
 (rare but possible). Cargo's own invocation of rustc uses
-`/Users/sqs/.rustup/toolchains/.../bin/rustc` (an absolute path), so the
+`~/.rustup/toolchains/.../bin/rustc` (an absolute path), so the
 shadow only hits the *child* processes rustc spawns.
 
 ## Diagnostic recipe (4 commands, ~30 s)

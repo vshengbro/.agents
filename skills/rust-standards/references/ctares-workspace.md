@@ -2,8 +2,8 @@
 
 Reference for the `ctares` Rust workspace, which is the reference repository this
 skill is calibrated against. Every number below was read out of the live repo at
-`/Users/sqs/code/ctares` on ; re-verify with the commands given when a
-claim matters.
+`~/code/ctares` on the live checkout; re-verify with the commands given when
+a claim matters.
 
 ## Shape
 
@@ -45,7 +45,7 @@ reaches every member (see the `crate fmt` scope note in SKILL.md §13).
 `ctares` passes the full audit:
 
 ```
-python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py /Users/sqs/code/ctares
+python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py ~/code/ctares
 → === SUMMARY: 54/54 PASS ===
 ```
 

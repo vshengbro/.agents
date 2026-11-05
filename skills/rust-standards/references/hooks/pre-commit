@@ -113,44 +113,15 @@ VIOLATIONS=0
 FAILED_FILES=()
 
 # --- .toml files: dep order check (new-violation, staged vs HEAD) ---------
-# Same model as the .rs gate below: only violations the commit INTRODUCES
-# block. Historical bug (2026-10-09 FrameworkBenchmarks): the check ran
-# verify_dep_order.py on the WHOLE repo and pinned any violation on the
-# staged files, so an upstream-tracking fork carrying permanent §13.7 debt
-# in manifests it does not own (34 of 37) could never commit any toml.
-# verify_dep_order.py only accepts a DIRECTORY, so each staged manifest is
-# audited as a single-file scratch tree - staged blob vs HEAD blob.
+# Preserve workspace metadata from the complete index and HEAD manifest trees.
+# Check only staged TOML paths, comparing their canonical violation counts.
+# Never use unstaged files as context or turn a checker error into zero findings.
 TOML_FILES=$(echo "$STAGED_FILES" | grep '\.toml$' || true)
 if [[ -n "$TOML_FILES" ]]; then
-    dep_order_count() {
-        local scratch
-        scratch=$(mktemp -d)
-        cp "$1" "$scratch/Cargo.toml"
-        python3 "$SCRIPTS_DIR/verify_dep_order.py" "$scratch" 2>/dev/null \
-            | grep -oE '[0-9]+ violation' | grep -oE '^[0-9]+' | head -1
-        rm -rf "$scratch"
-    }
-    while IFS= read -r toml_file; do
-        [[ -z "$toml_file" ]] && continue
-        STAGED_BLOB=$(mktemp)
-        HEAD_BLOB=$(mktemp)
-        if ! git show ":$toml_file" > "$STAGED_BLOB" 2>/dev/null; then
-            rm -f "$STAGED_BLOB" "$HEAD_BLOB"
-            continue
-        fi
-        new_count=$(dep_order_count "$STAGED_BLOB")
-        [[ -z "$new_count" ]] && new_count=0
-        old_count=0
-        if git show "HEAD:$toml_file" > "$HEAD_BLOB" 2>/dev/null; then
-            old_count=$(dep_order_count "$HEAD_BLOB")
-            [[ -z "$old_count" ]] && old_count=0
-        fi
-        if [[ "$new_count" -gt "$old_count" ]]; then
-            VIOLATIONS=$((VIOLATIONS + 1))
-            FAILED_FILES+=("$toml_file (dep-order §13.7: $((new_count - old_count)) new violation(s) — run fix_dep_order.py)")
-        fi
-        rm -f "$STAGED_BLOB" "$HEAD_BLOB"
-    done <<< "$TOML_FILES"
+    if ! python3 "$HOOK_DIR/dep_order_check.py" "$REPO_ROOT" "$SCRIPTS_DIR"; then
+        VIOLATIONS=$((VIOLATIONS + 1))
+        FAILED_FILES+=("staged .toml dependency order (full HEAD/index context; see diagnostics above)")
+    fi
 fi
 
 # --- .rs files: new-violation gate (staged vs HEAD) -------------------
@@ -174,16 +145,6 @@ if [[ -n "$GATE_FILES" ]]; then
     if ! python3 "$SCRIPTS_DIR/staged_file_gate.py" "$REPO_ROOT" --file $GATE_FILES; then
         VIOLATIONS=$((VIOLATIONS + 1))
         FAILED_FILES+=("staged .rs/.toml files (staged_file_gate.py — new violations vs HEAD)")
-    fi
-
-    # These rules are only reachable at commit time as far as this hook is
-    # concerned, so a violation written minutes ago surfaces here for the first
-    # time. verify_on_save.py applies the same verifiers per file and is meant to
-    # run from an editor save hook; mention it so the failure is not a surprise.
-    if [[ -f "$SCRIPTS_DIR/verify_on_save.py" ]]; then
-        echo ""
-        echo "  To catch these at save time instead of commit time, wire this into your editor:"
-        echo "    python3 $SCRIPTS_DIR/verify_on_save.py $REPO_ROOT <file>"
     fi
 fi
 

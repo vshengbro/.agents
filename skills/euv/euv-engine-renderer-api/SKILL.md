@@ -1,7 +1,7 @@
 ---
 name: euv-engine-renderer-api
 description: Use when adding or changing euv-engine renderer methods — WebGPU/WebGL, descriptors, readback, error scopes.
-version: 1.2.0
+version: 1.3.0
 license: MIT
 metadata:
   hermes:
@@ -16,7 +16,7 @@ using cached API references. `engine/src/renderer/mod.rs` routes to backend,
 descriptor and status modules; do not assume a flat `renderer/impl.rs` exists.
 ## Index
 
-§1 Shared renderer contract · §2 Lombok getter shape · §3 Public API belongs on the owning type · §4 Refactoring safety
+§1 Shared renderer contract · §2 Lombok getter shape · §3 Public API belongs on the owning type · §4 WebGPU upload and binding contract · §5 Refactoring safety
 
 
 ## 1. Shared renderer contract
@@ -61,7 +61,32 @@ downstream use, generated consumers and tests. Preserve unique behavior and
 search old names in code, docs, shaders and examples. Do not delete merely because
 only its definition/impl appears in one repository.
 
-## 4. Refactoring safety
+## 4. WebGPU upload and binding contract
+
+`write_texture` sizes the copy from the **destination texture**, never from the
+byte stride or the payload length. `texture_write_extent` reads the texture's
+`width`/`height`/`depthOrArrayLayers` and `mipLevelCount`, shrinks the spatial
+axes by the selected mip level, keeps 2D array-layer counts unshrunk, subtracts
+the origin, and returns `None` for an invalid dimension, an out-of-range mip or an
+origin past the edge — an invalid upload is skipped, not submitted. Never
+recompute the extent from `bytes_per_row`; a stride is a byte count, not a texel
+width, and the two disagree on every padded row.
+
+`bytes_per_row` and `rows_per_image` are byte/row strides that include padding.
+No 256-byte alignment is required by `queue.writeTexture`. A zero stride omits
+the optional field instead of sending `0`; a multi-image upload needs a positive
+`rows_per_image`.
+
+`flip_y` on `TextureWriteDescriptor` is retained for compatibility and **performs
+no transformation** — raw-byte uploads keep the source row order, so a caller
+that needs a vertical flip must flip the bytes itself.
+
+A bind group entry's `resource` is the texture view or sampler **itself**, not a
+`{ textureView: … }` / `{ sampler: … }` wrapper; only a buffer entry is a
+`{ buffer, … }` object. The wrapper shape produced a resource the browser
+rejected at bind-group creation.
+
+## 5. Refactoring safety
 
 - Split parallel edits by disjoint files and freeze ownership; keep every caller
   compiling while declarations change. Never silently overwrite another agent's work.
@@ -85,6 +110,12 @@ cargo clippy -p euv-engine --all-targets --target wasm32-unknown-unknown
 crate fmt --check
 cargo test -p euv-engine
 ```
+
+**CI does not run the engine's wasm suites.** `engine/tests/webgpu_regressions/`
+is gated on `#[cfg(target_arch = "wasm32")]`, and the workflow's wasm step runs
+`wasm-pack test --node` from the `ui/` directory only — so a WebGPU change can
+pass CI without any of that regression running. Run the wasm tests locally in
+`engine/` (`wasm-pack test --node`) before trusting a green build.
 
 Exercise the changed GPU path in a real browser and assert data/frame results;
 compiler success is not render parity. Register every temporary browser/tab,

@@ -24,8 +24,22 @@
 #   bash scripts/sync-mcode-stack.sh --ref v1.2.3     # sync a tag/branch
 #   bash scripts/sync-mcode-stack.sh --source-dir DIR # reuse an existing clone
 #   bash scripts/sync-mcode-stack.sh --dry-run        # show what would change
-#   bash scripts/sync-mcode-stack.sh --check          # verify vendored copy
-#                                                        # matches upstream
+#   bash scripts/sync-mcode-stack.sh --check          # verify the vendored copy
+#                                                        # against the PINNED commit
+#   bash scripts/sync-mcode-stack.sh --check --ref main
+#                                                        # verify against upstream HEAD
+#
+# Which revision does --check compare against?
+# ---------------------------------------------
+#   By default, --check compares the vendored tree against the commit the
+#   vendored copy was synced from (the one recorded in UPSTREAM.md), NOT
+#   against upstream HEAD. Comparing against HEAD makes the gate red the
+#   moment upstream lands a commit, which is drift between two revisions
+#   rather than drift between the copy and its source. Upstream HEAD is what
+#   a SYNC adopts; the gate's job is to prove the copy still matches the
+#   revision it claims.
+#
+#   Pass --ref <branch|tag|sha> to compare against that revision instead.
 #
 # Exit codes
 # ----------
@@ -42,6 +56,10 @@ STACK="ronny"
 SOURCE_DIR=""
 DRY_RUN=0
 CHECK=0
+# Revision the --check gate compares against. Empty means "the revision the
+# vendored copy was synced from" (read from UPSTREAM.md), which is the only
+# comparison that answers "does the copy still match its source?".
+CHECK_REF=""
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/agents-sync/mcode-stack"
 
 while [[ $# -gt 0 ]]; do
@@ -51,13 +69,25 @@ while [[ $# -gt 0 ]]; do
         --source-dir) SOURCE_DIR="${2:?--source-dir needs a value}"; shift 2 ;;
         --dry-run)    DRY_RUN=1; shift ;;
         --check)      CHECK=1; shift ;;
-        -h|--help)    sed -n '2,40p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        --check-ref)  CHECK_REF="${2:?--check-ref needs a value}"; shift 2 ;;
+        -h|--help)    sed -n '2,62p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
     esac
 done
 
 DEST_ROOT="$REPO_ROOT/skills/mcode-stack"
 UPSTREAM_SKILLS_DIR="stacks/$STACK/skills"
+
+# The revision the gate compares against. With no --ref/--check-ref the
+# check compares against the PINNED commit recorded in UPSTREAM.md, because
+# that is the revision the vendored copy actually claims to be. Without this
+# the gate compares against upstream HEAD and goes red on every upstream
+# commit — drift between revisions, not drift from the source.
+PINNED_COMMIT=""
+if [[ -f "$DEST_ROOT/UPSTREAM.md" ]]; then
+    PINNED_COMMIT="$(sed -n 's/^- upstream commit: `\([0-9a-f]\{40\}\)`$/\1/p' \
+        "$DEST_ROOT/UPSTREAM.md" | head -1)"
+fi
 
 if [[ -z "$SOURCE_DIR" ]]; then
     SOURCE_DIR="$CACHE_DIR"
@@ -66,9 +96,23 @@ if [[ -z "$SOURCE_DIR" ]]; then
         echo "→ Cloning $UPSTREAM_REPO into $SOURCE_DIR ..."
         git clone --quiet "$UPSTREAM_REPO" "$SOURCE_DIR"
     fi
-    echo "→ Fetching $UPSTREAM_REF ..."
-    git -C "$SOURCE_DIR" fetch --quiet --depth 1 origin "$UPSTREAM_REF"
-    git -C "$SOURCE_DIR" checkout --quiet --force FETCH_HEAD
+    if [[ "$CHECK" -eq 1 ]]; then
+        # The gate needs the pinned revision, which a shallow clone of
+        # upstream HEAD does not have. Fetch it by SHA; a remote that does
+        # not serve an unadvertised object fails here, loudly.
+        TARGET="${CHECK_REF:-$PINNED_COMMIT}"
+        if [[ -z "$TARGET" ]]; then
+            echo "ERROR: no pinned commit in $DEST_ROOT/UPSTREAM.md and no --check-ref given" >&2
+            exit 2
+        fi
+        echo "→ Fetching $TARGET ..."
+        git -C "$SOURCE_DIR" fetch --quiet --depth 1 origin "$TARGET"
+        git -C "$SOURCE_DIR" checkout --quiet --force FETCH_HEAD
+    else
+        echo "→ Fetching $UPSTREAM_REF ..."
+        git -C "$SOURCE_DIR" fetch --quiet --depth 1 origin "$UPSTREAM_REF"
+        git -C "$SOURCE_DIR" checkout --quiet --force FETCH_HEAD
+    fi
 fi
 
 if [[ ! -d "$SOURCE_DIR/$UPSTREAM_SKILLS_DIR" ]]; then
@@ -125,12 +169,27 @@ compare_tree() {
 
 # ------------------------------------------------------------------- main ---
 
+# Skills deliberately NOT vendored. The user removes skills from this repo on
+# purpose; without a record of that, the gate reports the removal as drift
+# forever and a sync silently re-adds what the user deleted. One skill name
+# per line, `#` starts a comment.
+EXCLUDED_FILE="$DEST_ROOT/EXCLUDED.md"
+is_excluded() {
+    local name="$1"
+    [[ -f "$EXCLUDED_FILE" ]] || return 1
+    grep -vE '^[[:space:]]*(#|$)' "$EXCLUDED_FILE" | grep -qxF "$name"
+}
+
 if [[ $CHECK -eq 1 ]]; then
     echo "→ Checking vendored copy against upstream $COMMIT (stack: $STACK)"
     DRIFT=0
     for upstream_skill in "$SOURCE_DIR/$UPSTREAM_SKILLS_DIR"/*/; do
         name="$(basename "$upstream_skill")"
         dest="$DEST_ROOT/$name"
+        if is_excluded "$name"; then
+            echo "  – excluded on purpose: skills/mcode-stack/$name"
+            continue
+        fi
         if [[ ! -d "$dest" ]]; then
             echo "  ✗ missing: skills/mcode-stack/$name"
             DRIFT=1
@@ -171,6 +230,10 @@ COPIED=0
 for upstream_skill in "$SOURCE_DIR/$UPSTREAM_SKILLS_DIR"/*/; do
     name="$(basename "$upstream_skill")"
     dest="$DEST_ROOT/$name"
+    if is_excluded "$name"; then
+        echo "  – excluded on purpose: $name (not vendored)"
+        continue
+    fi
     if [[ $DRY_RUN -eq 1 ]]; then
         echo "  → would copy $name"
         COPIED=$((COPIED + 1))

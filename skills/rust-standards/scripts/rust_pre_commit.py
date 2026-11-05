@@ -417,7 +417,7 @@ def phase_fmt(root: Path) -> bool:
     ])
     t0 = time.monotonic()
     for cmd in cmds:
-        rc, stdout, stderr = _run("fmt", cmd, root, timeout=120)
+        rc, stdout, stderr = _run("fmt", cmd, root, timeout=600)
         if rc != 0:
             # `crate fmt --check` is the idempotence sentinel — it
             # exits non-zero ONLY when fmt would still produce diff.

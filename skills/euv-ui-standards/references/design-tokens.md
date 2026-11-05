@@ -1,38 +1,61 @@
 # euv design tokens
 
-Single source: `ui/src/style/var/fn.rs` (light + dark) and `ui/src/style/css/fn.rs`
-(reset + keyframes, injected by `inject_app_global_css()`). Never hardcode a value
-here — reference it with `var!(token)`.
+Two owners, never one. The **theme** class (`c_theme_light` / `c_theme_dark`)
+owns the semantic mapping and the universal structure scale — spacing, motion,
+layout — and lives in `ui/src/style/var/theme/fn.rs`. The **scheme** class
+(`c_scheme_<name>`) owns the colour roles, the radius scale, the shadow ramp,
+the type ramp, the tracking and case treatments and the control heights, and
+lives in `ui/src/style/var/scheme/<name>/fn.rs`. The reset and the keyframes
+come from `ui/src/style/css/fn.rs` via `inject_app_global_css()`.
 
-Regenerate the real token list from source rather than trusting this table:
+Never hardcode a value here — reference it with `var!(token)`.
+
+Regenerate the real token lists from source rather than trusting this table:
 
 ```bash
-grep -oE '^\s+[a-z0-9-]+:' ui/src/style/var/fn.rs | tr -d ' :' | sort -u
+# the theme's own tokens (spacing, motion, layout, semantic mapping)
+grep -oE '^\s{8}[a-z0-9-]+:' ui/src/style/var/theme/fn.rs | tr -d ' :' | sort -u
+# one scheme's tokens (colour roles, radius, shadow, type, control heights)
+grep -oE '^\s{8}[a-z0-9-]+:' ui/src/style/var/scheme/shadcn/fn.rs | tr -d ' :' | sort -u
 ```
 
-## Colour — monochrome
+## Schemes
 
-Black/white only; shadows and scrollbars are black/white alpha. A coloured token
-is a design-system violation.
+The system is **not** monochrome. `theme-monochrome` is one of the seventeen
+schemes — `ui/src/style/var/scheme/` holds one directory each: antdesign,
+bootstrap, cupertino, daisyui, fluent, geist, heroui, linear, mantine,
+material, monochrome, notion, park, radix, shadcn, stripe, supabase — and each
+is selected by a `theme-<name>` feature in `ui/Cargo.toml`. The built-in
+selection chain lives in `ui/src/style/var/theme/fn.rs`
+(`selected_scheme_class()`); more than one feature may be on at once — a
+workspace-wide `--all-features` build turns them all on — so the order in
+that chain decides which one wins.
 
-| token | light | dark |
-|---|---|---|
-| `background` | `#ffffff` | `#000000` |
-| `foreground` | `#000000` | `#ffffff` |
-| `muted-foreground` | `#000000` | `#ffffff` |
-| `accent` | `#000000` | `#ffffff` |
-| `accent-muted` | `#ffffff` | `#000000` |
-| `border` | `#000000` | `#ffffff` |
-| `text-on-accent` | `#ffffff` | `#000000` |
+Every scheme defines **the same 102 tokens**, and `ui/tests/theme` fails the
+build if a scheme drops one, if the theme and a scheme ever own the same
+token, if the registry reads a token nobody defines, or if a token is
+orphaned. Copy `scheme/shadcn/fn.rs` as the shape reference; never copy its
+values.
 
-`muted-foreground` equals `foreground` in value but is a distinct semantic role
-(secondary text / placeholder).
+## Colour
+
+The colour values are per scheme. In the `shadcn` scheme, for example:
+`role-background-light` `#ffffff` / `role-background-dark` `#0a0a0a`,
+`role-foreground-light` `#0a0a0a` / `role-foreground-dark` `#fafafa`,
+`role-border-light` `#e5e5e5` / `role-border-dark` `rgba(255, 255, 255, 0.10)`,
+`role-ring-light` `#a3a3a3` / `role-ring-dark` `#737373`,
+`role-muted-foreground-light` `#737373` / `role-muted-foreground-dark` `#a3a3a3`.
+
+The theme reads them through `var!("role-…")`, so the generated CSS is
+`var(--role-background-light)` rather than a literal — that indirection is
+what lets one theme class serve every scheme.
 
 ### Overlay / scrim alpha
 
 `bg-overlay` is the scrim behind modals, drawers and floating layers. It is
-**not** the `background` token, and **never override it inside a page** — change
-the framework token instead, or the monochrome system breaks.
+**not** the `background` token, and **never override it inside a page** —
+change the framework token instead. The theme sets it directly
+(`rgba(0, 0, 0, 0.45)` light, `rgba(0, 0, 0, 0.65)` dark).
 
 **Perceptual rule:** on a `#000` page any scrim brighter than `#000` reads as
 "white". Users reject ≥30 RGB units of lift as a white halo and cannot
@@ -43,8 +66,14 @@ deeper hole than its scrim.
 - **Dark mode must never use `rgba(0,0,0, X)`** — invisible on a `#000` page.
   Use a white-tinted alpha.
 - **Never go solid** — a solid scrim hides the content it is meant to dim.
-- One token edit in `ui/src/style/var/fn.rs` reaches every overlay consumer.
+- One token edit in `ui/src/style/var/theme/fn.rs` reaches every overlay consumer.
 
+### Media and drawing surfaces
+
+`surface-media` (black) and `surface-drawing` (white) are **scheme** tokens,
+not theme tokens — they carry the same value in light and dark, so a camera
+feed and a canvas letterbox stay black and a drawing preview stays white
+regardless of the mode.
 
 ## Spacing
 
@@ -53,27 +82,31 @@ Base scale: `space-2xs` 2 · `space-xs` 4 · `space-sm` 8 · `space-md` 12 ·
 `space-7xl` 80.
 
 **Prefer composite tokens** — they encode intent: `gap-section` 16 ·
-`gap-component` 12 · `gap-element` 8 · `gap-inline` 8 · `page-block-gap` 24,
-each with a `-mobile` variant (12 / 10 / 20).
-
+`gap-component` 12 · `gap-element` 8 · `gap-inline` 8 · `page-block-gap` 24.
+Where a mobile variant exists it is a separate token:
+`gap-section-mobile` 12 · `gap-component-mobile` 10 ·
+`page-block-gap-mobile` 20. `gap-element` and `gap-inline` have no mobile
+variant.
 
 ## Typography
 
-No web fonts: `system-ui, -apple-system, sans-serif`; code uses
-`ui-monospace, monospace`. Steps `font-xs` .75rem · `font-sm` .875rem ·
-`font-base` 1rem · `font-md`/`lg` 1.125rem · `font-xl` 1.25rem · `font-2xl` 1.5 ·
-`font-3xl` 1.875 · `font-4xl` 2.25 · `font-5xl` 3 · `font-6xl` 3.75.
-`font-smoothing: antialiased`, `text-rendering: optimizeLegibility`.
-
+No web fonts: `ui-sans-serif, system-ui, sans-serif, …`; code uses
+`ui-monospace, SFMono-Regular, Menlo, …`. The steps are **scheme** tokens:
+`font-xs` .75rem · `font-sm` .875rem · `font-base` 1rem · `font-md` 1.125rem ·
+`font-lg` 1.25rem · `font-xl` 1.5rem · `font-2xl` 1.875 · `font-3xl` 2.25 ·
+`font-4xl` 3 · `font-5xl` 3.75 · `font-6xl` 4.5.
+`font-smoothing: antialiased` and `text-rendering: optimizeLegibility` are
+set on the shell class, not on a token.
 
 ## Radius, shadow, motion, scrollbar
 
-Effectively `border-radius: 0px` — hard edges. The only round shapes are
-functional: slider thumbs (`50%`, track `3px`) and `c_spinner`.
-
-Never hand-write a CSS `box-shadow`; check the shadow tokens first
-(`shadow-sm`, `shadow-modal`, `shadow-drawer`, `shadow-accent-sm/lg`). Dark
-theme shadow alphas are white, not black.
+The radius and shadow ramps are **scheme** tokens. In `shadcn`:
+`radius-xs` 2px · `radius-sm` 6px · `radius-md` 8px · `radius-lg` 10px ·
+`radius-xl` 14px · `radius-full` 50%; and a five-step shadow ramp —
+`shadow-xs` · `shadow-sm` · `shadow-md` · `shadow-lg` · `shadow-xl`. There is
+**no** `shadow-modal`, `shadow-drawer` or `shadow-accent-*` token: an overlay
+picks a step from the same ramp. Never hand-write a CSS `box-shadow`; check
+the ramp first.
 
 ### Motion
 
@@ -83,18 +116,20 @@ Global keyframes from `inject_app_global_css()`: `euv-spin` (rotate 0→360),
 
 Transition tokens: `duration-fast` .15s · `duration-normal` .2s ·
 `duration-slower` .4s · `duration-overlay` .2s · `duration-modal-overlay` .15s ·
-`duration-modal-content` .3s. Easings: `ease-out cubic-bezier(.4,0,.2,1)` ·
-`ease-in cubic-bezier(.4,0,1,1)` · `ease-in-out` (same as out) ·
-`ease-bounce cubic-bezier(.34,1.56,.64,1)`.
+`duration-modal-content` .3s · `duration-press` .1s. Easings:
+`ease-out cubic-bezier(.4,0,.2,1)` · `ease-in cubic-bezier(.4,0,1,1)` ·
+`ease-in-out` (same as out) · `ease-bounce cubic-bezier(.34,1.56,.64,1)` ·
+`ease-accelerate cubic-bezier(.3,0,.8,.15)`. The interaction layer also
+carries `press-scale` .97.
 
 Write transitions as
 `format!("{property} {duration} {ease}", var!(duration-fast), var!(ease-out))`.
 
 ### Scrollbar
 
-Desktop `::-webkit-scrollbar { width: 6px }`, square thumb, translucent
-black/white by theme. Hidden under the mobile breakpoint.
-
+Desktop `::-webkit-scrollbar { width: 6px }` with a `radius-full` thumb and a
+transparent track; Firefox gets `scrollbar-width: thin`. Hidden under the
+mobile breakpoint (`scrollbar-width: none`, width 0).
 
 ## Global reset
 
@@ -109,7 +144,7 @@ input,textarea,select         { font:inherit; background:transparent; border:non
 img,svg,video,canvas,audio,iframe,embed,object { display:block; max-width:100% }
 strong,b                      { font-weight:700 }  em,i { font-style:italic }
 code,pre,kbd,samp             { font-family: ui-monospace, monospace }
-:focus-visible                { outline: none }   /* focus shown via border colour */
+:focus-visible                { outline: none }   /* focus shown via the ring */
 ```
 
 **Mobile inputs must stay 16px** — a smaller `font-size` makes iOS zoom on focus.

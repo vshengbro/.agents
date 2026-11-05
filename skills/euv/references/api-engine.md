@@ -508,7 +508,7 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 
 ### `particle::static`
 
-- `static` **`PARTICLE_PALETTE`** — `pub(crate) static PARTICLE_PALETTE: LazyLock<[Color;`
+- `static` **`PARTICLE_PALETTE`** — `pub(crate) static PARTICLE_PALETTE: LazyLock<[Color; PARTICLE_PALETTE_SIZE]> = ...;`
 
 ### `particle::struct`
 
@@ -688,7 +688,7 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 - `type` **`CellEntries`** — `pub type CellEntries = Vec<usize>;`
 - `type` **`SpatialCellMap2D`** — `pub type SpatialCellMap2D = HashMap<CellKey2D, CellEntries>;`
 - `type` **`SpatialCellMap3D`** — `pub type SpatialCellMap3D = HashMap<CellKey3D, CellEntries>;`
-- `type` **`QuadTreeChildren2D`** — `pub type QuadTreeChildren2D = [usize;`
+- `type` **`QuadTreeChildren2D`** — `pub type QuadTreeChildren2D = [usize; 4];`
 - `type` **`QuadTreeEntryList2D`** — `pub type QuadTreeEntryList2D = Vec<QuadTreeEntry2D>;`
 - `type` **`QuadTreeNodeList2D`** — `pub type QuadTreeNodeList2D = Vec<QuadTreeNode2D>;`
 - `type` **`QuadTreeNodeStack2D`** — `pub type QuadTreeNodeStack2D = Vec<usize>;`
@@ -825,7 +825,7 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 
 ### `raytracing::scene::fn`
 
-- `fn` **`intersect_triangle`** — `pub fn intersect_triangle(ray: &Ray, vertices: [Vector3D; {...}`
+- `fn` **`intersect_triangle`** — `pub fn intersect_triangle(ray: &Ray, vertices: [Vector3D; 3]) -> Option<(f64, Vector3D)> {...}`
 - `fn` **`collect_occluder_points`** — `pub(crate) fn collect_occluder_points(occluders: &[Occluder]) -> Vec<(Vector3D, f64)> {...}`
 - `fn` **`build_bvh`** — `pub(crate) fn build_bvh(occluders: &[Occluder]) -> (Vec<RayTraceNode>, Vec<usize>) {...}`
 - `fn` **`closest_hit_indexed`** — `pub(crate) fn closest_hit_indexed( ray: &Ray, scene: &RayTraceScene, ) -> Option<(usize, f64, Vector3D, Vector3D)> {...}`
@@ -839,7 +839,7 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 - `fn` **`at`** — `pub fn at(&self, t: f64) -> Vector3D {...}`
 - `fn` **`with_depth`** — `pub fn with_depth(&self, depth: u32) -> Ray {...}`
 - `fn` **`with_range`** — `pub fn with_range(&self, t_min: f64, t_max: f64) -> Ray {...}`
-- `fn` **`intersect_triangle`** — `pub fn intersect_triangle(&self, vertices: [Vector3D; {...}`
+- `fn` **`intersect_triangle`** — `pub fn intersect_triangle(&self, vertices: [Vector3D; 3]) -> Option<(f64, Vector3D)> {...}`
 - `fn` **`sphere`** — `pub fn sphere(center: Vector3D, radius: f64, material: Material) -> Occluder {...}`
 - `fn` **`aabb`** — `pub fn aabb(min: Vector3D, max: Vector3D, material: Material) -> Occluder {...}`
 - `fn` **`triangle`** — `pub fn triangle(v0: Vector3D, v1: Vector3D, v2: Vector3D, material: Material) -> Occluder {...}`
@@ -1220,6 +1220,7 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 - `enum` **`GpuReceiverClass`** — `pub enum GpuReceiverClass {`
 
 ### `renderer::webgpu::fn`
+- `fn` **`texture_write_extent`** — `pub(crate) fn texture_write_extent(descriptor: &TextureWriteDescriptor) -> Option<[u32; 3]> {...}`
 
 - `fn` **`js_error_to_string`** — `pub(crate) fn js_error_to_string(value: &JsValue) -> String {...}`
 - `fn` **`pick_depth_format`** — `pub(crate) fn pick_depth_format(high_precision: bool, with_stencil: bool) -> &'static str {...}`
@@ -1461,9 +1462,9 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 - `fn` **`next_up`** — `pub(crate) fn next_up(value: f32) -> f32 {...}`
 - `fn` **`pack_lower_bound`** — `pub(crate) fn pack_lower_bound(value: f64) -> Result<f32, String> {...}`
 - `fn` **`pack_upper_bound`** — `pub(crate) fn pack_upper_bound(value: f64) -> Result<f32, String> {...}`
-- `fn` **`pack_vector`** — `pub fn pack_vector( vector: Vector3D, non_finite: &str, out_of_range: &str, ) -> Result<[f32; {...}`
-- `fn` **`pack_vector_lower`** — `pub fn pack_vector_lower( vector: Vector3D, non_finite: &str, out_of_range: &str, ) -> Result<[f32; {...}`
-- `fn` **`pack_vector_upper`** — `pub fn pack_vector_upper( vector: Vector3D, non_finite: &str, out_of_range: &str, ) -> Result<[f32; {...}`
+- `fn` **`pack_vector`** — `pub fn pack_vector( vector: Vector3D, non_finite: &str, out_of_range: &str, ) -> Result<[f32; 3], String> {...}`
+- `fn` **`pack_vector_lower`** — `pub fn pack_vector_lower( vector: Vector3D, non_finite: &str, out_of_range: &str, ) -> Result<[f32; 3], String> {...}`
+- `fn` **`pack_vector_upper`** — `pub fn pack_vector_upper( vector: Vector3D, non_finite: &str, out_of_range: &str, ) -> Result<[f32; 3], String> {...}`
 - `fn` **`pack_index`** — `pub fn pack_index(index: usize) -> Result<f32, String> {...}`
 - `fn` **`packed_shape_code`** — `pub fn packed_shape_code(kind: OccluderKind) -> f32 {...}`
 - `fn` **`packed_material_code`** — `pub fn packed_material_code(kind: MaterialKind) -> f32 {...}`

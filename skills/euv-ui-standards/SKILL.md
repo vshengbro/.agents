@@ -47,7 +47,18 @@ Then open the route, read the rule back from `document.styleSheets`, and — if 
 
 ## 1. Design Tokens
 
-Monochrome black/white, light + dark pair in `ui/src/style/var/fn.rs`; values and scales: `references/design-tokens.md`. `bg-overlay` is overlay-only, never the `background` token and never overridden inside a page — on a `#000` page a scrim brighter than black reads as white (~20 RGB units of lift; dark mode needs a white-tinted alpha). Add a token to one theme only and the browser silently falls back; no compiler catches it. A picture is not chrome: a camera feed and a canvas letterbox are `surface-media` (black) and a drawing preview is `surface-drawing` (white) — the same in both themes, so they carry their own tokens instead of a literal in the class.
+The system is **not** monochrome. There are seventeen schemes
+(`ui/src/style/var/scheme/<name>/fn.rs`, each with the same 102 tokens) and a
+theme pair (`ui/src/style/var/theme/fn.rs`); the built-in selection chain
+decides which scheme a build ships. Values and scales:
+`references/design-tokens.md`. `bg-overlay` is overlay-only, never the
+`background` token and never overridden inside a page — on a `#000` page a
+scrim brighter than black reads as white (~20 RGB units of lift; dark mode
+needs a white-tinted alpha). Add a token to one theme only and the browser
+silently falls back; no compiler catches it. A picture is not chrome: a camera
+feed and a canvas letterbox are `surface-media` (black) and a drawing preview
+is `surface-drawing` (white) — **scheme** tokens, the same in both themes, so
+they carry their own tokens instead of a literal in the class.
 
 ## 2. Global Skeleton
 
@@ -95,11 +106,29 @@ The global `:focus-visible { outline: none }`, `prefers-reduced-motion` and `(ho
 
 **Gesture / touch hooks.** `App::use_window_event(name, FnMut())` is the only window-event registration entry point and it **discards the `Event`**, so a gesture hook cannot reach `TouchEvent.touches()` from there — return an `Option<Rc<dyn Fn(Event)>>` bundle and let the caller wire `ontouchstart` / `ontouchmove` / `ontouchend` / `ontouchcancel` in `html!`. Classify a tap by **both net displacement and total path length** (net displacement alone misreads a "circle back to origin" gesture as a tap), and read hook state through the generated accessors, never `self.field`.
 
-**The focus ring lives in the global stylesheet.** The system is monochrome: `--border`, `--accent` and `--ring` hold the same ink in both themes, so a focus that only changes the border colour changes **nothing** on screen — the focus was invisible on every form control. The ring is an inset shadow (`APP_A11Y_CSS_FOCUS_RING`, next to the pinned `:focus-visible { outline: none }` block), so it takes no space and the text does not shift when the field takes the focus. Its colour is `currentColor` — the colour of the label of the control — so the ring is always the one that contrasts with the surface it sits on: ink on a light field, paper on an ink button. A control whose *box* is a wrapper (the number input) carries the ring on the wrapper through `:focus-within` and suppresses it on the inner field. `ui/tests/class_registry` fails the build if the `ring` token is orphaned again.
+**The focus ring lives in the global stylesheet.** The ring is a `box-shadow`
+spread by `var(--ring-width) + var(--ring-offset)` in the `var(--ring)` colour
+(`APP_A11Y_CSS_FOCUS_RING`, next to the pinned `:focus-visible { outline: none }`
+block), so it takes no space and the text does not shift when the field takes
+the focus. Its colour is a **scheme** token (`role-ring-light` /
+`role-ring-dark`), so it is not tied to the border or the accent. A control
+whose *box* is a wrapper (the number input) carries the ring on the wrapper
+through `:focus-within` and suppresses it on the inner field.
+`ui/tests/class_registry` fails the build if the `ring` token is orphaned
+again.
 
 ## 8. New Page Standard Template
 
-Create `example/src/page/<name>/` with `mod.rs` (`pub mod view;`) and `view/fn.rs`; add `hook/` only if the page needs state hooks. `view/fn.rs` is a `#[component]` returning `VirtualNode`, written entirely in `html!` — **no `class!` block here** (new shared style goes to the §0 registry; a strictly page-local class may go to `example/src/style/class/fn.rs`). Destructure props first, then order the view `c_page_container > euv_header > euv_card …`. `c_card` already carries the block gap (`margin-top: var!(page-block-gap)`, 20px under 768px) — the page adds nothing: a second gap on top of it doubles the space, and a card without one leaves the title's collapsed margin in charge of the rhythm. Register in `example/src/page/mod.rs` (`mod <name>;` + `pub(crate) use <name>::*;`) **and** append the `EuvRouteConfig` consumed by `euv_routes`, or the route is unreachable; list the page in the nav items so the desktop bar and the drawer share it.
+Create `example/src/page/<name>/` with `mod.rs` (`pub mod view;`) and `view/fn.rs`; add `hook/` only if the page needs state hooks. `view/fn.rs` is a `#[component]` returning `VirtualNode`, written entirely in `html!` — **no `class!` block here** (new shared style goes to the §0 registry; a strictly page-local class may go to `example/src/style/class/fn.rs`). Destructure props first, then order the view `c_page_container > euv_header > euv_card …`. `c_card` already carries the block gap (`margin-top: var!(page-block-gap)`, 20px under 768px) — the page adds nothing: a second gap on top of it doubles the space, and a card without one leaves the title's collapsed margin in charge of the rhythm. Register in `example/src/page/mod.rs` (`mod <name>;` + `pub(crate) use <name>::*;`) **and** add a `match` arm in `example/src/component/router/view/fn.rs` (`page_router`), or the route is unreachable; list the page in `NAV_ITEMS` (`example/src/component/nav/view/const.rs`) so the desktop bar and the drawer share it.
+
+**The example app does not use `euv_routes`.** It resolves routes with a
+`match` over `route_signal.get().as_str()` whose arms name the `ROUTE_*`
+constants in `example/src/component/router/view/const.rs`; a `match` pattern
+must be a literal, so each arm references a constant rather than repeating the
+path inline. `EuvRouteConfig` / `euv_routes` exist in `ui/src/component/router/`
+as a declarative alternative, but adding an `EuvRouteConfig` entry to the
+example app registers nothing — the `match` arm is what makes the page
+reachable.
 
 ```rust
 #[component]
@@ -118,7 +147,7 @@ Props are an empty derive-able struct. Hero pages (§4) skip `euv_header` and co
 ## 9. Quick Notes / Anti-Patterns
 
 ❌ Hardcode a colour or spacing in `class!` (use `var!(…)`), declare `class!` in a page's `view/fn.rs`, hand-roll `<button>`, or leave a button row outside `c_button_controls`. Write `env(safe-area-inset-top)` directly in header/drawer padding — consume `var(--euv-mobile-safe-top, 0px)` instead (§2.3).
-❌ Add a bare `hover { … }` block inside `class!` — without the colon the macro emits the broken selector `.c_xxxhover` and the hover style dies silently. Write `:hover { … }`, then audit the built page's `document.styleSheets` for `hover` not preceded by `:`. Wrap overlay children (`euv_dropdown`, `euv_drawer`) in a reactive `if`, or skip the `EuvRouteConfig` entry when registering a page.
+❌ Add a bare `hover { … }` block inside `class!` — without the colon the macro emits the broken selector `.c_xxxhover` and the hover style dies silently. Write `:hover { … }`, then audit the built page's `document.styleSheets` for `hover` not preceded by `:`. Wrap overlay children (`euv_dropdown`, `euv_drawer`) in a reactive `if`, or skip the `match` arm when registering a page.
 ❌ Flip button variant for an action or escape button, or put more than one `Primary` in a mutually exclusive group.
 ❌ **Comment every CSS property.** Properties are self-documenting; a 6-line rule carrying an 11-line explanation is a reject. Exception: a comment recording a *structural* decision (mobile vs desktop semantics, the `--euv-mobile-safe-top` contract) or a one-line fix pointer. Full rationale goes in the commit body.
 

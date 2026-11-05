@@ -2611,7 +2611,7 @@ user 强化 §2.2 doc-comment 校验,要求 `# Arguments` / `# Returns` 行内�
 
 ## §67 verify_no_self_field_access.py check 38 接入 + 边界精度验证
 
-user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须使用 Lombok `Data` 宏生成的 `get_<field>` / `set_<field>` / `try_get_<field>` / `get_<field>_ref` / `get_<field>_mut` API(参见 `/Users/sqs/code/ctares/lombok-macros/src/lib.rs:502` `Data` derive 实现 + `generate/const.rs:17-30` 方法前缀常量)。允许结构体直接初始化(`Self { field: value, ... }` 与 `Self { ..self }` 更新语法)。
+user 加强 §17.3 / §17.12 校验:`self.field` 直接读写**禁止**,必须使用 Lombok `Data` 宏生成的 `get_<field>` / `set_<field>` / `try_get_<field>` / `get_<field>_ref` / `get_<field>_mut` API(参见 `~/code/ctares/lombok-macros/src/lib.rs:502` `Data` derive 实现 + `generate/const.rs:17-30` 方法前缀常量)。允许结构体直接初始化(`Self { field: value, ... }` 与 `Self { ..self }` 更新语法)。
 
 **检测精度**(实测 euv 仓跑一次):
 
@@ -2714,7 +2714,7 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 
 ## §71 delegated sub-agent 报告 "工作区干净" 不等于目标仓分支干净
 
-派 `delegate_task` 让子 agent 在 `/Users/sqs/code/{hyperlane,euv,ctares}` 做改动时,**子 agent 的 cwd 是它自己的 sandbox**,不一定是父 agent 期望的仓库。子 agent 报告 "git status clean" 是相对它所在仓当前分支,**不是**父 agent 通过 `git -C <repo>` 看到的目标分支。常见症状:
+派 `delegate_task` 让子 agent 在 `~/code/{hyperlane,euv,ctares}` 做改动时,**子 agent 的 cwd 是它自己的 sandbox**,不一定是父 agent 期望的仓库。子 agent 报告 "git status clean" 是相对它所在仓当前分支,**不是**父 agent 通过 `git -C <repo>` 看到的目标分支。常见症状:
 
 1. 父 agent 切到 `<repo>` 上的新分支 `refactor/foo`,派子 agent 改完后跑 `git status`
 2. 子 agent 报告 clean,但 `git -C <repo> status --short` 显示 N 个文件 untracked 或 modified —— 子 agent 的 cwd 是父 agent 在 master 上的父 worktree 或 home 目录,它在那个目录上 clean
@@ -2722,9 +2722,9 @@ python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py <repo>
 
 **预防**:在任务 goal 末尾显式要求子 agent 跑绝对路径 `git -C <绝对仓库路径> status --short` 而非相对 `git status`;并指定工作目录 `cd <绝对仓库路径> && git ...`。验证:子 agent 完成后父 agent 立刻独立跑 `git -C <repo> status --short` 与子 agent 报告交叉核对,不一致立刻 steer 重做。
 
-具体场景(ctares ):子 agent 在自己 sandbox 把 9 crate 全部完成,父 agent 在 `/Users/sqs/code/ctares` 看到 clean tree —— 实际子 agent 的仓是 worktree 模式隔离的 master HEAD sandbox,**与父 agent 期望的工作分支无交集**。最终通过父 agent 亲验 `git -C /Users/sqs/code/ctares branch -a` + worktree list 才发现。
+具体场景(ctares ):子 agent 在自己 sandbox 把 9 crate 全部完成,父 agent 在 `~/code/ctares` 看到 clean tree —— 实际子 agent 的仓是 worktree 模式隔离的 master HEAD sandbox,**与父 agent 期望的工作分支无交集**。最终通过父 agent 亲验 `git -C ~/code/ctares branch -a` + worktree list 才发现。
 
-更根本的预防:hyperlane 这种 "worktree-based" 仓(pitfall 提到的),派子 agent 时传入 `worktree: /Users/sqs/.hermes/cache/scratch/hyperlane-pr` 而不是主仓路径,子 agent 在 worktree 操作,父 agent 复用同一 worktree 验证。如果 worktree 已经被一个并行 agent 占用,**不要**让父 agent / 子 agent 抢占 —— 改在 `~/.hermes/cache/scratch/hyperlane-pr-<purpose>` 再开一个独立 worktree。
+更根本的预防:hyperlane 这种 "worktree-based" 仓(pitfall 提到的),派子 agent 时传入 `worktree: ~/.hermes/cache/scratch/hyperlane-pr` 而不是主仓路径,子 agent 在 worktree 操作,父 agent 复用同一 worktree 验证。如果 worktree 已经被一个并行 agent 占用,**不要**让父 agent / 子 agent 抢占 —— 改在 `~/.hermes/cache/scratch/hyperlane-pr-<purpose>` 再开一个独立 worktree。
 
 ## §73 verify_dep_order.py 误接受缺 middle blank 的违规(本轮 fix_dep_order.py 接入发现)
 
@@ -3218,7 +3218,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **背景**:user directive「toml文件和mod.rs禁止注释」。旧执行面:check 5 只扫 diff 且正则 `^\s*//[^/!]` 只捕 `//`(SKILL.md 文字声称捕 `///`,实测 `[^/!]` 把 `///` 也排除了,文档与脚本不一致);TOML 零覆盖;check 26 的 mod.rs 注释分支豁免第 1 行 `///`。落地后四个坑:
 
-1. **名字过滤会静默清空 verifier**。第一版 `find ... -not -path "*/tmp/*"` + `SKIP_PARTS={"tmp"}` 想跳过 crate-cli 的 scratch crate,结果**任何** checkout 在含 `tmp` 组件路径下的仓库(/tmp 本身、/Users/sqs/code/tmp-*)全部 0 命中 —— fixture 进 /tmp 跑 audit e2e 时 violating 侧 check 51 PASS。修法:scratch 目录交给 `_drop_git_ignored`(crate-cli/tmp 本来就 git-ignored),机制不靠名字。**每接一个 tree-wide verifier,必须先在 /tmp 下的 git fixture 上跑一次 audit 端到端双向** —— 单测 audit_one 走 /var/folders 永远发现不了。
+1. **名字过滤会静默清空 verifier**。第一版 `find ... -not -path "*/tmp/*"` + `SKIP_PARTS={"tmp"}` 想跳过 crate-cli 的 scratch crate,结果**任何** checkout 在含 `tmp` 组件路径下的仓库(/tmp 本身、~/code/tmp-*)全部 0 命中 —— fixture 进 /tmp 跑 audit e2e 时 violating 侧 check 51 PASS。修法:scratch 目录交给 `_drop_git_ignored`(crate-cli/tmp 本来就 git-ignored),机制不靠名字。**每接一个 tree-wide verifier,必须先在 /tmp 下的 git fixture 上跑一次 audit 端到端双向** —— 单测 audit_one 走 /var/folders 永远发现不了。
 2. **TOML 进 gate 必须按原扩展名物化 baseline**。`staged_file_gate` 旧实现把所有 baseline 写成 `X.head-baseline.rs`:TOML baseline 会被 verify_no_panicking_option_getter 这类全仓 `rglob("*.rs")` 的 verifier 当 Rust 扫,且 scope 判断(`path.suffix != ".rs"` 系)在 baseline 上恒空 = 历史债全算新增。修法:`_suffix_for(target)`,TOML baseline 物化为 `.head-baseline.toml`;verifier 的 `scope_of` 先剥两种 baseline 后缀再判 scope。
 3. **单行 TOML 字符串未闭合时,跨行后的 `#` 要照报**。basic/literal 字符串按 TOML spec 不能跨行;扫描器在 `\n` 处把 unterminated 单行串状态复位为 normal(多行 `"""`/`'''` 不受影响)。「宁假阳性不漏报」:坏 TOML 里的注释藏起来比报出来糟。
 4. **rust_pre_commit.py 的 `--files` 替换是单个空格拼接 argv 元素(潜伏 bug,同轮修)**。`"{toml_files}"` 被替换成 `"a b"` 一个 argv 元素,所有 fixer 的 `nargs="*"` 把它解析成一个不存在的复合路径 —— **scope ≥ 2 个文件时 Phase 1 全部静默 no-op**(单文件碰巧正常)。修法:placeholder 处 splice 真实 argv 列表(`argv_template[i:i+1] = values`);新 fixer 自己的 `--files` 再按 whitespace split 兜底。
@@ -3312,8 +3312,8 @@ so each test owns its canary. Verify with 15+ consecutive full-suite runs, becau
 
 ```
 $ git -C ~/code/euv config core.hooksPath
-/Users/sqs/.agents/hooks          # ← 该目录不存在
-$ ls /Users/sqs/.agents/hooks
+~/.agents/hooks                  # ← 该目录不存在
+$ ls ~/.agents/hooks
 No such file or directory
 ```
 
@@ -3538,10 +3538,10 @@ if "{rs_files}" in template and not rs_scope:
 
 **第四处 —— 整仓改写是静默的。** 整仓模式下所有文件都在 scope 内,没有 drift 报告,
 于是 fixer 改了什么**完全不可见**。`doc_comment_audit.py` 在有历史债的仓里
-一次能改 84 个文件 / +7165 行(见 `phase_fixers` 的 docstring,2026-09-27 ctares 实测)。
+一次能改 84 个文件 / +7165 行(见 `phase_fixers` 的 docstring,ctares 实测)。
 修法:整仓模式下单独打印 "rewrote N file(s) (whole-repo sweep)" 并列出文件。
 
-**实测验证(2026-10-30)**:修好之后在 hyperlane 的克隆上跑 `--no-scope`,
+**实测验证**:在 hyperlane 的克隆上跑 `--no-scope`,
 4 个 fixer 全部执行,整仓扫描改写了 **16 个文件 / +33 行**(全是历史遗留的缺失 doc 注释),
 与交付 PR `01cd18d` 的改动文件**零重叠**;audit 仍 54/54 PASS。
 回归测试见 `scripts/self_test_pre_commit_scope.py`,含
@@ -3605,7 +3605,7 @@ verifier 的判定要点:
   由 `verify_no_inline_cfg_test.py` 负责。两个 verifier 各报一次会让 gate 把
   **一个错误数成四个**;一次错误一条 finding,归一个 owner。
 
-**实测验证(2026-10-31)**:
+**实测验证**:
 
 | 层 | 结果 |
 |---|---|

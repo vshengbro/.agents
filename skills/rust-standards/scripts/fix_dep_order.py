@@ -49,6 +49,8 @@ from pathlib import Path
 # from the single source of truth.
 sys.path.insert(0, str(Path(__file__).parent))
 from verify_dep_order import (  # noqa: E402
+    FEATURE_SECTIONS,
+    FLAT_SECTION_RULES,
     KEY_PATTERN,
     PATCH_SECTIONS,
     entry_sort_key,
@@ -110,12 +112,13 @@ def parse_entries(block_text: str) -> list[dict]:
     return items
 
 
-def sort_patch_items(items: list[dict]) -> list[dict]:
-    """Return `[patch.*]` entries in flat (length, key) order.
+def sort_flat_items(items: list[dict]) -> list[dict]:
+    """Return flat-table entries in (length, key) order.
 
-    A patch table has no local/third-party split: every entry redirects an
-    upstream crate. `expected_order_flat` in the verifier is the single source
-    of truth for the key, so the two scripts cannot disagree.
+    A `[patch.*]` table has no local/third-party split — every entry redirects
+    an upstream crate — and neither has a `[features]` table, whose keys name
+    features. `expected_order_flat` in the verifier is the single source of
+    truth for the key, so the two scripts cannot disagree.
     """
     ordered = sorted(
         items, key=lambda it: (sum(len(line.strip()) for line in it["lines"]), it["key"])
@@ -128,6 +131,10 @@ def sort_patch_items(items: list[dict]) -> list[dict]:
         # dep-block boundary rule (§13.7.2a) applied to the block's last entry.
         out[-1]["followed_by_blank"] = True
     return out
+
+
+# Kept for callers that still reach for the old name.
+sort_patch_items = sort_flat_items
 
 
 def sort_block_items(items: list[dict], local_set: set[str]) -> list[dict]:
@@ -262,18 +269,18 @@ def plan_changes(root: Path, write: bool, only: set[Path] | None = None) -> tupl
         text = f.read_text()
         local_set = local_crate_names_for_manifest(f, root)
         sections_to_fix: list[tuple[str, list[dict]]] = []
-        for sec in DEP_SECTIONS + PATCH_SECTIONS:
+        for sec in DEP_SECTIONS + list(FLAT_SECTION_RULES):
             sp = _block_span(text, sec)
             if sp is None:
                 continue
             block_text = text[sp[0]:sp[1]]
             items = parse_entries(block_text)
-            is_patch = sec in PATCH_SECTIONS
-            expected = sort_patch_items(items) if is_patch else sort_block_items(items, local_set)
-            if is_patch:
-                # A patch block has no local/third group boundary, so the
+            is_flat = sec in FLAT_SECTION_RULES
+            expected = sort_flat_items(items) if is_flat else sort_block_items(items, local_set)
+            if is_flat:
+                # A flat table has no local/third group boundary, so the
                 # `expected[-1].followed_by_blank` fixup that the dep path
-                # applies is already baked into sort_patch_items; the generic
+                # applies is already baked into sort_flat_items; the generic
                 # branch below only needs to know where the block ends.
                 if expected:
                     expected[-1]["followed_by_blank"] = sp[1] < len(text)

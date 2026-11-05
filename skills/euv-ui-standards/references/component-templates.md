@@ -10,10 +10,13 @@ grep -rn 'pub struct Euv[A-Za-z]*Props' ui/src/component/ | sort
 ```
 
 `euv_button { variant: Primary | Outline, label, onclick }` is the only button.
-`Primary` → `c_euv_button_primary_md` (`flex: 1 1 120px`, height 42, `nowrap`,
-`user-select: none`, hover = active, disabled = muted + `not-allowed`, `:active`
-does not change colour); `Outline` → `c_euv_button_outline_md` (same box,
-`border: 1px solid var!(border)`, hover inverts to `accent-muted`).
+`Primary` → `c_euv_button_primary_md` (`flex: 1 1 120px`, height
+`var!(control-height)`, `nowrap`, `user-select: none`, hover = `primary-hover`,
+disabled = `muted-foreground` + `not-allowed`, `:active` scales by
+`press-scale`); `Outline` → `c_euv_button_outline_md` (same box and the same
+`control-height`, `border: var!(border-width) solid var!(border)`,
+`box-shadow: var!(shadow-xs)`, hover → `secondary`/`secondary-foreground` with
+`border-color: var!(input)`).
 
 **Button variant rule:** default every button to `Primary`. Flip variant only
 inside a **mutually exclusive group** where exactly one button represents the
@@ -32,12 +35,14 @@ own; the card's own edge separates it.
 Form controls:
 
 - `euv_field` — label + input + error in one (see §3.B).
-- `c_euv_input` — 100% width, `min-height` 36, `padding: 0 space-lg`,
-  `border: 1px solid var!(border)`; hover/focus inverts to `border-color: accent`
-  + `accent-muted`. Error state is `c_euv_input_error`, which is still black —
-  the error is expressed by **weight of border, not colour**. Wrapper
+- `c_euv_input` — 100% width, `min-height: var!(control-height)`,
+  `padding: 0 space-lg`, `border: var!(border-width) solid var!(input)`;
+  hover/focus swap to `border-color: var!(ring)` + `background: var!(muted)`.
+  Error state is `c_euv_input_error` — `border-color: var!(destructive)` on a
+  `var(--error-container)` fill, so the error **is** a colour here. Wrapper
   `c_euv_input_wrapper`; inline row `c_inline_input_row` +
-  `c_inline_input_button_wrap`.
+  `c_inline_input_button_wrap` (a `flex-shrink: 0` spacer so the button keeps
+  its size when the input grows).
 - Textarea `c_textarea_input` (padding `space-md space-lg`, vertical resize,
   word-wrap); counter `c_textarea_counter` / `c_textarea_counter_text`.
 - Select `c_select_input` matches the input look; draw the chevron yourself, do
@@ -47,20 +52,24 @@ Form controls:
   `c_form_checkbox_label`; label class `c_form_label` (block,
   `margin-bottom: space-sm`, `font-base/500`).
 
-`euv_badge` — `c_badge` (solid: padding `space-2xs space-sm`, `1px solid
-var!(accent)`, `font-xs/600`) / `c_badge_outline` (`1.5px solid var!(border)`,
-transparent bg, `color: foreground`); row `c_badge_row` (`gap: gap-inline`,
-wrap), hint `c_badge_hint`.
+`euv_badge` — `c_badge` (solid: padding `space-2xs space-sm`, `border-width solid
+var!(primary)`, `font-xs`/`font-weight-semibold`, `background: var!(primary)`,
+`color: var!(primary-foreground)`, `radius-full`) / `c_badge_outline`
+(`1.5px solid var!(border)`, transparent bg, `color: foreground`); row
+`c_badge_row` (`gap: gap-inline`, wrap), hint `c_badge_hint`. A badge is a
+wrapping atom — it uses the `inline-block` recipe, not `inline-flex` (§7).
 
 `euv_tag` — four variants `c_euv_tag_{solid,outline}_{black,white}` (all
-`font-weight:600`, clickable, one size step above badge). **Must be
-`inline-block` + `vertical-align: middle` + `text-align: center` +
+`font-weight: var!(font-weight-semibold)`, clickable, one size step above
+badge). **Must be `inline-block` + `vertical-align: middle` + `text-align: center` +
 `line-height: 1` + `box-sizing: border-box`** — see §7 and
 `euv-tag-wrap-recipe.md` (same directory).
 
 `euv_alert { variant: Error | Success }` → `c_error_box` / `c_success_box`
-(`margin: gap-component 0`, `background: accent-muted`, `font-base`). Both share
-classes — the difference is icon + copy, **not colour**.
+(`margin: gap-component 0`, `background: var(--destructive)` /
+`var(--success)` with the matching `-foreground`, `font-base`,
+`padding: space-sm space-lg`, `radius-sm`). The two differ in colour **and**
+copy.
 
 `euv_info` — `c_info_row` with `c_info_label` (min-width 72, `font-sm/500`,
 muted, `flex-shrink: 0`) and `c_info_value` (`flex:1`, monospace, `font-base/600`,
@@ -78,8 +87,8 @@ ellipsis injected by `c_text_ellipsis`); link variant `c_info_link`.
 `euv-spin .8s linear infinite`); `c_loading_overlay(background: &str)` takes a
 background argument.
 
-`euv_logo` — accent square, `color: text-on-accent`; `c_euv_logo_nav` 32×32,
-`c_euv_logo_fab` 36→44 on mobile.
+`euv_logo` — `var(--primary)` square with `color: var(--primary-foreground)`;
+`c_euv_logo_nav` 32×32, `c_euv_logo_fab` 36→44 on mobile.
 
 Hand-rolled atoms — tabs, lists and progress have components, so prefer
 those: tabs (`euv_tabs` — its `c_euv_tabs_bar` carries the `var!(muted)`
@@ -92,8 +101,10 @@ drag/drop zones (`c_event_drag_zone` → `c_event_drop_zone_active`, dashed 2px
 border, 40px padding), counter grid (`c_counter_row` 2-col → 1-col mobile,
 `c_counter_value`), progress (`c_progress_container`, `c_progress_bar_running`
 with `euv-progress`, `_stopped` static), animation classes (`c_anim_fade_in`,
-`c_anim_spin` / `_stopped`, `c_anim_pulse` / `_stopped`, `c_anim_scale_box` with
-`c_anim_scale_shrink` / `_normal`).
+`c_anim_spin` / `_stopped`, `c_anim_pulse` / `_stopped`, `c_anim_scale_box`).
+`c_anim_scale_shrink` / `c_anim_scale_normal` are **page-local** classes
+(`example/src/style/class/fn.rs`), not shared kit: the shared scale effect is
+the `press-scale` transform on `:active`.
 
 Camera/canvas/game helpers live only in `example/src/style/class/fn.rs` and are
 named `c_<page>_<element>` (`c_game_stats_bar`, `c_game_canvas_wrapper(ar)`,

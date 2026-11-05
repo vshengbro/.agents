@@ -99,8 +99,8 @@ Re-exported at the crate root as `euv::*` via `core/src/lib.rs`.
 - `static` **`SUPPRESS_SCHEDULE`** — `pub(crate) static SUPPRESS_SCHEDULE: AtomicBool = AtomicBool::new(false);`
 - `static` **`CURRENT_HOOK_CONTEXT`** — `pub(crate) static CURRENT_HOOK_CONTEXT: RefCell<Option<HookContextRc>> = const { RefCell::new(None) };`
 - `static` **`CURRENT_TRACKING_DYNAMIC_ID`** — `pub(crate) static CURRENT_TRACKING_DYNAMIC_ID: AtomicUsize = AtomicUsize::new(usize::MAX);`
-- `static` **`DISPATCH_CLOSURE`** — `pub(crate) static DISPATCH_CLOSURE: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| { SCHEDULED.store(false, Ordering::Relaxed); Scheduler::dispatch_updates();`
-- `static` **`MICROTASK_CACHE`** — `pub(crate) static MICROTASK_CACHE: RefCell<MicrotaskCache> = RefCell::new(MicrotaskCache { queue_microtask: None`
+- `static` **`DISPATCH_CLOSURE`** — `pub(crate) static DISPATCH_CLOSURE: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| { SCHEDULED.store(false, Ordering::Relaxed); Scheduler::dispatch_updates(); }));`
+- `static` **`MICROTASK_CACHE`** — `pub(crate) static MICROTASK_CACHE: RefCell<MicrotaskCache> = RefCell::new(MicrotaskCache { queue_microtask: None });`
 
 ### `reactive::schedule::struct`
 

@@ -274,17 +274,49 @@ features = [
 
 同长度段(`Blob`/`File`/`Node`/`Text` 都是 4)按字典序排 —— 这正是"其次字典序"的体现,纯 alphabetic 会把 `Element` 排到 `Blob` 前面。
 
-### 13.7.5 为什么用 entry 完整长度而不是 key 长度或 alphabetic
+### 13.7.5 `[features]` 表的排序(user 钦定)
+
+- **user 原话:「[features] 也需要遵守和依赖一样的排序规则」** —— 与 §13.7.3 块内 entry 排序**同一个 sort key**。
+- **`[features]` 是平表**:它的 key 是 feature 名,不是 crate 名,所以**没有本地/三方之分**,也就没有分组空行。整表按 (entry 完整长度, key) 升序排,和 `[patch.crates-io]` 同一处理。
+- **primary = entry 完整长度**(整条 entry 跨所有行的 whitespace-agnostic 字符总数),**secondary = key ASCII 字典序**。
+- 与 `verify_dep_order.py` 共用 `entry_sort_key`,所以 feature 表和它旁边的 dep 块视觉节奏一致。
+- **只改顺序,不增不删 feature**。feature 对 cargo 是集合,解析与顺序无关,纯可读性规则,零功能风险。
+- **auto-fixer**:`fix_dep_order.py --write` 会连同 dep 块一起排(平表分支走 `sort_flat_items`),排完自动 re-verify,幂等。
+
+**排序示例**(euv 仓 `ui/Cargo.toml`,长度即 entry 总字符数):
+
+```toml
+[features]
+default = []            # 11
+theme-park = []         # 15
+theme-geist = []        # 16
+theme-radix = []        # 16
+theme-custom = []       # 17
+theme-fluent = []       # 17
+theme-heroui = []       # 17
+theme-shadcn = []       # 17
+theme-daisyui = []      # 18
+theme-mantine = []      # 18
+theme-material = []     # 19
+theme-antdesign = []    # 20
+theme-bootstrap = []    # 20
+theme-cupertino = []    # 20
+theme-monochrome = []   # 21
+```
+
+同长度段(`theme-custom` / `theme-fluent` / `theme-heroui` / `theme-shadcn` 都是 17)按字典序排 —— 纯 alphabetic 会把 `theme-antdesign` 排到 `theme-bootstrap` 前面,与 §13.7.3 的韵律不同。
+
+### 13.7.6 为什么用 entry 完整长度而不是 key 长度或 alphabetic
 
 - **key 长度太小太均**:大多数 dep key 在 4-12 字符之间,`log`/`toml`/`quote`/`chrono`/`ignore` 都 5-6 字符,key 长度 primary 几乎退化为 alphabetic。user 原话是"整体长度从小到大排序",**整体 = entry 整体**,不是 key 整体。
 - **alphabetic 看不出"短在前"的视觉引导**:alphabetic 是任意选择,扫读 dep 块时不提示"这里有一段短的简单声明"。entry 长度 ascending 是物理视觉规律(短条目在最上,长条目在下),与 §13.7.10 const.rs 内部排序精神一致(const 短在前)。
 - **单规则胜过拼接**:alphabetic + 空行分组的双规则依赖"哪里该有/不该有空行"的判断;length-primary + key-secondary 是单一可计算函数,verifier/fixer 共用同一个 sort key(`scripts/verify_dep_order.entry_sort_key`),无法漂移。
 
-### 13.7.6 为什么保留本地/三方分组 + 边界空行
+### 13.7.7 为什么保留本地/三方分组 + 边界空行
 
 分组让"工作区内部依赖"与"外部依赖"在视觉上立即可分(本地短缩写在多行 entry 上总是较短,长度排序同样把本地排在上)。**唯一空行** = 边界,符合 §13.7.4 的"空行只有视觉分隔意义时才出现"原则——三方组内不再有"无意义空行"。
 
-### 13.7.7 例(`example/Cargo.toml` `[dependencies]`)
+### 13.7.8 例(`example/Cargo.toml` `[dependencies]`)
 
 ```toml
 [dependencies]
@@ -306,7 +338,7 @@ console_error_panic_hook = { workspace = true }
 
 本地组 5 条按 entry 长度升序(`euv` < `euv-ui` < `euv-core` < `euv-engine`/`euv-macros`(33 并列,字典序在前))。中间 1 空行。三方组按 entry 长度升序(`serde`/`tokio` < `chrono` < `hyperlane` < `serde_json` < `color-output` < `compare_version` < `console_error_panic_hook`)。
 
-### 13.7.8 例(根 `Cargo.toml` `[workspace.dependencies]`)
+### 13.7.9 例(根 `Cargo.toml` `[workspace.dependencies]`)
 
 ```toml
 [workspace.dependencies]
@@ -354,7 +386,7 @@ tokio = { version = "1.53.1", features = [...] }
 
 > **注意**:`serde` 与 `serde_json` 紧邻且长度不同(`serde` 短,`serde_json` 长),不会因为 key 前缀重叠而被合并——sort 是基于 entry 整体字符数,不是 prefix tree。
 
-### 13.7.9 PR 提交前自检(Python 一行 sort 验证)
+### 13.7.10 PR 提交前自检(Python 一行 sort 验证)
 
 ```bash
 python3 -c "
@@ -403,7 +435,7 @@ print('OK')
 
 **该脚本近似于 verifier 的判定**(都基于 entry 完整长度 + dep key 字典序),但**不要用作 PR-time 唯一校验**——verifier 是 source of truth。验证自己改完后跑 `scripts/verify_dep_order.py <repo-root>` 报 0 violations 才算完工。
 
-### 13.7.10 spirit 延伸(const.rs / 关键字文件内部顺序, 实测)
+### 13.7.11 spirit 延伸(const.rs / 关键字文件内部顺序, 实测)
 
 本规则字面只覆盖 Cargo.toml 的 4 个 dep 块,但同样的"短在前 + 字典序 tiebreak"精神适用于同文件内同类声明的顺序。新增 `pub const FOO: T = ...;` 到 `const.rs` 时,按 (key 长度, ASCII 字典序) 找到正确位置插入,而不是 append 到末尾或紧跟在"语义相关的另一个 const"后面。
 
@@ -411,7 +443,7 @@ print('OK')
 
 `fn.rs` 内部的 `pub fn` 排序在多数项目里保留"调用顺序"(高层 wrapper 在前、底层 helper 在后),不强行套用本规则——但当一个文件里出现多个独立的 `pub fn` 且无明确调用链时(如 `pub fn` 是相互独立的 utility),同样按 `(name length, lex)` 排序更易扫读。
 
-### 13.7.11 当前规则的由来
+### 13.7.12 当前规则的由来
 
 本规则(user 原话"toml导入遵守整体长度从小到大排序,一样长度按照字典序从小到大排序" + "三方依赖之间还有空行,只有本地依赖和三方依赖之间需要空行" + 复盘"目前都不符合要求"):块内按 **(entry 完整长度, dep key 字典序)** 排序,本地 vs 三方分组,**唯一空行在组边界**。verifier 与 fixer 共用 `verify_dep_order.entry_sort_key`。
 

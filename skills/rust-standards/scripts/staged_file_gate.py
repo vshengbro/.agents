@@ -254,12 +254,18 @@ def audit(module, path: Path, warnings: list[str]) -> list[str]:
 
 
 def git(repo_root: Path, *args: str) -> tuple[int, str]:
+    """Run git and return its exit code and decoded stdout.
+
+    A staged deletion can name a binary file, and `git show HEAD:<path>` then
+    hands back PNG or font bytes. Decoding strictly would raise here and take
+    the whole gate down over a file no verifier can read anyway, so undecodable
+    bytes are replaced: the verifiers only ever look for text.
+    """
     result = subprocess.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
-        text=True,
     )
-    return result.returncode, result.stdout
+    return result.returncode, result.stdout.decode("utf-8", errors="replace")
 
 
 def parse_staged_listing(listing: str) -> tuple[dict[str, str], list[str]]:

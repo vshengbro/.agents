@@ -30,7 +30,15 @@ VERIFY = HERE / "verify_dep_order.py"
 FIX = HERE / "fix_dep_order.py"
 
 
-def write_manifest(path: Path, patch_block: str, deps: str = 'serde = "1.0"\n') -> None:
+def write_manifest(
+    path: Path,
+    patch_block: str,
+    deps: str = 'serde = "1.0"\n',
+    features: str = "",
+) -> None:
+    features_block = ""
+    if features:
+        features_block = "[features]\n" + features + "\n"
     path.write_text(
         "[package]\n"
         'name = "demo"\n'
@@ -39,7 +47,8 @@ def write_manifest(path: Path, patch_block: str, deps: str = 'serde = "1.0"\n') 
         "\n"
         "[workspace]\n"
         "\n"
-        "[dependencies]\n"
+        + features_block
+        + "[dependencies]\n"
         + deps
         + "\n"
         "[patch.crates-io]\n"
@@ -51,13 +60,23 @@ def write_manifest(path: Path, patch_block: str, deps: str = 'serde = "1.0"\n') 
     )
 
 
-def make_repo(root: Path, patch_block: str, deps: str | None = None) -> Path:
+def make_repo(
+    root: Path,
+    patch_block: str,
+    deps: str | None = None,
+    features: str | None = None,
+) -> Path:
     # A single (non-workspace) crate: `cargo metadata` refuses a manifest with
     # no target, so the crate needs one source file to act as the TOML validator.
     (root / "src").mkdir(parents=True)
     (root / "src" / "lib.rs").write_text("", encoding="utf-8")
     manifest = root / "Cargo.toml"
-    write_manifest(manifest, patch_block, deps if deps is not None else 'serde = "1.0"\n')
+    write_manifest(
+        manifest,
+        patch_block,
+        deps if deps is not None else 'serde = "1.0"\n',
+        features or "",
+    )
     return manifest
 
 
@@ -200,8 +219,72 @@ def main() -> int:
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+    # --- 4. verifier: [features] table order is enforced --------------------
+    # A feature table is a flat table: its keys name features, so there is no
+    # local/third-party split — only the same (length, key) key every other
+    # block uses. Before this the verifier skipped `[features]` entirely, so
+    # an unsorted feature table passed unnoticed.
+    sorted_features = "a = []\nbb = []\nccc = []\n"
+    feature_cases = [
+        ("sorted features table passes", sorted_features, 0),
+        ("reversed features table fails", "ccc = []\nbb = []\na = []\n", 1),
+        ("same length, reverse alpha fails", "bbb = []\naaa = []\n", 1),
+        ("long key before short key fails", 'bbbb = ["x"]\na = []\n', 1),
+    ]
+    for label, block, expect_fail in feature_cases:
+        root = Path(tempfile.mkdtemp(prefix="dep-order-features-"))
+        try:
+            make_repo(root, sorted_patch, features=block)
+            code, out = run(VERIFY, root)
+            if expect_fail and code == 0:
+                raise AssertionError(f"{label}: expected exit 1, got 0\n{out}")
+            if not expect_fail and code != 0:
+                raise AssertionError(f"{label}: expected exit 0, got {code}\n{out}")
+            if expect_fail and "[features]" not in out:
+                raise AssertionError(f"{label}: violation not attributed to the features table\n{out}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # --- 5. fixer: sorts the features table, preserves values, idempotent ---
+    root = Path(tempfile.mkdtemp(prefix="dep-order-features-fix-"))
+    try:
+        # `serde` is optional here so the feature value is a real, valid
+        # feature declaration that `cargo metadata` can still resolve.
+        manifest = make_repo(
+            root,
+            sorted_patch,
+            deps='serde = { version = "1.0", optional = true }\n',
+            features='theme-custom = [\n    "serde",\n]\ndefault = []\n',
+        )
+        code, out = run(FIX, root)
+        if "features" not in out:
+            raise AssertionError(f"fixer did not report the features table\n{out}")
+        code, out = run(FIX, root, "--write")
+        if code != 0:
+            raise AssertionError(f"fixer --write failed: {code}\n{out}")
+        after = manifest.read_text()
+        if 'theme-custom = [' not in after or '"serde",' not in after:
+            raise AssertionError("fixer dropped a feature value")
+        proc = subprocess.run(
+            ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+            capture_output=True, text=True, cwd=root,
+        )
+        if proc.returncode != 0:
+            raise AssertionError(f"fixer produced an invalid manifest:\n{proc.stderr}")
+        code, out = run(VERIFY, root)
+        if code != 0:
+            raise AssertionError(f"verifier still fails after fix:\n{out}")
+        code, out = run(FIX, root, "--write")
+        if manifest.read_text() != after:
+            raise AssertionError("fixer is not idempotent on a features table")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
     check_nested_workspaces()
-    print("SELF-TEST PASS: verify_dep_order + fix_dep_order (patches + nested workspaces)")
+    print(
+        "SELF-TEST PASS: verify_dep_order + fix_dep_order "
+        "(patches + features tables + nested workspaces)"
+    )
     return 0
 
 

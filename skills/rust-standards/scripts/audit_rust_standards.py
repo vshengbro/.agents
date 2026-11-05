@@ -376,7 +376,7 @@ fi
 exit "$exit_code"
 '''),
 
-    ('Cargo.toml dep block order (§13.7 round 4)', '''
+    ('Cargo.toml dep / patch / features block order (§13.7)', '''
 # Per references/13-dependency.md §13.7 (round 4, 2026-09-26):
 #   [dependencies] / [dev-dependencies] / [build-dependencies] /
 #   [workspace.dependencies] must be ordered:
@@ -388,6 +388,11 @@ exit "$exit_code"
 #       agnostic; computed by verify_dep_order.py as
 #       len(re.sub(r"\\s+", "", "<entry-joined>"))), ties broken by
 #       dep key ASCII lex.
+#
+#   [patch.crates-io] and [features] are FLAT tables: their keys carry no
+#   local/third-party distinction (a patch entry redirects an upstream
+#   crate, a feature entry names a feature), so the whole block is ordered
+#   with the SAME length-then-key key and no group boundary.
 #
 # The companion script verify_dep_order.py implements this. Its
 # exit code is the only source of truth for pass/fail. We pipe its

@@ -646,12 +646,12 @@ Re-exported at the crate root via `chart/src/lib.rs` `pub use {animation::*, bac
 - `fn` **`is_supported`** — `pub(crate) fn is_supported() -> bool {...}`
 - `fn` **`fingerprint`** — `pub(crate) fn fingerprint(list: &DisplayList) -> u64 {...}`
 - `fn` **`ramp_bytes`** — `pub(crate) fn ramp_bytes(gradient: &WebGl2Gradient) -> Vec<u8> {...}`
-- `fn` **`parameter_values`** — `pub(crate) fn parameter_values(gradient: &WebGl2Gradient) -> [f32; {...}`
+- `fn` **`parameter_values`** — `pub(crate) fn parameter_values(gradient: &WebGl2Gradient) -> [f32; 8] {...}`
 - `fn` **`dash_contours`** — `pub(crate) fn dash_contours(contours: &[Contour], pattern: &[f32], offset: f32) -> Vec<Contour> {...}`
-- `fn` **`unpack_color`** — `pub(crate) fn unpack_color(packed: u32) -> [f32; {...}`
+- `fn` **`unpack_color`** — `pub(crate) fn unpack_color(packed: u32) -> [f32; 4] {...}`
 - `fn` **`scissor_of`** — `pub(crate) fn scissor_of(bounds: &BBox) -> WebGl2Scissor {...}`
 - `fn` **`intersect_scissor`** — `pub(crate) fn intersect_scissor( current: Option<WebGl2Scissor>, rectangle: WebGl2Scissor, ) -> WebGl2Scissor {...}`
-- `fn` **`scaled_color`** — `pub(crate) fn scaled_color(color: Color, opacity: f64) -> [f32; {...}`
+- `fn` **`scaled_color`** — `pub(crate) fn scaled_color(color: Color, opacity: f64) -> [f32; 4] {...}`
 - `fn` **`compile_shader`** — `pub(crate) fn compile_shader( context: &WebGl2RenderingContext, kind: u32, source: &str, ) -> Option<WebGlShader> {...}`
 
 ### `backend::webgl::impl`
@@ -741,7 +741,7 @@ Re-exported at the crate root via `chart/src/lib.rs` `pub use {animation::*, bac
 
 - `fn` **`arc_to_cubic`** — `pub(crate) fn arc_to_cubic<F>( ellipse: Ellipse, start_angle: f64, sweep: f64, segments: usize, mut emit: F, ) where F: FnMut(f64, f64, f64, f64, f64, f64), {...}`
 - `fn` **`arc_segment_count`** — `pub(crate) fn arc_segment_count(sweep: f64, radius: f64, tolerance: f64) -> usize {...}`
-- `fn` **`cubic_segment_count`** — `pub(crate) fn cubic_segment_count(points: [(f64, f64); {...}`
+- `fn` **`cubic_segment_count`** — `pub(crate) fn cubic_segment_count(points: [(f64, f64); 4], tolerance: f64) -> usize {...}`
 
 ### `geom::base::impl`
 
@@ -821,7 +821,7 @@ Re-exported at the crate root via `chart/src/lib.rs` `pub use {animation::*, bac
 - `fn` **`eval_cubic`** — `pub(crate) fn eval_cubic( p0: (f64, f64), p1: (f64, f64), p2: (f64, f64), p3: (f64, f64), t: f64, ) -> (f64, f64) {...}`
 - `fn` **`quad_segment_count`** — `pub(crate) fn quad_segment_count( p0: (f64, f64), p1: (f64, f64), p2: (f64, f64), tolerance: f64, ) -> usize {...}`
 - `fn` **`offset_point`** — `pub(crate) fn offset_point(from: Point, to: Point, distance: f32) -> Point {...}`
-- `fn` **`rectangle_of`** — `pub(crate) fn rectangle_of(path: &Path) -> Option<[Point; {...}`
+- `fn` **`rectangle_of`** — `pub(crate) fn rectangle_of(path: &Path) -> Option<[Point; 4]> {...}`
 - `fn` **`fill_contours_into`** — `pub(crate) fn fill_contours_into( mesh: &mut SolidMesh, contours: &[Contour], color: u32, working: &mut Vec<Point>, indices: &mut Vec<usize>, ) {...}`
 - `fn` **`stroke_contours_into`** — `pub(crate) fn stroke_contours_into( mesh: &mut SolidMesh, contours: &[Contour], style: &StrokeStyle, color: u32, ) {...}`
 - `fn` **`ear_clip`** — `pub(crate) fn ear_clip(points: &[Point], output: &mut Vec<usize>) {...}`
@@ -847,7 +847,7 @@ Re-exported at the crate root via `chart/src/lib.rs` `pub use {animation::*, bac
 - `fn` **`new`** — `pub fn new() -> Self {...}`
 - `fn` **`is_empty`** — `pub fn is_empty(&self) -> bool {...}`
 - `fn` **`reserve`** — `pub fn reserve(&mut self, quads: usize) {...}`
-- `fn` **`push_quad`** — `pub fn push_quad(&mut self, corners: [(f32, f32); {...}`
+- `fn` **`push_quad`** — `pub fn push_quad(&mut self, corners: [(f32, f32); 4], uvs: [(f32, f32); 4], color: u32) {...}`
 
 ### `geom::tess::struct`
 

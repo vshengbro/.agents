@@ -45,16 +45,21 @@ Swap `display: inline-flex` → `display: inline-block` in all four `c_euv_tag_*
 +    vertical-align: "middle";
 +    text-align: "center";
 +    line-height: "1";
-     color: var!(text-on-accent);
+     color: var!(primary-foreground);
      padding: format!("{} {}", var!(space-xs), var!(space-md));
      font-size: var!(font-sm);
-     font-weight: "600";
+     font-weight: var!(font-weight-semibold);
      cursor: "pointer";
-     background: var!(accent);
-     border: format!("1px solid {}", var!(accent));
+     background: var!(primary);
+     border: format!("{} solid {}", var!(border-width), var!(primary));
 +    box-sizing: "border-box";
  }
 ```
+
+The colour tokens in the diff are the CURRENT ones: the token layer was
+rewritten around the `shadcn` idiom, so the old `accent` / `text-on-accent`
+names are gone and `primary` / `primary-foreground` replace them. Copy the
+shape, never the values.
 
 Same diff for `c_euv_tag_solid_white`, `c_euv_tag_outline_black`, `c_euv_tag_outline_white`.
 

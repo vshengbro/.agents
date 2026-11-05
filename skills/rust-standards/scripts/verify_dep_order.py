@@ -164,6 +164,16 @@ def entry_sort_key(it: dict) -> tuple[int, str]:
 # They are ordered with the SAME §13.7 key as every other entry so the block
 # reads in the same rhythm as the dependency blocks beside it.
 PATCH_SECTIONS = ["patch.crates-io"]
+FEATURE_SECTIONS = ["features"]
+
+# Flat tables carry no local/third-party split: every entry of a `[patch.*]`
+# table redirects an upstream crate, and every entry of a `[features]` table
+# names a feature. Both are still ordered with the SAME (length, key) key
+# every dependency block uses, so one manifest reads in one rhythm.
+FLAT_SECTION_RULES = {
+    **{sec: "patch-override order" for sec in PATCH_SECTIONS},
+    **{sec: "feature-table order" for sec in FEATURE_SECTIONS},
+}
 
 
 def expected_order_flat(entries):
@@ -227,16 +237,20 @@ def check_file(path: Path, local_set: set[str]) -> int:
     return count
 
 
-def check_patch_sections(path: Path, text: str) -> list[str]:
-    """§13.7 for `[patch.*]` blocks: flat ordering, no local/third split.
+def check_flat_sections(path: Path, text: str) -> list[str]:
+    """§13.7 for flat tables: `[patch.*]` and `[features]`.
 
-    A `[patch.*]` table redirects upstream crates, so every entry is an
-    override of a third-party name and there is no group boundary to express.
-    It is still ordered, using the same (length, key) key as every other
-    dependency block so the file reads consistently.
+    A `[patch.*]` table redirects upstream crates and a `[features]` table
+    names features: neither has a local/third-party split to express and
+    neither has a blank-line group boundary to keep. They are still ordered,
+    using the same (length, key) key as every other dependency block so the
+    file reads consistently.
+
+    Before this the verifier skipped both tables entirely, so an unsorted one
+    passed unnoticed (and the hook reported nothing for it).
     """
     out: list[str] = []
-    for sec in PATCH_SECTIONS:
+    for sec, rule in FLAT_SECTION_RULES.items():
         entries = parse_block(text, sec)
         if not entries:
             continue
@@ -244,17 +258,21 @@ def check_patch_sections(path: Path, text: str) -> list[str]:
         expected = [key for key, _lines in expected_order_flat(entries)]
         if actual != expected:
             out.append(
-                f"{path} [{sec}] (rule: §13.7 patch-override order, flat length-then-key)"
+                f"{path} [{sec}] (rule: §13.7 {rule}, flat length-then-key)"
             )
             out.append(f"  actual:   {actual}")
             out.append(f"  expected: {expected}")
     return out
 
 
+# Kept for callers that still reach for the old name.
+check_patch_sections = check_flat_sections
+
+
 def check_file_v2(path: Path, local_set: set[str]) -> list[str]:
     """Return list of violation descriptions for this file."""
     text = path.read_text()
-    violations = check_patch_sections(path, text)
+    violations = check_flat_sections(path, text)
     for sec in ["dependencies", "dev-dependencies", "build-dependencies", "workspace.dependencies"]:
         m = re.search(rf"^\[\s*{re.escape(sec)}\s*\]\s*\n", text, re.M)
         if not m:

@@ -122,19 +122,14 @@ has the details.
 
 ## The reply's own rules
 
-`references/comment-mode.md` has the rest: how the parent is chosen and
-read, why the comment is written in the parent's language, the extra
-state a reply's ledger carries, and why a reply is proved on its OWN
-page rather than on the parent's.
+`references/comment-mode.md` has the rest: how the parent is chosen and read
+in full, why the comment is written in the parent's language, why a
+restatement is a wasted reply, the extra state a reply's ledger carries, and
+why a reply is proved on its OWN page rather than on the parent's.
 
-- Read the post in full before writing about it — the feed clips long posts,
-  and the clipped half is usually the point.
-- Say something the post did not already say; a restatement is a wasted
-  reply.
 - Ground every claim in something read this run — the post, the source, the
   advisory. A claim that cannot be sourced does not go in.
-- Write in the post's language. A failed send is reported, never retried
-  into a second post.
+- A failed send is reported, never retried into a second post.
 
 ## When the site fails
 

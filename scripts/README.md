@@ -194,6 +194,19 @@ bash scripts/sync-mcode-stack.sh --check          # verify vendored == upstream
 upstream and exits 1 on any drift — it is the "is the vendored copy still
 current?" gate.
 
+**What `--check` compares against.** By default it compares against the
+revision the vendored copy was synced from — the commit recorded in
+`skills/mcode-stack/UPSTREAM.md` — and not against upstream HEAD. Comparing
+against HEAD turns the gate red on every upstream commit, which is drift
+between two revisions rather than drift from the copy's source. Pass
+`--check-ref <branch|tag|sha>` to compare against a different revision.
+
+**Skills that are deliberately not vendored** are listed in
+`skills/mcode-stack/EXCLUDED.md`, one name per line. The sync skips them and
+`--check` reports them as excluded rather than as drift, so removing a skill
+on purpose does not read as a broken vendored copy and a later sync does not
+silently re-add it.
+
 **Do not hand-edit `skills/mcode-stack/<skill>/`** — the next sync overwrites
 it. Local edits belong in a separate skill.
 

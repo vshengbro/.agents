@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -89,24 +89,24 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-24T18:28:40.038Z",
-      "skillFolderHash": "8af738ef4dca4e4ac4a7d2af83cdf7af96aabfbe"
+      "updatedAt": "2026-11-05T14:50:25.138Z",
+      "skillFolderHash": "9fa6360183e4981e44adc79b430760b87c4d7273"
     },
     "euv-engine-renderer-api": {
       "source": "local",
       "sourceType": "local",
       "skillPath": "skills/euv/euv-engine-renderer-api/SKILL.md",
       "installedAt": "2026-10-18T14:49:19.132Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "1815bc273097b608deeedebd8a742162bf5cf75c"
+      "updatedAt": "2026-11-05T14:50:25.138Z",
+      "skillFolderHash": "da65f4cfbbb2444a136cc4c2044178f2c2776686"
     },
     "euv-ui-standards": {
       "source": "local",
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-28T16:42:11.255Z",
-      "skillFolderHash": "3e03fb5d8e6f514b8e2901cf9de0b492f05fb460"
+      "updatedAt": "2026-11-05T14:50:25.138Z",
+      "skillFolderHash": "8ba30b1b0704f8054ecac0ac83ada226873ada6d"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
@@ -319,18 +319,6 @@
       "installedAt": "2026-10-28T14:07:35.122Z",
       "updatedAt": "2026-10-28T14:07:35.122Z",
       "skillFolderHash": "89315909e88f5b7c7c4e10b2af9daa912189ab6e",
-      "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
-      "ref": "main",
-      "subpath": "stacks/ronny/skills",
-      "upstreamCommit": "253205e0eb672dababb2bc1191f593f2dd258325"
-    },
-    "subagent-split-check": {
-      "source": "MiniMax-AI/mcode-stack",
-      "sourceType": "github",
-      "skillPath": "skills/mcode-stack/subagent-split-check/SKILL.md",
-      "installedAt": "2026-10-28T14:07:35.122Z",
-      "updatedAt": "2026-10-28T14:07:35.122Z",
-      "skillFolderHash": "55cfd9251ae52608163d8f076a614ddac750ff0d",
       "sourceUrl": "https://github.com/MiniMax-AI/mcode-stack.git",
       "ref": "main",
       "subpath": "stacks/ronny/skills",
@@ -557,8 +545,8 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-28T15:57:20.267Z",
-      "skillFolderHash": "8c355a146fd38c792f227cb23941b64906eefade"
+      "updatedAt": "2026-11-05T14:50:25.138Z",
+      "skillFolderHash": "4d233e3cef6d0611632f21c68557fc1c3f1690eb"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",
@@ -573,8 +561,8 @@
       "sourceType": "local",
       "skillPath": "skills/social-media/x-post-via-browser/SKILL.md",
       "installedAt": "2026-10-21T16:45:44.931Z",
-      "updatedAt": "2026-10-23T19:28:04.828Z",
-      "skillFolderHash": "10ba6d3108afe8b5f9b9cb16828ccd339d44fe6a"
+      "updatedAt": "2026-11-05T14:50:25.138Z",
+      "skillFolderHash": "85caa9f5d44f48f5a225891f91ed38a8102a11e9"
     },
     "blocked-page-recovery": {
       "source": "local",

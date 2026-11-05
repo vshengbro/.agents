@@ -554,6 +554,11 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `fn` **`inject_app_global_css`** — `pub fn inject_app_global_css() {...}`
 - `fn` **`euv_md_css`** — `pub fn euv_md_css() -> &'static str {...}`
 
+### `style::var::theme::fn`
+
+- `fn` **`scheme_class_name`** — `pub fn scheme_class_name() -> &'static str {...}`
+- `fn` **`scheme_name`** — `pub fn scheme_name() -> &'static str {...}`
+
 ### `component::affix::view::fn`
 
 - `fn` **`euv_affix`** — `pub fn euv_affix(node: VirtualNode<EuvAffixProps>) -> VirtualNode {...}`
