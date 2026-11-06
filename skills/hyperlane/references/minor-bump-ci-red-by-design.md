@@ -1,21 +1,23 @@
 # A bump that leaves the old caret range is red by design
 
-> Verified on 2026-10-25 by bumping the root `Cargo.toml` of a scratch copy of
-> each repository and running `cargo metadata` (full resolution) on it:
+> Verified by bumping the root `Cargo.toml` of a scratch copy of each repository
+> and running `cargo metadata` (full resolution) on it. The hyperlane rows were
+> re-measured against the current `22.1.0` pins; the euv rows against the
+> current `0.34.2` pins:
 >
 > | repo | old pin | bumped to | result |
 > |---|---|---|---|
-> | hyperlane | `^22.0.6` | `22.0.7` | resolves |
-> | hyperlane | `^22.0.6` | `22.1.0` | **resolves** |
-> | hyperlane | `^22.0.6` | `23.0.0` | fails: `failed to select a version for the requirement `http-compress = "^22.0.6"`` |
-> | euv | `^0.32.6` | `0.32.7` | resolves |
-> | euv | `^0.32.6` | `0.33.0` | fails: `failed to select a version for the requirement `euv-core = "^0.32.6"`` |
-> | euv | `^0.32.6` | `1.0.0` | fails: same requirement error |
+> | hyperlane | `^22.1.0` | `22.1.1` | resolves |
+> | hyperlane | `^22.1.0` | `22.2.0` | **resolves** |
+> | hyperlane | `^22.1.0` | `23.0.0` | fails: `failed to select a version for the requirement `http-compress = "^22.1.0"`` |
+> | euv | `^0.34.2` | `0.34.3` | resolves |
+> | euv | `^0.34.2` | `0.35.0` | fails: `failed to select a version for the requirement `euv-core = "^0.34.2"`` |
+> | euv | `^0.34.2` | `1.0.0` | fails: same requirement error |
 >
 > **The rule is not "a minor bump breaks".** A caret requirement `^X.Y.Z` means
 > `>=X.Y.Z, <(X+1).0.0` when `X >= 1`, but `>=X.Y.Z, <X.(Y+1).0` when `X == 0`.
-> So a **minor** bump breaks a `0.x` repository (euv: `0.32.6` → `0.33.0`) and
-> leaves a `1.x`-or-higher repository alone (hyperlane: `22.0.6` → `22.1.0`).
+> So a **minor** bump breaks a `0.x` repository (euv: `0.34.2` → `0.35.0`) and
+> leaves a `1.x`-or-higher repository alone (hyperlane: `22.1.0` → `22.2.0`).
 > Only a bump that crosses the caret's upper bound fails. A **major** bump
 > always crosses it.
 >
@@ -29,7 +31,7 @@
 After the root `Cargo.toml` version is bumped past the range the member
 `[workspace.dependencies]` path-dep pins still carry:
 
-- the member pins still carry the old range (`^22.0.6` in hyperlane, `^0.32.6`
+- the member pins still carry the old range (`^22.1.0` in hyperlane, `^0.34.2`
   in euv);
 - cargo fails during **version resolution**, before any compilation;
 - the error looks like `failed to select a version for the requirement ...`;
@@ -38,7 +40,7 @@ After the root `Cargo.toml` version is bumped past the range the member
 
 A bump that stays inside the old range resolves and the checks run normally.
 For hyperlane that includes every `22.x` version; for euv it stops at the next
-`0.33.0`.
+`0.35.0`.
 
 ## Telling a designed-in red from a real problem
 
@@ -58,7 +60,7 @@ the synchronised versions.
 
 **A green run does not mean "it was really a patch bump".** It means the bumped
 version stayed inside the caret range of the old pins — true for every `22.x`
-version in hyperlane, false for the first `0.33.0` in euv. Read the failing
+version in hyperlane, false for the first `0.35.0` in euv. Read the failing
 requirement in the error text to tell which case you are in.
 
 **Always verify after the merge that the sync commit carries the new version

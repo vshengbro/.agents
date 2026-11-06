@@ -169,8 +169,8 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-10-24T18:28:40.038Z",
-      "skillFolderHash": "e9f7a97f486a9bbe312669cc1d04e8005d5b6bc0"
+      "updatedAt": "2026-11-06T15:10:27.180Z",
+      "skillFolderHash": "c103fbd96e3df9e7641d8429ba92001afb8a3c52"
     },
     "hyperlane-upload": {
       "source": "local",
@@ -545,8 +545,8 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-05T14:50:25.138Z",
-      "skillFolderHash": "4d233e3cef6d0611632f21c68557fc1c3f1690eb"
+      "updatedAt": "2026-11-06T15:12:14.466Z",
+      "skillFolderHash": "f6aec2cd64ae67be93aa1b0a0fdf05278dbefb1a"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",

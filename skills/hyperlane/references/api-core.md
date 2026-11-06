@@ -4,6 +4,7 @@ Source: `core/src/` — auto-extracted from `pub` declarations.
 
 Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 
+
 ### `config::enum`
 
 - `enum` **`ServerProtocol`** — `pub enum ServerProtocol {`
@@ -11,6 +12,10 @@ Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 ### `config::impl`
 
 - `fn` **`from_json`** — `pub fn from_json<C>(json: C) -> Result<Self, serde_json::Error> where C: AsRef<str>, {...}`
+- `fn` **`get_alpn_protocol`** — `pub fn get_alpn_protocol(&self) -> &'static [u8] {...}`
+- `fn` **`get_version`** — `pub fn get_version(&self) -> HttpVersion {...}`
+- `fn` **`is_quic`** — `pub fn is_quic(&self) -> bool {...}`
+- `fn` **`get_alpn_protocol`** — `pub fn get_alpn_protocol(&self) -> &'static [u8] {...}`
 
 ### `config::struct`
 
@@ -22,8 +27,8 @@ Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 - `fn` **`clear_route_params`** — `pub(crate) fn clear_route_params(&mut self) -> &mut Self {...}`
 - `fn` **`try_get_route_param`** — `pub fn try_get_route_param<T>(&self, name: T) -> Option<String> where T: AsRef<str>, {...}`
 - `fn` **`get_route_param`** — `pub fn get_route_param<T>(&self, name: T) -> String where T: AsRef<str>, {...}`
-- `fn` **`try_get_attribute`** — `pub fn try_get_attribute<V>(&self, key: impl AsRef<str>) -> Option<V> where V: AnySendSyncClone, {...}`
-- `fn` **`get_attribute`** — `pub fn get_attribute<V>(&self, key: impl AsRef<str>) -> V where V: AnySendSyncClone, {...}`
+- `fn` **`try_get_attribute`** — `pub fn try_get_attribute<V, K>(&self, key: K) -> Option<V> where V: AnySendSyncClone, K: AsRef<str>, {...}`
+- `fn` **`get_attribute`** — `pub fn get_attribute<V, K>(&self, key: K) -> V where V: AnySendSyncClone, K: AsRef<str>, {...}`
 - `fn` **`set_attribute`** — `pub fn set_attribute<K, V>(&mut self, key: K, value: V) -> &mut Self where K: AsRef<str>, V: AnySendSyncClone, {...}`
 - `fn` **`remove_attribute`** — `pub fn remove_attribute<K>(&mut self, key: K) -> &mut Self where K: AsRef<str>, {...}`
 - `fn` **`clear_attribute`** — `pub fn clear_attribute(&mut self) -> &mut Self {...}`
@@ -68,7 +73,7 @@ Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 
 - `trait` **`FnContext`** — `pub trait FnContext<R>: Fn(&mut Context) -> R + Send + Sync {}`
 - `trait` **`FnContextPinBox`** — `pub trait FnContextPinBox<T>: FnContext<FutureBox<T>> {}`
-- `trait` **`FnContextStatic`** — `pub trait FnContextStatic<Fut, T>: FnContext<Fut> + 'static where Fut: Future<Output = T> + Send, {`
+- `trait` **`FnContextStatic`** — `pub trait FnContextStatic<Fut, T>: FnContext<Fut> + 'static where Fut: Future<Output = T> + Send, {}`
 - `trait` **`FutureSendStatic`** — `pub trait FutureSendStatic<T>: Future<Output = T> + Send + 'static {}`
 - `trait` **`FutureSend`** — `pub trait FutureSend<T>: Future<Output = T> + Send {}`
 - `trait` **`FutureFn`** — `pub trait FutureFn<T>: Fn() -> FutureBox<T> + Send + Sync {}`
@@ -104,7 +109,7 @@ Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 
 ### `route::struct`
 
-- `struct` **`RoutePattern`** — `pub struct RoutePattern( #[get] pub(super) RouteSegmentList, )`
+- `struct` **`RoutePattern`** — `pub struct RoutePattern( pub(super) RouteSegmentList, );`
 - `struct` **`RouteMatcher`** — `pub struct RouteMatcher {`
 
 ### `route::type`

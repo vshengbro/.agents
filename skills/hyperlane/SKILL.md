@@ -11,7 +11,7 @@ metadata:
 
 ## Index
 
-Shortest path · Current source contracts to verify · Load by task
+Shortest path · Current source contracts to verify · Published versus local · Request parsing refuses what it cannot frame · Load by task
 
 ## Shortest path
 
@@ -83,25 +83,41 @@ all. Write `#[response_middleware("-110")]` when a negative priority is meant.
 
 `http-constant`, `http-compress`, `http-type`, `http-request`,
 `hyperlane-core`, `hyperlane-macros`, `hyperlane-cli`, `hyperlane`,
-`hyperlane-plugin-logger` and `hyperlane-plugin-websocket` are published to
-crates.io; the framework crates are at `22.0.6`. The other four plugin crates
-(`hyperlane-plugin-compression`, `-cors`, `-shutdown`, `-static-files`) were
-removed from the tree on 2026-10-24, and their last versions stay on crates.io
-at `22.0.6`. The four `bench-*` crates carry `publish = false` and are usable
-only from a path dependency. Verify the live registry before asserting a
-version.
+`hyperlane-plugin-logger`, `hyperlane-plugin-websocket` and
+`hyperlane-performance` are published to crates.io; the framework crates are at
+`22.1.0`. The other four plugin crates (`hyperlane-plugin-compression`,
+`-cors`, `-shutdown`, `-static-files`) were removed from the tree on 2026-10-24,
+and their last versions stay on crates.io at `22.0.6`. Verify the live registry
+before asserting a version.
 
-The workspace tree is one patch ahead of the registry: the root `Cargo.toml`
-says `22.0.7` in the working tree, and that version is **not** on crates.io.
-Three version numbers must be kept apart — the committed HEAD, the local
-working tree and the published registry — and only the last one is what a
-consumer can install.
+The workspace tree and the registry agree at `22.1.0`: the root `Cargo.toml`
+says `22.1.0` and that version is on crates.io. Three version numbers must
+still be kept apart — the committed HEAD, the local working tree and the
+published registry — and only the last one is what a consumer can install.
+
+`hyperlane-performance` is the harness crate and it is a **workspace member**,
+not a separate workspace: `cargo metadata --no-deps --format-version 1` lists
+it among the eleven packages. See [Benchmark](references/bench.md).
 
 `hyperlane-macros` has a second, older release line on crates.io: `23.0.21`
 depends on `hyperlane ^21.3.6` and `syn ^2`, which does not match the current
 workspace's `syn ^3`, and it is the highest number on the registry. A plain
 `cargo add hyperlane-macros` therefore resolves to that stale line. Pin the
 version the workspace uses instead of taking the highest.
+
+## Request parsing refuses what it cannot frame
+
+The server parser does not accept a request it cannot frame unambiguously.
+A request is refused with a `RequestError` when it carries `Transfer-Encoding`,
+a repeated `Content-Length`, a comma separated length list, a non decimal or
+overflowing length, a folded header, whitespace before the field colon, a
+control byte in a field value, a malformed field name, a repeated `Host`, or a
+request line that does not hold exactly three fields. HTTP/1.0 without `Host`
+is still accepted, so legacy clients keep working. The client refuses to build
+a request whose name, value or target carries a control byte, whose scheme is
+not http or https, or whose host is empty; for HTTP/2 and HTTP/3 a request
+whose authority disagrees with the `Host` header is refused. The repository's
+`SECURITY.md` lists every covered bug class with the test that proves it.
 
 ## Load by task
 

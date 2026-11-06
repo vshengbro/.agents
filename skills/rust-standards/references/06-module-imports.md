@@ -285,7 +285,7 @@ pub use serde::Serialize;
 | 3 | glob 与非 glob 并存(`use super::*;` + `use super::Foo;`) | 合并会改变解析语义 —— 显式项可以 shadow glob 项 |
 | 4 | fn 体内部的 `use` | §6.4 已禁止 fn 内 use,不重复报 |
 | 5 | `#[cfg(test)] mod tests` 内的 use | 测试局部导入,属 §14 范畴 |
-| 6 | 被属性 gate 的 import(`#[cfg(windows)] use std::ffi::c_void;`) | **合并会把属性提升到整个 brace 组**,导致非 Windows 平台也带上条件 —— 合并等于改语义;hyperlane `bench/runner/src/lib.rs:25-26` 即此形态(`#[cfg(unix)] use std::os::unix::fs::PermissionsExt;` 紧跟在一个 `use std::{...}` brace 块之后) |
+| 6 | 被属性 gate 的 import(`#[cfg(windows)] use std::ffi::c_void;`) | **合并会把属性提升到整个 brace 组**,导致非 Windows 平台也带上条件 —— 合并等于改语义;hyperlane `performance/src/lib.rs:29-30` 即此形态(`#[cfg(unix)] use std::os::unix::fs::PermissionsExt;` 紧跟在一个 `use std::{...}` brace 块之后) |
 | 7 | 无 root 的 brace re-export(`use { r#struct::*, r#type::* };`) | 本来就已是聚合形式,归 §6.1 三段式管辖 |
 | 8 | 两条同 root 语句被**另一个 §6.1 stage** 隔开 | 见下方优先级 |
 

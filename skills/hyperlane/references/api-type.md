@@ -4,6 +4,7 @@ Source: `type/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-type` (the directory is still called `type/`); use as `hyperlane::http_type::*` or `http_type::*`.
 
+
 ### `any::trait`
 
 - `trait` **`AnySend`** — `pub trait AnySend: Any + Send {}`
@@ -73,6 +74,12 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`try_get_part`** — `pub fn try_get_part<K>(parts: &[BodyPart], name: K) -> Option<&BodyPart> where K: AsRef<str>, {...}`
 - `fn` **`try_get_part_text`** — `pub fn try_get_part_text<K>(parts: &[BodyPart], name: K) -> Option<BodyFormValue> where K: AsRef<str>, {...}`
 - `fn` **`parse_url_encoded`** — `pub fn parse_url_encoded<B>(body: B) -> BodyForm where B: AsRef<[u8]>, {...}`
+- `fn` **`try_get_name`** — `pub fn try_get_name(&self) -> Option<&BodyPartName> {...}`
+- `fn` **`try_get_file_name`** — `pub fn try_get_file_name(&self) -> Option<&BodyPartFileName> {...}`
+- `fn` **`try_get_content_type`** — `pub fn try_get_content_type(&self) -> Option<&BodyPartContentType> {...}`
+- `fn` **`try_get_header`** — `pub fn try_get_header<K>(&self, key: K) -> Option<&BodyPartHeaderValue> where K: AsRef<str>, {...}`
+- `fn` **`try_get_data`** — `pub fn try_get_data(&self) -> Option<&[u8]> {...}`
+- `fn` **`try_get_text`** — `pub fn try_get_text(&self) -> Option<BodyFormValue> {...}`
 
 ### `body::struct`
 
@@ -122,6 +129,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`set_same_site`** — `pub fn set_same_site<T>(&mut self, same_site: T) -> &mut Self where T: AsRef<str>, {...}`
 - `fn` **`build`** — `pub fn build(&self) -> String {...}`
 - `fn` **`parse`** — `pub fn parse<C>(cookie: C) -> Cookies where C: AsRef<str>, {...}`
+- `fn` **`try_build`** — `pub fn try_build(&self) -> Result<String, CookieError> {...}`
 
 ### `cookie::struct`
 
@@ -266,8 +274,8 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`check_http_header_key_size`** — `pub(crate) fn check_http_header_key_size( key: &str, max_size: usize, ) -> Result<(), RequestError> {...}`
 - `fn` **`check_http_header_value_size`** — `pub(crate) fn check_http_header_value_size( value: &str, max_size: usize, ) -> Result<(), RequestError> {...}`
 - `fn` **`check_http_body_size`** — `pub(crate) fn check_http_body_size( value: &str, max_size: usize, ) -> Result<usize, RequestError> {...}`
-- `fn` **`get_http_headers`** — `pub(crate) async fn get_http_headers<R>( &mut self, reader: &mut R, config: &RequestConfig, ) -> Result<usize, RequestError> where R: AsyncBufReadExt + Unpin {...}`
-- `fn` **`fill_http_body`** — `pub(crate) async fn fill_http_body<R>( reader: &mut R, body: &mut RequestBody, content_size: usize, ) -> Result<(), RequestError> where R: AsyncRead + Unpin {...}`
+- `fn` **`get_http_headers`** — `pub(crate) async fn get_http_headers<R>( &mut self, reader: &mut R, config: &RequestConfig, header_line_buffer: &mut String, ) -> Result<usize, RequestError> where R: AsyncBufReadExt + Unpin, {...}`
+- `fn` **`fill_http_body`** — `pub(crate) async fn fill_http_body<R>( reader: &mut R, body: &mut RequestBody, content_size: usize, ) -> Result<(), RequestError> where R: AsyncRead + Unpin, {...}`
 - `fn` **`try_get_query`** — `pub fn try_get_query<K>(&self, key: K) -> Option<RequestQuerysValue> where K: AsRef<str>, {...}`
 - `fn` **`get_query`** — `pub fn get_query<K>(&self, key: K) -> RequestQuerysValue where K: AsRef<str>, {...}`
 - `fn` **`try_get_header`** — `pub fn try_get_header<K>(&self, key: K) -> Option<RequestHeadersValue> where K: AsRef<str>, {...}`
@@ -296,6 +304,18 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`is_unknown_upgrade_type`** — `pub fn is_unknown_upgrade_type(&self) -> bool {...}`
 - `fn` **`is_enable_keep_alive`** — `pub fn is_enable_keep_alive(&self) -> bool {...}`
 - `fn` **`is_disable_keep_alive`** — `pub fn is_disable_keep_alive(&self) -> bool {...}`
+- `fn` **`try_get_query_front`** — `pub fn try_get_query_front<K>(&self, key: K) -> Option<RequestQuerysValueItem> where K: AsRef<str>, {...}`
+- `fn` **`try_get_query_back`** — `pub fn try_get_query_back<K>(&self, key: K) -> Option<RequestQuerysValueItem> where K: AsRef<str>, {...}`
+- `fn` **`try_get_query_size`** — `pub fn try_get_query_size<K>(&self, key: K) -> Option<usize> where K: AsRef<str>, {...}`
+- `fn` **`has_query`** — `pub fn has_query<K>(&self, key: K) -> bool where K: AsRef<str>, {...}`
+- `fn` **`get_query_front`** — `pub fn get_query_front<K>(&self, key: K) -> RequestQuerysValueItem where K: AsRef<str>, {...}`
+- `fn` **`get_querys_size`** — `pub fn get_querys_size(&self) -> usize {...}`
+- `fn` **`is_multipart_form_data`** — `pub fn is_multipart_form_data(&self) -> bool {...}`
+- `fn` **`try_get_content_type`** — `pub fn try_get_content_type(&self) -> Option<RequestContentType> {...}`
+- `fn` **`try_get_content_type_parameter`** — `pub fn try_get_content_type_parameter<K>(&self, name: K) -> Option<RequestContentTypeParameter> where K: AsRef<str>, {...}`
+- `fn` **`try_get_body_form_data`** — `pub fn try_get_body_form_data(&self) -> Option<MultipartFormDataParts> {...}`
+- `fn` **`get_body_form`** — `pub fn get_body_form(&self) -> BodyForm {...}`
+- `fn` **`try_get_body_form_data_text`** — `pub fn try_get_body_form_data_text<K>(&self, name: K) -> Option<BodyFormValue> where K: AsRef<str>, {...}`
 
 ### `request::struct`
 
@@ -309,7 +329,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `type` **`RequestVersion`** — `pub type RequestVersion = HttpVersion;`
 - `type` **`RequestPath`** — `pub type RequestPath = String;`
 - `type` **`RequestQuerysKey`** — `pub type RequestQuerysKey = String;`
-- `type` **`RequestQuerysValue`** — `pub type RequestQuerysValue = String;`
+- `type` **`RequestQuerysValue`** — `pub type RequestQuerysValue = VecDeque<RequestQuerysValueItem>;`
 - `type` **`RequestQuerys`** — `pub type RequestQuerys = HashMapXxHash3_64<RequestQuerysKey, RequestQuerysValue>;`
 - `type` **`RequestBody`** — `pub type RequestBody = Vec<u8>;`
 - `type` **`RequestBodyString`** — `pub type RequestBodyString = String;`
@@ -319,6 +339,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `type` **`RequestHeaders`** — `pub type RequestHeaders = HashMapXxHash3_64<RequestHeadersKey, RequestHeadersValue>;`
 - `type` **`RwLockReadGuardRequest`** — `pub type RwLockReadGuardRequest<'a> = RwLockReadGuard<'a, Request>;`
 - `type` **`RwLockWriteGuardRequest`** — `pub type RwLockWriteGuardRequest<'a> = RwLockWriteGuard<'a, Request>;`
+- `type` **`RequestQuerysValueItem`** — `pub type RequestQuerysValueItem = String;`
 
 ### `response::enum`
 
@@ -392,7 +413,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`is_keep_alive`** — `pub fn is_keep_alive(&self, keep_alive: bool) -> bool {...}`
 - `fn` **`try_get_http_request`** — `pub async fn try_get_http_request(&mut self) -> Result<Request, RequestError> {...}`
 - `fn` **`try_get_websocket_request`** — `pub async fn try_get_websocket_request(&mut self) -> Result<RequestBody, RequestError> {...}`
-- `fn` **`get_websocket_from_stream`** — `pub(crate) async fn get_websocket_from_stream( &mut self, buffer: &mut [u8], duration_opt: Option<Duration>, is_client_response: &mut bool, ) -> Result<Option<usize>, RequestError> {...}`
+- `fn` **`get_websocket_from_stream`** — `pub(crate) async fn get_websocket_from_stream( &mut self, duration_opt: Option<Duration>, ) -> Result<Option<usize>, RequestError> {...}`
 - `fn` **`try_fill_http_request`** — `pub async fn try_fill_http_request( &mut self, request: &mut Request, ) -> Result<(), RequestError> {...}`
 - `fn` **`try_send`** — `pub async fn try_send<D>(&mut self, data: D) -> Result<(), ResponseError> where D: AsRef<[u8]>, {...}`
 - `fn` **`send`** — `pub async fn send<D>(&mut self, data: D) where D: AsRef<[u8]>, {...}`
@@ -400,18 +421,19 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`send_list`** — `pub async fn send_list<I, D>(&mut self, data_iter: I) where I: IntoIterator<Item = D>, D: AsRef<[u8]>, {...}`
 - `fn` **`try_flush`** — `pub async fn try_flush(&mut self) -> Result<(), ResponseError> {...}`
 - `fn` **`flush`** — `pub async fn flush(&mut self) {...}`
+- `fn` **`from_transport`** — `pub fn from_transport<T>(transport: T, request_config: RequestConfig, closed: bool) -> Self where T: Transport + 'static, {...}`
+- `fn` **`new`** — `pub fn new(stream: TcpStream, request_config: RequestConfig, closed: bool) -> Self {...}`
+- `fn` **`get_peer_addr`** — `pub fn get_peer_addr(&self) -> Result<SocketAddr, io::Error> {...}`
+- `fn` **`get_local_addr`** — `pub fn get_local_addr(&self) -> Result<SocketAddr, io::Error> {...}`
 
 ### `stream::struct`
 
 - `struct` **`Stream`** — `pub struct Stream {`
+- `struct` **`PooledReader`** — `pub(crate) struct PooledReader<'a> {`
 
 ### `stream::static`
 
-- `static` **`READ_BUFFER_POOL`** — `pub(crate) static READ_BUFFER_POOL: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) }`
-
-### `stream::struct`
-
-- `struct` **`PooledReader`** — `pub(crate) struct PooledReader<'a>`
+- `static` **`READ_BUFFER_POOL`** — `pub(crate) static READ_BUFFER_POOL: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };`
 
 ### `stream::type`
 
@@ -484,3 +506,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 ### `websocket_frame::struct`
 
 - `struct` **`WebSocketFrame`** — `pub struct WebSocketFrame {`
+
+### `cookie::enum`
+
+- `enum` **`CookieError`** — `pub enum CookieError {`

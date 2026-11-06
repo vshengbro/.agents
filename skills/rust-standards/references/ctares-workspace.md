@@ -11,7 +11,7 @@ a claim matters.
 |---|---|---|
 | Workspace members | 24 packages | `cargo metadata --no-deps --format-version 1` |
 | Root manifest | virtual workspace — **no `[package]`** at the root | `grep -c '^\[package\]' Cargo.toml` → `0` |
-| `[workspace.package].version` | `10.3.0` (snapshot; bumped often — re-read, don't hard-code) | `grep -A4 '^\[workspace.package\]' Cargo.toml` |
+| `[workspace.package].version` | `10.3.1` (snapshot; bumped often — re-read, don't hard-code) | `grep -A4 '^\[workspace.package\]' Cargo.toml` |
 | `edition` | `2024` | same |
 | `resolver` | `"2"` | `grep -n resolver Cargo.toml` |
 | `Cargo.lock` | **not committed** (`.gitignore` has `/Cargo.lock`) | `git ls-files Cargo.lock` → empty |
@@ -32,7 +32,7 @@ the workspace, and `china_identification_card` was renamed to
 `chinese-identification-card`. **The published crates are not gone** — the
 first three stay on crates.io at `10.3.0`, and so does the old
 `china_identification_card` name; the renamed `chinese-identification-card`
-crate is **not published at all**. So a consumer can still depend on
+crate **is** published now, at `10.3.1`. So a consumer can still depend on
 `server-manager = "10.3.0"` from the registry while the workspace no longer
 builds it. Verify with
 `curl -s https://crates.io/api/v1/crates/<name> | python3 -c 'import json,sys;print(json.load(sys.stdin)["crate"]["max_stable_version"])'`.
@@ -64,7 +64,7 @@ Two different mechanisms, and the split matters:
   decision, always made in a commit, never in CI.
 - **`crate sync`** rewrites the `version = "..."` requirement inside each
   `[workspace.dependencies]` path-dependency entry so it matches the root
-  version. It does **not** choose a version. As of `crate-cli` 10.3.0 it also
+  version. It does **not** choose a version. As of `crate-cli` 10.3.1 it also
   **renames the dependency alias** when the alias does not match the member's
   `[package].name`, so a sync can change the *name* a member is depended on by,
   not only its version requirement. Read the diff after a sync.
@@ -90,7 +90,7 @@ and the workflow never redirects into `Cargo.toml` directly.
 - The top-level `name:` and `on:` blocks are separated by a blank line
   (changed , `style(ci): separate workflow name from trigger block`).
 
-## `crate fmt` behaviour (verified against crate-cli 10.3.0 source)
+## `crate fmt` behaviour (verified against crate-cli 10.3.1 source)
 
 The `crate-cli` crate in this workspace is the implementation of the `crate fmt`
 command the skill tells you to run. Its real behaviour differs from the old
@@ -122,7 +122,7 @@ derive ordering, so exit 0 does not mean the derive order is compliant.
 `lombok-macros` is a workspace member here and is the crate that implements the
 `Getter` / `GetterMut` / `Setter` / `New` / `Data` derives described in
 [17-lombok-derives.md](17-lombok-derives.md). The re-check against
-the in-tree 10.3.0 source confirmed every signature claim in that file still
+the in-tree 10.3.1 source confirmed every signature claim in that file still
 holds: `Data` is still the trio (all four derives call `inner_lombok_data` with
 differing bools), `type(copy)` still yields the field type rather than `&T`
 (`generate_return_type` maps `ReturnType::Clone | ReturnType::Copy` to the
@@ -131,7 +131,7 @@ generation, and `Visibility` still defaults to `Public`.
 
 The member is now a **path dependency on the in-tree source**, not a registry
 release: the root manifest pins `lombok-macros = { path = "lombok-macros",
-version = "10.3.0" }`. The published `lombok-macros` on crates.io is also at
-`10.3.0`, so the two agree today — but a claim about "the version ctares uses"
+version = "10.3.1" }`. The published `lombok-macros` on crates.io is also at
+`10.3.1`, so the two agree today — but a claim about "the version ctares uses"
 must name the path dependency, because that is what the build actually
 resolves.

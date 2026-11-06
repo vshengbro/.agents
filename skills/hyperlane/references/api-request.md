@@ -4,6 +4,7 @@ Source: `request/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-request` (the directory is still called `request/`).
 
+
 ### `common::enum`
 
 - `struct` **`Body`** — `pub struct Body {`
@@ -59,11 +60,20 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `fn` **`send`** — `pub fn send(&mut self) -> RequestResult {...}`
 - `fn` **`send_async`** — `pub async fn send_async(&mut self) -> RequestResult {...}`
 - `fn` **`parse_url`** — `pub(crate) fn parse_url(&self) -> Result<HttpUrlComponents, RequestError> {...}`
-- `fn` **`full_path`** — `pub(crate) fn full_path(&self) -> String {...}`
+- `fn` **`full_path`** — `pub(crate) fn full_path(&self) -> Result<String, RequestError> {...}`
 - `fn` **`protocol_lower`** — `pub(crate) fn protocol_lower(config: &RequestConfig) -> String {...}`
-- `fn` **`header_bytes`** — `pub(crate) fn header_bytes(&self, body_length: usize) -> Vec<u8> {...}`
+- `fn` **`header_bytes`** — `pub(crate) fn header_bytes(&self, body_length: usize) -> Result<Vec<u8>, RequestError> {...}`
 - `fn` **`body_bytes`** — `pub(crate) fn body_bytes(&self) -> Vec<u8> {...}`
 - `fn` **`send_sync`** — `pub(crate) fn send_sync(&mut self) -> RequestResult {...}`
+- `fn` **`get`** — `pub fn get<T: Into<String>>(url: T) -> Self {...}`
+- `fn` **`post`** — `pub fn post<T: Into<String>>(url: T) -> Self {...}`
+- `fn` **`set_method`** — `pub fn set_method(&mut self, method: Method) -> &mut Self {...}`
+- `fn` **`set_url`** — `pub fn set_url<T: Into<String>>(&mut self, url: T) -> &mut Self {...}`
+- `fn` **`set_header`** — `pub fn set_header<K: AsRef<str>, V: AsRef<str>>(&mut self, key: K, value: V) -> &mut Self {...}`
+- `fn` **`remove_header`** — `pub fn remove_header<K: AsRef<str>>(&mut self, key: K) -> &mut Self {...}`
+- `fn` **`clear_headers`** — `pub fn clear_headers(&mut self) -> &mut Self {...}`
+- `fn` **`set_body`** — `pub fn set_body(&mut self, body: Body) -> &mut Self {...}`
+- `fn` **`set_config`** — `pub fn set_config(&mut self, config: RequestConfig) -> &mut Self {...}`
 
 ### `request::http_request::struct`
 
@@ -104,19 +114,20 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `type` **`RequestHeadersKey`** — `pub type RequestHeadersKey = String;`
 - `type` **`RequestHeadersValue`** — `pub type RequestHeadersValue = String;`
 - `type` **`RequestHeaders`** — `pub type RequestHeaders = HashMapXxHash3_64<RequestHeadersKey, RequestHeadersValue>;`
+- `type` **`RequestResult`** — `pub type RequestResult = Result<HttpResponse, RequestError>;`
 
 ### `request::parser::fn`
 
 - `fn` **`split_multi_byte`** — `pub(crate) fn split_multi_byte<'a>(data: &'a [u8], delimiter: &'a [u8]) -> Vec<&'a [u8]> {...}`
 - `fn` **`split_whitespace`** — `pub(crate) fn split_whitespace(input: &[u8]) -> Vec<&[u8]> {...}`
 - `fn` **`build_http_request`** — `pub(crate) fn build_http_request( method: &str, path: String, header_bytes: Vec<u8>, body_bytes: Option<Vec<u8>>, http_version_str: String, ) -> Vec<u8> {...}`
-- `fn` **`parse_chunked_body`** — `pub(crate) fn parse_chunked_body(body_bytes: &[u8]) -> Vec<u8> {...}`
+- `fn` **`parse_chunked_body`** — `pub(crate) fn parse_chunked_body(body_bytes: &[u8]) -> Result<Vec<u8>, RequestError> {...}`
 - `fn` **`find_double_crlf`** — `pub(crate) fn find_double_crlf(data: &[u8], start: usize) -> Option<usize> {...}`
 - `fn` **`find_pattern_case_insensitive`** — `pub(crate) fn find_pattern_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {...}`
 - `fn` **`find_crlf`** — `pub(crate) fn find_crlf(data: &[u8], start: usize) -> Option<usize> {...}`
-- `fn` **`get_content_length`** — `pub(crate) fn get_content_length(response_bytes: &[u8]) -> usize {...}`
-- `fn` **`is_chunked_encoding`** — `pub(crate) fn is_chunked_encoding(headers_bytes: &[u8]) -> bool {...}`
-- `fn` **`parse_decimal_bytes`** — `pub(crate) fn parse_decimal_bytes(bytes: &[u8]) -> usize {...}`
+- `fn` **`get_content_length`** — `pub(crate) fn get_content_length(response_bytes: &[u8]) -> Result<usize, RequestError> {...}`
+- `fn` **`is_chunked_encoding`** — `pub(crate) fn is_chunked_encoding(headers_bytes: &[u8]) -> Result<bool, RequestError> {...}`
+- `fn` **`parse_decimal_bytes`** — `pub(crate) fn parse_decimal_bytes(bytes: &[u8]) -> Result<usize, RequestError> {...}`
 - `fn` **`parse_status_code`** — `pub(crate) fn parse_status_code(status_bytes: &[u8]) -> usize {...}`
 - `fn` **`calculate_buffer_capacity`** — `pub(crate) fn calculate_buffer_capacity( response_bytes: &[u8], n: usize, current_capacity: usize, ) -> usize {...}`
 - `fn` **`parse_response_headers`** — `pub(crate) fn parse_response_headers( headers_bytes: &[u8], http_version_bytes: &[u8], location_sign_key: &[u8], content_length: &mut usize, redirect_url: &mut Option<Vec<u8>>, is_chunked: &mut bool, ) -> Result<(), RequestError> {...}`
@@ -125,6 +136,10 @@ Crate name: `http-request` (the directory is still called `request/`).
 
 - `fn` **`new`** — `pub(crate) fn new(stream: BoxAsyncReadWrite, pre_read_data: Vec<u8>) -> Self {...}`
 - `fn` **`new`** — `pub(crate) fn new(stream: BoxReadWrite, pre_read_data: Vec<u8>) -> Self {...}`
+- `fn` **`http`** — `pub fn http<H: AsRef<str>>(host: H, port: u16) -> Self {...}`
+- `fn` **`https`** — `pub fn https<H: AsRef<str>>(host: H, port: u16) -> Self {...}`
+- `fn` **`socks5`** — `pub fn socks5<H: AsRef<str>>(host: H, port: u16) -> Self {...}`
+- `fn` **`auth`** — `pub fn auth<U: AsRef<str>, P: AsRef<str>>(mut self, username: U, password: P) -> Self {...}`
 
 ### `request::proxy::struct`
 
@@ -173,3 +188,59 @@ Crate name: `http-request` (the directory is still called `request/`).
 ### `utils::encode::fn`
 
 - `fn` **`base64_encode`** — `pub(crate) fn base64_encode(input: &[u8]) -> String {...}`
+
+### `common::impl`
+
+- `fn` **`empty`** — `pub const fn empty() -> Self {...}`
+- `fn` **`from_bytes`** — `pub fn from_bytes<B: Into<Vec<u8>>>(bytes: B) -> Self {...}`
+- `fn` **`as_slice`** — `pub fn as_slice(&self) -> &[u8] {...}`
+- `fn` **`as_str`** — `pub fn as_str(&self) -> Option<&str> {...}`
+
+### `common::struct`
+
+- `struct` **`Body`** — `pub struct Body {`
+
+### `request::proxy::enum`
+
+- `enum` **`ProxyType`** — `pub enum ProxyType {`
+
+### `request::request_builder::impl`
+
+- `fn` **`new`** — `pub fn new() -> Self {...}`
+- `fn` **`get`** — `pub fn get<T: Into<String>>(&mut self, url: T) -> &mut Self {...}`
+- `fn` **`post`** — `pub fn post<T: Into<String>>(&mut self, url: T) -> &mut Self {...}`
+- `fn` **`method`** — `pub fn method(&mut self, method: Method) -> &mut Self {...}`
+- `fn` **`url`** — `pub fn url<T: Into<String>>(&mut self, url: T) -> &mut Self {...}`
+- `fn` **`header`** — `pub fn header<K: AsRef<str>, V: AsRef<str>>(&mut self, key: K, value: V) -> &mut Self {...}`
+- `fn` **`headers`** — `pub fn headers<K, V>(&mut self, headers: HashMap<K, V>) -> &mut Self where K: AsRef<str>, V: AsRef<str>, {...}`
+- `fn` **`remove_header`** — `pub fn remove_header<K: AsRef<str>>(&mut self, key: K) -> &mut Self {...}`
+- `fn` **`clear_headers`** — `pub fn clear_headers(&mut self) -> &mut Self {...}`
+- `fn` **`body`** — `pub fn body<B: Into<Vec<u8>>>(&mut self, bytes: B) -> &mut Self {...}`
+- `fn` **`body_text`** — `pub fn body_text<T: Into<String>>(&mut self, text: T) -> &mut Self {...}`
+- `fn` **`body_json`** — `pub fn body_json<V: serde::Serialize>(&mut self, value: &V) -> &mut Self {...}`
+- `fn` **`timeout`** — `pub fn timeout(&mut self, ms: u64) -> &mut Self {...}`
+- `fn` **`buffer_size`** — `pub fn buffer_size(&mut self, n: usize) -> &mut Self {...}`
+- `fn` **`http1_1_only`** — `pub fn http1_1_only(&mut self) -> &mut Self {...}`
+- `fn` **`http2_only`** — `pub fn http2_only(&mut self) -> &mut Self {...}`
+- `fn` **`redirect`** — `pub fn redirect(&mut self) -> &mut Self {...}`
+- `fn` **`no_redirect`** — `pub fn no_redirect(&mut self) -> &mut Self {...}`
+- `fn` **`max_redirect_times`** — `pub fn max_redirect_times(&mut self, n: usize) -> &mut Self {...}`
+- `fn` **`decode`** — `pub fn decode(&mut self) -> &mut Self {...}`
+- `fn` **`no_decode`** — `pub fn no_decode(&mut self) -> &mut Self {...}`
+- `fn` **`proxy`** — `pub fn proxy(&mut self, proxy: Proxy) -> &mut Self {...}`
+- `fn` **`no_proxy`** — `pub fn no_proxy(&mut self) -> &mut Self {...}`
+- `fn` **`build`** — `pub fn build(&mut self) -> HttpRequest {...}`
+
+### `response::fn`
+
+- `fn` **`new_response_headers`** — `pub fn new_response_headers() -> HttpResponseHeaders {...}`
+
+### `response::impl`
+
+- `fn` **`from_bytes`** — `pub fn from_bytes(response: &[u8]) -> Self {...}`
+- `fn` **`is_success`** — `pub fn is_success(&self) -> bool {...}`
+- `fn` **`is_redirect`** — `pub fn is_redirect(&self) -> bool {...}`
+- `fn` **`get_header`** — `pub fn get_header<K: AsRef<str>>(&self, key: K) -> Option<&str> {...}`
+- `fn` **`text`** — `pub fn text(&self) -> String {...}`
+- `fn` **`bytes`** — `pub fn bytes(&self) -> &[u8] {...}`
+- `fn` **`decode`** — `pub fn decode(&self, buffer_size: usize) -> HttpResponse {...}`

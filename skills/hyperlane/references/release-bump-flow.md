@@ -5,27 +5,28 @@ Modeled on euv §17 + the 2026-09-13 PR #220 sync regression lesson.
 
 ## The invariant
 
-**10 packages, 1 version number.** The workspace has the root `hyperlane`
-package plus 9 members: `http-compress`, `http-constant`, `http-type`,
+**11 packages, 1 version number.** The workspace has the root `hyperlane`
+package plus 10 members: `http-compress`, `http-constant`, `http-type`,
 `http-request`, `hyperlane-core`, `hyperlane-macros`, `hyperlane-cli`,
-`hyperlane-plugin-logger` and `hyperlane-plugin-websocket`. All resolve
-to the same `<X.Y.Z>` through `version.workspace = true`. Verify with:
+`hyperlane-plugin-logger`, `hyperlane-plugin-websocket` and
+`hyperlane-performance`. All resolve to the same `<X.Y.Z>` through
+`version.workspace = true`. Verify with:
 
 ```bash
 cargo metadata --no-deps --format-version 1 \
   | python3 -c 'import json,sys; print({p["name"]:p["version"] for p in json.load(sys.stdin)["packages"]})'
 ```
 
-Every version must be identical. The `bench/` crates are **not** members of
-this workspace: they are a separate Cargo workspace with their own
-`Cargo.lock`, and their version is not part of this invariant.
+Every version must be identical. There is no second workspace and no second
+`Cargo.lock`: the harness crate `hyperlane-performance` is an ordinary member
+and its version is part of this invariant.
 
 ## Manual flow (what a developer does)
 
 ```bash
 cd /path/to/hyperlane
-NEW_VER="22.0.7"
-OLD_VER="22.0.6"
+NEW_VER="22.1.1"
+OLD_VER="22.1.0"
 
 # 1. edit ONLY the root Cargo.toml
 sed -i "s/^version = \"$OLD_VER\"$/version = \"$NEW_VER\"/" Cargo.toml
@@ -73,7 +74,7 @@ github.event_name == 'push' && github.ref_name == 'master'`). It:
    with the message `chore: sync workspace member deps and apply crate fmt`
    and pushes to master, then re-reads the root version to derive the tag.
 4. Runs `crate publish`, which resolves the publish order from
-   `[workspace.members]` and skips every package with `publish = false`.
+   `[workspace.members]` and skips any package with `publish = false`.
 
 There is **no** separate `sync_workspace_version` job. The workflow jobs are
 `setup`, `check`, `tests`, `clippy`, `build`, `publish` and `release`.
@@ -89,7 +90,7 @@ the CI uses rather than a hand-written `sed` loop:
 cd /path/to/hyperlane
 
 # 1. the root version is the single source of truth
-sed -i "s/^version = \"22.0.6\"$/version = \"22.0.7\"/" Cargo.toml
+sed -i "s/^version = \"22.1.0\"$/version = \"22.1.1\"/" Cargo.toml
 
 # 2. let crate-cli propagate it to every member and path-dep pin
 crate sync
@@ -110,16 +111,16 @@ produces a diff the sync step would immediately rewrite. Use `crate sync`.
 
 ## Patch vs minor/major bump
 
-The path-dep pins are caret requirements (`version = "22.0.6"` means
-`^22.0.6`), and a caret requirement for a `1.x`-or-higher crate allows every
+The path-dep pins are caret requirements (`version = "22.1.0"` means
+`^22.1.0`), and a caret requirement for a `1.x`-or-higher crate allows every
 `22.x` version. So the deciding factor is **which side of the caret's upper
 bound the new version falls on**, not the bump label.
 
 | Bump type | `Cargo.toml` version field | CI behavior |
 | --- | --- | --- |
-| patch | e.g. `22.0.6` → `22.0.7` | inside the range; `crate sync` propagates cleanly |
-| minor | e.g. `22.0.6` → `22.1.0` | still inside the range for a `22.x` workspace — **resolves, the checks run**. It only breaks in a `0.x` workspace, where `^0.32.6` stops at `0.33.0`. |
-| major | e.g. `22.0.6` → `23.0.0` | outside the range: `failed to select a version for the requirement `http-compress = "^22.0.6"`` |
+| patch | e.g. `22.1.0` → `22.1.1` | inside the range; `crate sync` propagates cleanly |
+| minor | e.g. `22.1.0` → `22.2.0` | still inside the range for a `22.x` workspace — **resolves, the checks run**. It only breaks in a `0.x` workspace, where `^0.32.6` stops at `0.33.0`. |
+| major | e.g. `22.1.0` → `23.0.0` | outside the range: `failed to select a version for the requirement `http-compress = "^22.1.0"`` |
 
 Measured on 2026-10-25 with `cargo metadata` (full resolution) on a scratch
 copy of each repository — see
@@ -132,10 +133,11 @@ and need `crate sync` to bump them). Don't waste cycles trying to fix local
 compile; commit just the root `Cargo.toml` bump, let CI sync do the rest, and
 verify on the auto-commit that lands.
 
-The crates that carry `publish = false` (the four `bench-*` crates) never reach
-crates.io, so a version bump does not publish them. `crate publish` logs
-`Skipping <name> (publish = false)` for each of them and continues with the
-rest.
+Every member of this workspace carries `publish = true`, so a version bump
+publishes all eleven crates — including the harness crate
+`hyperlane-performance`, which the release job's package list names last. A
+package with `publish = false` would be skipped instead, with `crate publish`
+logging `Skipping <name> (publish = false)` and continuing with the rest.
 
 ## Real-world PRs to study
 

@@ -2943,7 +2943,7 @@ use { js_sys::*, lombok_macros::*, wasm_bindgen::prelude::*, web_sys::* };
 
 **坑 3:`#[cfg(...)]` gate 的 import 绝不能合并。**
 
-ctares `server-manager/src/lib.rs` 形态(该 crate 已于移出 ctares;同一形态现在可在 hyperlane `bench/runner/src/lib.rs:13-26` 看到 —— 一个 `use std::{...}` brace 块,后跟 `#[cfg(unix)] use std::os::unix::fs::PermissionsExt;`):
+ctares `server-manager/src/lib.rs` 形态(该 crate 已于移出 ctares;同一形态现在可在 hyperlane `performance/src/lib.rs:13-30` 看到 —— 一个 `use std::{...}` brace 块,后跟 `#[cfg(unix)] use std::os::unix::fs::PermissionsExt;`):
 
 ```rust
 use std::{ fs, path::{Path, PathBuf}, pin::Pin, ... };
