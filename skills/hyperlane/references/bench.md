@@ -1,7 +1,7 @@
 # The hyperlane performance harness
 
 Source: `performance/` in the hyperlane workspace. Verified against the tree at
-`3ffc0a5` (workspace version `22.1.0`).
+`4f842a6` (workspace version `22.2.0`).
 
 ## What it is, and what it is not
 

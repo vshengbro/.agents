@@ -49,6 +49,46 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 - `struct` **`ImportClause`** — `pub struct ImportClause<'a> {`
 - `struct` **`NamespaceImport`** — `pub(crate) struct NamespaceImport {`
 
+### `bundle::enum`
+
+- `enum` **`NativePlatform`** — `pub enum NativePlatform {`
+- `enum` **`HostOs`** — `pub enum HostOs {`
+- `enum` **`NativeTask`** — `pub enum NativeTask {`
+
+### `bundle::fn`
+
+- `fn` **`current_host`** — `pub fn current_host() -> HostOs {...}`
+- `fn` **`current_arch`** — `pub fn current_arch() -> String {...}`
+- `fn` **`host_platforms`** — `pub fn host_platforms(host: HostOs) -> Vec<NativePlatform> {...}`
+- `fn` **`native_task`** — `pub fn native_task(platform: NativePlatform) -> NativeTask {...}`
+- `fn` **`host_supports`** — `pub fn host_supports(host: HostOs, platform: NativePlatform) -> bool {...}`
+- `fn` **`describe_platforms`** — `pub fn describe_platforms(platforms: &[NativePlatform]) -> String {...}`
+- `fn` **`describe_requirements`** — `pub fn describe_requirements(platforms: &[NativePlatform]) -> String {...}`
+- `fn` **`resolve_requested_platforms`** — `pub fn resolve_requested_platforms( all: bool, platforms: &[NativePlatform], ) -> Result<Vec<NativePlatform>, EuvError> {...}`
+- `fn` **`resolve_native_plan`** — `pub fn resolve_native_plan( requested: &[NativePlatform], host: HostOs, ) -> Result<NativePlan, EuvError> {...}`
+- `fn` **`print_native_plan`** — `pub fn print_native_plan(plan: &NativePlan) {...}`
+- `fn` **`resolve_native_project`** — `pub fn resolve_native_project(base: &Path, native_path: Option<&PathBuf>) -> PathBuf {...}`
+- `fn` **`require_native_project`** — `pub fn require_native_project(native_project: &Path) -> Result<(), EuvError> {...}`
+- `fn` **`resolve_web_dist`** — `pub async fn resolve_web_dist(args: &ModeArgs) -> PathBuf {...}`
+- `fn` **`reject_native_flags_in_run`** — `pub fn reject_native_flags_in_run(args: &ModeArgs) -> Result<(), EuvError> {...}`
+- `fn` **`dispatch_build_mode`** — `pub async fn dispatch_build_mode(args: BuildArgs) -> Result<(), EuvError> {...}`
+- `fn` **`build_all_mode`** — `pub async fn build_all_mode(args: BuildArgs) -> Result<(), EuvError> {...}`
+- `fn` **`prepare_native_profile`** — `pub(crate) fn prepare_native_profile(args: &mut ModeArgs) -> Result<(), EuvError> {...}`
+- `fn` **`run_native_builds`** — `pub(crate) async fn run_native_builds( plan: &NativePlan, native_project: &Path, web_dist: &Path, mode: &str, ) -> Result<(), EuvError> {...}`
+
+### `bundle::impl`
+
+- `fn` **`platform_name`** — `pub fn platform_name(self) -> &'static str {...}`
+- `fn` **`required_host`** — `pub fn required_host(self) -> &'static str {...}`
+- `fn` **`host_name`** — `pub fn host_name(self) -> &'static str {...}`
+- `fn` **`task_name`** — `pub fn task_name(self) -> &'static str {...}`
+
+### `bundle::struct`
+
+- `struct` **`NativeTarget`** — `pub struct NativeTarget {`
+- `struct` **`NativePlan`** — `pub struct NativePlan {`
+- `struct` **`BuildArgs`** — `pub struct BuildArgs {`
+
 ### `error::enum`
 
 - `enum` **`EuvError`** — `pub enum EuvError {`

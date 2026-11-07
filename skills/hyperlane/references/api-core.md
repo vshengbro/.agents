@@ -4,6 +4,13 @@ Source: `core/src/` — auto-extracted from `pub` declarations.
 
 Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 
+`Context::get_request_target()` returns the wire target (path plus query) as
+the client spelled it, captured before routing and before the query map is
+built. It is `None` for a manually constructed `Context`. The backing
+attribute key is `hyperlane.request.target` (`pub(crate)`), so a client cannot
+spoof it with a header. The crate-internal helper `request_target(path, query)`
+is **not** reachable from outside the crate.
+
 
 ### `config::enum`
 
@@ -27,6 +34,8 @@ Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 - `fn` **`clear_route_params`** — `pub(crate) fn clear_route_params(&mut self) -> &mut Self {...}`
 - `fn` **`try_get_route_param`** — `pub fn try_get_route_param<T>(&self, name: T) -> Option<String> where T: AsRef<str>, {...}`
 - `fn` **`get_route_param`** — `pub fn get_route_param<T>(&self, name: T) -> String where T: AsRef<str>, {...}`
+- `fn` **`get_request_target`** — `pub fn get_request_target(&self) -> Option<String> {...}`
+- `fn` **`set_request_target`** — `pub(crate) fn set_request_target(&mut self, target: String) -> &mut Self {...}`
 - `fn` **`try_get_attribute`** — `pub fn try_get_attribute<V, K>(&self, key: K) -> Option<V> where V: AnySendSyncClone, K: AsRef<str>, {...}`
 - `fn` **`get_attribute`** — `pub fn get_attribute<V, K>(&self, key: K) -> V where V: AnySendSyncClone, K: AsRef<str>, {...}`
 - `fn` **`set_attribute`** — `pub fn set_attribute<K, V>(&mut self, key: K, value: V) -> &mut Self where K: AsRef<str>, V: AnySendSyncClone, {...}`

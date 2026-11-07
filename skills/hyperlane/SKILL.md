@@ -1,6 +1,6 @@
 ---
 name: hyperlane
-description: "Use when implementing or debugging the Hyperlane Rust HTTP framework: server routes, lifecycle hooks, Context, requests and responses, the plugin crates, or the perf harness. Publishing files to ltpp.vip uses hyperlane-upload instead."
+description: "Use when implementing or debugging the Hyperlane Rust HTTP framework: server routes, lifecycle hooks, Context, request targets, the plugin crates, or the perf harness. Publishing to ltpp.vip uses hyperlane-upload instead."
 license: MIT
 metadata:
   hermes:
@@ -11,7 +11,7 @@ metadata:
 
 ## Index
 
-Shortest path · Current source contracts to verify · Published versus local · Request parsing refuses what it cannot frame · Load by task
+Shortest path · Current source contracts to verify · Published versus local · Request parsing refuses what it cannot frame · The original request target · Load by task
 
 ## Shortest path
 
@@ -31,9 +31,8 @@ Shortest path · Current source contracts to verify · Published versus local ·
 
 ## Current source contracts to verify
 
-These are checked at `core/src/server/impl.rs`, `core/src/hook/trait.rs`,
-`type/src/response/impl.rs` and `type/src/stream/impl.rs`; recheck for another
-version.
+These are checked at `core/src/server/impl.rs`, `core/src/hook/trait.rs` and
+`type/src/response/impl.rs`; recheck for another version.
 
 - `Server::route::<Handler>(path)` is **synchronous**, returning `&mut Self`.
   Request/response middleware registration is also synchronous. Do not append `.await`.
@@ -44,10 +43,10 @@ version.
 - Returning `Status::Continue` continues the lifecycle; `Status::Reject` stops it.
   Check which response middleware actually runs before deciding who sends bytes.
 - Setting a response body alone does not transmit it. In a direct-send handler,
-  build the response, await `stream.try_send(data)`, handle its error, then stop
-  the pipeline with `Status::Reject` to avoid duplicate downstream sending.
-- Response setters and `build()` are synchronous; `try_send` is asynchronous.
-  Treat generated accessors as real APIs, but verify them through generated
+  build the response (`build()` is synchronous), await `stream.try_send(data)`
+  (asynchronous), handle its error, then stop the pipeline with `Status::Reject`
+  to avoid duplicate downstream sending.
+- Treat generated accessors as real APIs, but verify them through generated
   docs/compiler output rather than guessing from a field name.
 
 Within an existing async startup function, the registration/start sequence is:
@@ -60,7 +59,6 @@ control.wait().await;
 
 This fragment assumes the application's existing `Index`, `ROOT_PATH`, `Server`
 configuration and error-returning context; it is not a standalone server template.
-For a full handler, adapt the selected source's real example and compile it.
 
 ### Hook order and priority
 
@@ -85,13 +83,13 @@ all. Write `#[response_middleware("-110")]` when a negative priority is meant.
 `hyperlane-core`, `hyperlane-macros`, `hyperlane-cli`, `hyperlane`,
 `hyperlane-plugin-logger`, `hyperlane-plugin-websocket` and
 `hyperlane-performance` are published to crates.io; the framework crates are at
-`22.1.0`. The other four plugin crates (`hyperlane-plugin-compression`,
+`22.2.0`. The other four plugin crates (`hyperlane-plugin-compression`,
 `-cors`, `-shutdown`, `-static-files`) were removed from the tree on 2026-10-24,
 and their last versions stay on crates.io at `22.0.6`. Verify the live registry
 before asserting a version.
 
-The workspace tree and the registry agree at `22.1.0`: the root `Cargo.toml`
-says `22.1.0` and that version is on crates.io. Three version numbers must
+The workspace tree and the registry agree at `22.2.0`: the root `Cargo.toml`
+says `22.2.0` and that version is on crates.io. Three version numbers must
 still be kept apart — the committed HEAD, the local working tree and the
 published registry — and only the last one is what a consumer can install.
 
@@ -100,10 +98,10 @@ not a separate workspace: `cargo metadata --no-deps --format-version 1` lists
 it among the eleven packages. See [Benchmark](references/bench.md).
 
 `hyperlane-macros` has a second, older release line on crates.io: `23.0.21`
-depends on `hyperlane ^21.3.6` and `syn ^2`, which does not match the current
-workspace's `syn ^3`, and it is the highest number on the registry. A plain
-`cargo add hyperlane-macros` therefore resolves to that stale line. Pin the
-version the workspace uses instead of taking the highest.
+depends on `hyperlane ^21.3.6` and `syn ^2.0.119`, which does not match the
+current workspace's `syn ^3.0.6`, and it is the highest number on the registry.
+A plain `cargo add hyperlane-macros` therefore resolves to that stale line. Pin
+the version the workspace uses instead of taking the highest.
 
 ## Request parsing refuses what it cannot frame
 
@@ -118,6 +116,23 @@ a request whose name, value or target carries a control byte, whose scheme is
 not http or https, or whose host is empty; for HTTP/2 and HTTP/3 a request
 whose authority disagrees with the `Host` header is refused. The repository's
 `SECURITY.md` lists every covered bug class with the test that proves it.
+
+## The original request target
+
+`Context::get_request_target() -> Option<String>` returns the wire target
+(path plus query) exactly as the client spelled it, captured before routing and
+before the query map is built. The protocol layer stores it before any user
+middleware runs, so a middleware sees the original target even after a handler
+rewrote the request path; it is refreshed per request, so a keep-alive
+connection never carries the previous target. It is `None` for a manually
+constructed `Context`.
+
+An empty query keeps its `?` marker: `/target?` stays `/target?`, and
+`/target?q=a%20b` keeps its percent escapes. The helper that joins the two
+(`request_target(path, query)`) is crate-internal — `hyperlane::request_target`
+does not compile from outside the crate. HTTP/1.1 falls back to the request
+line's second field, the other protocols to the parsed URI. The attribute key
+is `hyperlane.request.target`, so a client cannot spoof it with a header.
 
 ## Load by task
 
@@ -135,10 +150,11 @@ whose authority disagrees with the `Host` header is refused. The repository's
 | SSE and multi-stage sending | [SSE](references/sse.md) |
 | Release delivery | [Release flow](references/release-bump-flow.md) |
 
-Cached reference pages can lag current source. Reject a claimed path or signature
-when the actual selected package disagrees; do not force code to match the cache.
-For service validation, reclaim task-owned listeners, processes, browser tabs and
-containers on success and failure; verify exact IDs/ports against the baseline.
-Normal euv UI work, generic Cargo/Git tasks and ltpp.vip publication are not this
-entry point. Use [hyperlane-upload](../hyperlane-upload/SKILL.md) only for that
-explicitly selected public hosting destination.
+Cached reference pages can lag current source. Reject a claimed path or
+signature when the actual selected package disagrees; do not force code to
+match the cache. For service validation, reclaim task-owned listeners,
+processes, browser tabs and containers on success and failure; verify exact
+IDs/ports against the baseline. Normal euv UI work, generic Cargo/Git tasks and
+ltpp.vip publication are not this entry point. Use
+[hyperlane-upload](../hyperlane-upload/SKILL.md) only for that explicitly
+selected public hosting destination.
