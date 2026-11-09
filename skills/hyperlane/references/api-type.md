@@ -408,6 +408,12 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`take_read_buffer`** — `pub(crate) fn take_read_buffer(capacity: usize) -> Vec<u8> {...}`
 - `fn` **`return_read_buffer`** — `pub(crate) fn return_read_buffer(buffer: Vec<u8>) {...}`
 
+- `fn` **`take_header_entry`** — `pub(crate) fn take_header_entry() -> Option<(String, VecDeque<String>)> {...}`
+- `fn` **`return_header_entry`** — `pub(crate) fn return_header_entry(entry: (String, VecDeque<String>)) {...}`
+- `fn` **`take_recycled_string`** — `pub(crate) fn take_recycled_string() -> Option<String> {...}`
+- `fn` **`return_recycled_string`** — `pub(crate) fn return_recycled_string(value: String) {...}`
+- `fn` **`poll_once`** — `pub(crate) async fn poll_once<F>(mut future: Pin<&mut F>) -> Option<F::Output> where F: Future, {...}`
+
 ### `stream::impl`
 
 - `fn` **`is_keep_alive`** — `pub fn is_keep_alive(&self, keep_alive: bool) -> bool {...}`
@@ -431,9 +437,14 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `struct` **`Stream`** — `pub struct Stream {`
 - `struct` **`PooledReader`** — `pub(crate) struct PooledReader<'a> {`
 
+- `struct` **`WebSocketReadState`** — `pub(super) struct WebSocketReadState {`
+
 ### `stream::static`
 
 - `static` **`READ_BUFFER_POOL`** — `pub(crate) static READ_BUFFER_POOL: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };`
+
+- `static` **`HEADER_ENTRY_POOL`** — `pub(crate) static HEADER_ENTRY_POOL: RefCell<Vec<(String, VecDeque<String>)>> = const { RefCell::new(Vec::new()) };`
+- `static` **`STRING_POOL`** — `pub(crate) static STRING_POOL: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };`
 
 ### `stream::type`
 
@@ -510,3 +521,16 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 ### `cookie::enum`
 
 - `enum` **`CookieError`** — `pub enum CookieError {`
+
+### `cookie::fn`
+
+- `fn` **`is_cookie_name_valid`** — `pub fn is_cookie_name_valid(name: &str) -> bool {...}`
+- `fn` **`is_cookie_value_valid`** — `pub fn is_cookie_value_valid(value: &str) -> bool {...}`
+- `fn` **`is_cookie_attribute_valid`** — `pub fn is_cookie_attribute_valid(attribute: &str) -> bool {...}`
+- `fn` **`is_control_byte`** — `pub fn is_control_byte(byte: u8) -> bool {...}`
+- `fn` **`is_token_byte`** — `pub fn is_token_byte(byte: u8) -> bool {...}`
+- `fn` **`is_value_terminator`** — `pub fn is_value_terminator(byte: u8) -> bool {...}`
+
+### `response::fn`
+
+- `fn` **`default_content_type`** — `pub(crate) fn default_content_type() -> &'static str {...}`

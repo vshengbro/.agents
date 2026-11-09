@@ -67,16 +67,16 @@ behind one API. It depends on `euv-core` for `Signal` and on `euv-engine` for
 [references/api-chart.md](references/api-chart.md) before using it.
 
 **Check the registry before pinning a version.** The repository's version is not
-the published version. CI syncs member and dependency versions and then publishes
-the workspace members one crate at a time, so a crate added to the workspace is
-not installable by version until its own publish step has run, and the members can
-land on different versions for a while. Resolve what a consumer can actually
-install from the registry, not from `Cargo.toml`: `cargo add euv-chart@<version>`,
-or `curl -s https://crates.io/api/v1/crates/euv-chart`.
+the published version: CI syncs member and dependency versions and then
+publishes the workspace members one crate at a time, so a crate added to the
+workspace is not installable by version until its own publish step has run.
+Resolve what a consumer can actually install from the registry, not from
+`Cargo.toml`: `cargo add euv-chart@<version>`, or
+`curl -s https://crates.io/api/v1/crates/euv-chart`.
 
 Three versions now differ and only the last is installable: the committed tree is
-at `0.34.6`, the local worktree is at `0.34.7` (uncommitted), and every member is
-published at `0.34.2` — `0.34.3` and later are not on crates.io. The committed
+at `0.34.7`, the local worktree is at `0.34.16` (uncommitted), and every member
+is published at `0.34.2` — `0.34.3` and later are not on crates.io. The committed
 root `Cargo.toml` still pins its `[workspace.dependencies]` members at `0.34.2`.
 Re-check the registry rather than trusting this paragraph when it matters.
 
@@ -105,6 +105,13 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to
   Android and desktop dependencies never enter the web framework workspace.
 - The client also gained immersive borderless windows and per-display
   maximum-refresh-rate requests (`native/tauri/src-tauri/apple/display.m`).
+- The client tooling is grouped by responsibility under
+  `native/tauri/scripts/` (`build/`, `cache/`, `config/`, `toolchain/`,
+  `validation/`, `benchmark/`, `tests/`). The CLI resolves the two script
+  paths from `cli/src/bundle/const.rs` — `ANDROID_BUILD_SCRIPT_PATH` is
+  `scripts/build/build.sh` and `BUILD_CLIENT_SCRIPT_PATH` is
+  `build/build-client.js` — so a moved script is a constant change, not a
+  silent failure.
 
 ## What CI runs
 

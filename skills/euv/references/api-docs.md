@@ -96,6 +96,14 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `struct` **`Args`** — `pub(crate) struct Args {`
 - `struct` **`LocaleManifestEntry`** — `pub(crate) struct LocaleManifestEntry {`
 
+### `component::code_block::view::fn`
+
+- `fn` **`docs_code_block`** — `pub(crate) fn docs_code_block(node: VirtualNode<DocsCodeBlockProps>) -> VirtualNode {...}`
+
+### `component::code_block::view::struct`
+
+- `struct` **`DocsCodeBlockProps`** — `pub(crate) struct DocsCodeBlockProps {`
+
 ### `component::doc_page::view::fn`
 
 - `fn` **`docs_main`** — `pub(crate) fn docs_main(node: VirtualNode<DocsPageProps>) -> VirtualNode {...}`
@@ -104,6 +112,10 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 ### `component::doc_page::view::struct`
 
 - `struct` **`DocsPageProps`** — `pub(crate) struct DocsPageProps {`
+
+### `component::header::view::fn`
+
+- `fn` **`docs_header`** — `pub(crate) fn docs_header( locale: &'static DocsLocale, route_signal: Signal<String>, theme_signal: Signal<String>, search_query: Signal<String>, ) -> VirtualNode {...}`
 
 ### `component::home_page::view::fn`
 
@@ -123,10 +135,15 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `fn` **`app`** — `pub(crate) fn app() -> VirtualNode {...}`
 - `fn` **`docs_desktop_shell`** — `pub(crate) fn docs_desktop_shell(node: VirtualNode<DocsShellProps>) -> VirtualNode {...}`
 - `fn` **`docs_mobile_shell`** — `pub(crate) fn docs_mobile_shell(node: VirtualNode<DocsShellProps>) -> VirtualNode {...}`
+- `fn` **`theme_icon_node`** — `pub(crate) fn theme_icon_node(theme_signal: Signal<String>) -> VirtualNode {...}`
 
 ### `component::layout::view::struct`
 
 - `struct` **`DocsShellProps`** — `pub(crate) struct DocsShellProps {`
+
+### `component::markdown::view::fn`
+
+- `fn` **`docs_markdown`** — `pub(crate) fn docs_markdown(blocks: &'static [EuvMdBlock]) -> VirtualNode {...}`
 
 ### `component::not_found::view::fn`
 
@@ -140,3 +157,32 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 ### `component::password_gate::view::struct`
 
 - `struct` **`DocsPasswordGateProps`** — `pub(crate) struct DocsPasswordGateProps {`
+
+### `component::site_footer::view::fn`
+
+- `fn` **`docs_site_footer`** — `pub(crate) fn docs_site_footer(node: VirtualNode<DocsSiteFooterProps>) -> VirtualNode {...}`
+
+### `component::site_footer::view::struct`
+
+- `struct` **`DocsSiteFooterProps`** — `pub(crate) struct DocsSiteFooterProps {`
+
+### `description::fn`
+
+- `fn` **`description_for_slug`** — `pub(crate) fn description_for_slug(slug: &str) -> Option<&'static str> {...}`
+- `fn` **`route_slug`** — `pub(crate) fn route_slug(route: &str) -> &str {...}`
+- `fn` **`description_for_route`** — `pub(crate) fn description_for_route(route: &str) -> Option<&'static str> {...}`
+
+### `highlight::enum`
+
+- `enum` **`CodeTokenKind`** — `pub(crate) enum CodeTokenKind {`
+- `enum` **`CodeLanguage`** — `pub(crate) enum CodeLanguage {`
+
+### `highlight::fn`
+
+- `fn` **`tokenize`** — `pub(crate) fn tokenize(lang: &str, code: &str) -> Vec<CodeToken> {...}`
+- `fn` **`highlighted_html`** — `pub(crate) fn highlighted_html(lang: &str, code: &str) -> String {...}`
+- `fn` **`token_class`** — `pub(crate) fn token_class(kind: CodeTokenKind) -> Option<&'static str> {...}`
+
+### `highlight::struct`
+
+- `struct` **`CodeToken`** — `pub(crate) struct CodeToken {`

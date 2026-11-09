@@ -89,8 +89,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-07T14:31:46.630Z",
-      "skillFolderHash": "997794ff256c7acc538a782f0955125554b4ffa0"
+      "updatedAt": "2026-11-09T15:22:20.933Z",
+      "skillFolderHash": "948b2b9a689840dd01c45b64719944b9bb12437e"
     },
     "euv-engine-renderer-api": {
       "source": "local",
@@ -105,8 +105,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-05T14:50:25.138Z",
-      "skillFolderHash": "8ba30b1b0704f8054ecac0ac83ada226873ada6d"
+      "updatedAt": "2026-11-09T15:16:49.987Z",
+      "skillFolderHash": "2ece7073a503f1099196929f3b0251d37c294942"
     },
     "gh-pr-creation-workflow": {
       "source": "local",
@@ -169,8 +169,8 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-07T14:31:46.630Z",
-      "skillFolderHash": "7bc244ca6227ba73c94f796bd2b559ff5043eb8b"
+      "updatedAt": "2026-11-09T15:22:20.933Z",
+      "skillFolderHash": "a9e096ab3d454466b5d0fc9da0bb42e98216ea44"
     },
     "hyperlane-upload": {
       "source": "local",

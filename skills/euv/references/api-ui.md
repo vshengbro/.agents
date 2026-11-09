@@ -4,6 +4,18 @@ Source: `ui/src/` — auto-extracted from `pub` declarations.
 
 Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `ui/src/lib.rs` `pub use {component::*, hook::*, style::*}`.
 
+**Components are split into parts, not just built as one umbrella.** A
+component the shadcn/ui reference splits into parts exposes each part as its
+own `euv_*` function with its own props struct: a field has its label and
+error parts, an empty state its media and description, a message its title and
+body, a combobox its chip family, a navbar and menubar their menu parts, the
+carousel and calendar theirs, the sidebar its tree, the notification the toast
+provider, and the chart its tooltip and legend. A caller composes them the way
+the reference site does, and the slot names are the reference's own. Five
+parts the framework cannot express are the four portals — there is no portal
+API — and the chart style, which is injected on the root element instead of a
+style element.
+
 ### `dom::fn`
 
 - `fn` **`after_mount`** — `pub(crate) fn after_mount<F>(callback: F) where F: FnOnce() + 'static, {...}`
@@ -559,6 +571,19 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `fn` **`scheme_class_name`** — `pub fn scheme_class_name() -> &'static str {...}`
 - `fn` **`scheme_name`** — `pub fn scheme_name() -> &'static str {...}`
 
+### `component::accordion::view::enum`
+
+- `enum` **`EuvAccordionType`** — `pub enum EuvAccordionType {`
+
+### `component::accordion::view::fn`
+
+- `fn` **`euv_accordion`** — `pub fn euv_accordion(node: VirtualNode<EuvAccordionProps>) -> VirtualNode {...}`
+
+### `component::accordion::view::struct`
+
+- `struct` **`EuvAccordionItem`** — `pub struct EuvAccordionItem {`
+- `struct` **`EuvAccordionProps`** — `pub struct EuvAccordionProps {`
+
 ### `component::affix::view::fn`
 
 - `fn` **`euv_affix`** — `pub fn euv_affix(node: VirtualNode<EuvAffixProps>) -> VirtualNode {...}`
@@ -579,6 +604,32 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvAlertProps`** — `pub struct EuvAlertProps {`
 
+### `component::alert_dialog::view::fn`
+
+- `fn` **`euv_alert_dialog`** — `pub fn euv_alert_dialog(node: VirtualNode<EuvAlertDialogProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_trigger`** — `pub fn euv_alert_dialog_trigger(node: VirtualNode<EuvAlertDialogTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_overlay`** — `pub fn euv_alert_dialog_overlay(node: VirtualNode<EuvAlertDialogOverlayProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_content`** — `pub fn euv_alert_dialog_content(node: VirtualNode<EuvAlertDialogContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_header`** — `pub fn euv_alert_dialog_header(node: VirtualNode<EuvAlertDialogHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_footer`** — `pub fn euv_alert_dialog_footer(node: VirtualNode<EuvAlertDialogFooterProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_title`** — `pub fn euv_alert_dialog_title(node: VirtualNode<EuvAlertDialogTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_description`** — `pub fn euv_alert_dialog_description( node: VirtualNode<EuvAlertDialogDescriptionProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_action`** — `pub fn euv_alert_dialog_action(node: VirtualNode<EuvAlertDialogActionProps>) -> VirtualNode {...}`
+- `fn` **`euv_alert_dialog_cancel`** — `pub fn euv_alert_dialog_cancel(node: VirtualNode<EuvAlertDialogCancelProps>) -> VirtualNode {...}`
+
+### `component::alert_dialog::view::struct`
+
+- `struct` **`EuvAlertDialogProps`** — `pub struct EuvAlertDialogProps {`
+- `struct` **`EuvAlertDialogTriggerProps`** — `pub struct EuvAlertDialogTriggerProps {`
+- `struct` **`EuvAlertDialogOverlayProps`** — `pub struct EuvAlertDialogOverlayProps {`
+- `struct` **`EuvAlertDialogContentProps`** — `pub struct EuvAlertDialogContentProps {`
+- `struct` **`EuvAlertDialogHeaderProps`** — `pub struct EuvAlertDialogHeaderProps {`
+- `struct` **`EuvAlertDialogFooterProps`** — `pub struct EuvAlertDialogFooterProps {`
+- `struct` **`EuvAlertDialogTitleProps`** — `pub struct EuvAlertDialogTitleProps {`
+- `struct` **`EuvAlertDialogDescriptionProps`** — `pub struct EuvAlertDialogDescriptionProps {`
+- `struct` **`EuvAlertDialogActionProps`** — `pub struct EuvAlertDialogActionProps {`
+- `struct` **`EuvAlertDialogCancelProps`** — `pub struct EuvAlertDialogCancelProps {`
+
 ### `component::anchor::view::fn`
 
 - `fn` **`euv_anchor`** — `pub fn euv_anchor(node: VirtualNode<EuvAnchorProps>) -> VirtualNode {...}`
@@ -587,6 +638,45 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvAnchorItem`** — `pub struct EuvAnchorItem {`
 - `struct` **`EuvAnchorProps`** — `pub struct EuvAnchorProps {`
+
+### `component::aspect_ratio::view::fn`
+
+- `fn` **`euv_aspect_ratio`** — `pub fn euv_aspect_ratio(node: VirtualNode<EuvAspectRatioProps>) -> VirtualNode {...}`
+
+### `component::aspect_ratio::view::struct`
+
+- `struct` **`EuvAspectRatioProps`** — `pub struct EuvAspectRatioProps {`
+
+### `component::attachment::view::enum`
+
+- `enum` **`EuvAttachmentState`** — `pub enum EuvAttachmentState {`
+- `enum` **`EuvAttachmentSize`** — `pub enum EuvAttachmentSize {`
+- `enum` **`EuvAttachmentOrientation`** — `pub enum EuvAttachmentOrientation {`
+- `enum` **`EuvAttachmentMediaVariant`** — `pub enum EuvAttachmentMediaVariant {`
+
+### `component::attachment::view::fn`
+
+- `fn` **`euv_attachment`** — `pub fn euv_attachment(node: VirtualNode<EuvAttachmentProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_media`** — `pub fn euv_attachment_media(node: VirtualNode<EuvAttachmentMediaProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_content`** — `pub fn euv_attachment_content(node: VirtualNode<EuvAttachmentContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_title`** — `pub fn euv_attachment_title(node: VirtualNode<EuvAttachmentTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_description`** — `pub fn euv_attachment_description(node: VirtualNode<EuvAttachmentDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_actions`** — `pub fn euv_attachment_actions(node: VirtualNode<EuvAttachmentActionsProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_action`** — `pub fn euv_attachment_action(node: VirtualNode<EuvAttachmentActionProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_trigger`** — `pub fn euv_attachment_trigger(node: VirtualNode<EuvAttachmentTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_attachment_group`** — `pub fn euv_attachment_group(node: VirtualNode<EuvAttachmentGroupProps>) -> VirtualNode {...}`
+
+### `component::attachment::view::struct`
+
+- `struct` **`EuvAttachmentProps`** — `pub struct EuvAttachmentProps {`
+- `struct` **`EuvAttachmentMediaProps`** — `pub struct EuvAttachmentMediaProps {`
+- `struct` **`EuvAttachmentContentProps`** — `pub struct EuvAttachmentContentProps {`
+- `struct` **`EuvAttachmentTitleProps`** — `pub struct EuvAttachmentTitleProps {`
+- `struct` **`EuvAttachmentDescriptionProps`** — `pub struct EuvAttachmentDescriptionProps {`
+- `struct` **`EuvAttachmentActionsProps`** — `pub struct EuvAttachmentActionsProps {`
+- `struct` **`EuvAttachmentActionProps`** — `pub struct EuvAttachmentActionProps {`
+- `struct` **`EuvAttachmentTriggerProps`** — `pub struct EuvAttachmentTriggerProps {`
+- `struct` **`EuvAttachmentGroupProps`** — `pub struct EuvAttachmentGroupProps {`
 
 ### `component::auto_complete::view::fn`
 
@@ -622,6 +712,10 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::back_top::view::struct`
 
 - `struct` **`EuvBackTopProps`** — `pub struct EuvBackTopProps {`
+
+### `component::badge::view::enum`
+
+- `enum` **`EuvBadgeVariant`** — `pub enum EuvBadgeVariant {`
 
 ### `component::badge::view::fn`
 
@@ -674,17 +768,56 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`UseEuvBrowser`** — `pub struct UseEuvBrowser {`
 
+### `component::bubble::view::enum`
+
+- `enum` **`EuvBubbleVariant`** — `pub enum EuvBubbleVariant {`
+- `enum` **`EuvBubbleAlign`** — `pub enum EuvBubbleAlign {`
+- `enum` **`EuvBubbleSide`** — `pub enum EuvBubbleSide {`
+
+### `component::bubble::view::fn`
+
+- `fn` **`euv_bubble_group`** — `pub fn euv_bubble_group(node: VirtualNode<EuvBubbleGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_bubble`** — `pub fn euv_bubble(node: VirtualNode<EuvBubbleProps>) -> VirtualNode {...}`
+- `fn` **`euv_bubble_content`** — `pub fn euv_bubble_content(node: VirtualNode<EuvBubbleContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_bubble_reactions`** — `pub fn euv_bubble_reactions(node: VirtualNode<EuvBubbleReactionsProps>) -> VirtualNode {...}`
+
+### `component::bubble::view::struct`
+
+- `struct` **`EuvBubbleProps`** — `pub struct EuvBubbleProps {`
+- `struct` **`EuvBubbleGroupProps`** — `pub struct EuvBubbleGroupProps {`
+- `struct` **`EuvBubbleContentProps`** — `pub struct EuvBubbleContentProps {`
+- `struct` **`EuvBubbleReactionsProps`** — `pub struct EuvBubbleReactionsProps {`
+
 ### `component::button::view::enum`
 
 - `enum` **`EuvButtonVariant`** — `pub enum EuvButtonVariant {`
+- `enum` **`EuvButtonSize`** — `pub enum EuvButtonSize {`
 
 ### `component::button::view::fn`
 
 - `fn` **`euv_button`** — `pub fn euv_button(node: VirtualNode<EuvButtonProps>) -> VirtualNode {...}`
+- `fn` **`button_class`** — `pub(crate) fn button_class(variant: EuvButtonVariant, size: EuvButtonSize) -> String {...}`
 
 ### `component::button::view::struct`
 
 - `struct` **`EuvButtonProps`** — `pub struct EuvButtonProps {`
+
+### `component::button_group::view::enum`
+
+- `enum` **`EuvButtonGroupOrientation`** — `pub enum EuvButtonGroupOrientation {`
+- `enum` **`EuvButtonGroupSeparatorOrientation`** — `pub enum EuvButtonGroupSeparatorOrientation {`
+
+### `component::button_group::view::fn`
+
+- `fn` **`euv_button_group`** — `pub fn euv_button_group(node: VirtualNode<EuvButtonGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_button_group_text`** — `pub fn euv_button_group_text(node: VirtualNode<EuvButtonGroupTextProps>) -> VirtualNode {...}`
+- `fn` **`euv_button_group_separator`** — `pub fn euv_button_group_separator(node: VirtualNode<EuvButtonGroupSeparatorProps>) -> VirtualNode {...}`
+
+### `component::button_group::view::struct`
+
+- `struct` **`EuvButtonGroupProps`** — `pub struct EuvButtonGroupProps {`
+- `struct` **`EuvButtonGroupTextProps`** — `pub struct EuvButtonGroupTextProps {`
+- `struct` **`EuvButtonGroupSeparatorProps`** — `pub struct EuvButtonGroupSeparatorProps {`
 
 ### `component::calendar::view::enum`
 
@@ -693,11 +826,13 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::calendar::view::fn`
 
 - `fn` **`euv_calendar`** — `pub fn euv_calendar(node: VirtualNode<EuvCalendarProps>) -> VirtualNode {...}`
+- `fn` **`euv_calendar_day_button`** — `pub fn euv_calendar_day_button(node: VirtualNode<EuvCalendarDayButtonProps>) -> VirtualNode {...}`
 - `fn` **`on_calendar_day_click`** — `pub fn on_calendar_day_click(selected: Signal<u32>, day: u32) -> Option<Rc<dyn Fn(Event)>> {...}`
 
 ### `component::calendar::view::struct`
 
 - `struct` **`EuvCalendarDay`** — `pub struct EuvCalendarDay {`
+- `struct` **`EuvCalendarDayButtonProps`** — `pub struct EuvCalendarDayButtonProps {`
 - `struct` **`EuvCalendarProps`** — `pub struct EuvCalendarProps {`
 
 ### `component::camera::hook::enum`
@@ -740,13 +875,25 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvCardProps`** — `pub struct EuvCardProps {`
 
+### `component::carousel::view::enum`
+
+- `enum` **`EuvCarouselOrientation`** — `pub enum EuvCarouselOrientation {`
+
 ### `component::carousel::view::fn`
 
 - `fn` **`euv_carousel`** — `pub fn euv_carousel(node: VirtualNode<EuvCarouselProps>) -> VirtualNode {...}`
+- `fn` **`euv_carousel_content`** — `pub fn euv_carousel_content(node: VirtualNode<EuvCarouselContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_carousel_item`** — `pub fn euv_carousel_item(node: VirtualNode<EuvCarouselItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_carousel_next`** — `pub fn euv_carousel_next(node: VirtualNode<EuvCarouselNextProps>) -> VirtualNode {...}`
+- `fn` **`euv_carousel_previous`** — `pub fn euv_carousel_previous(node: VirtualNode<EuvCarouselPreviousProps>) -> VirtualNode {...}`
 
 ### `component::carousel::view::struct`
 
 - `struct` **`EuvCarouselSlide`** — `pub struct EuvCarouselSlide {`
+- `struct` **`EuvCarouselContentProps`** — `pub struct EuvCarouselContentProps {`
+- `struct` **`EuvCarouselItemProps`** — `pub struct EuvCarouselItemProps {`
+- `struct` **`EuvCarouselNextProps`** — `pub struct EuvCarouselNextProps {`
+- `struct` **`EuvCarouselPreviousProps`** — `pub struct EuvCarouselPreviousProps {`
 - `struct` **`EuvCarouselProps`** — `pub struct EuvCarouselProps {`
 
 ### `component::cascader::view::fn`
@@ -761,6 +908,30 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvCascaderOption`** — `pub struct EuvCascaderOption {`
 - `struct` **`EuvCascaderProps`** — `pub struct EuvCascaderProps {`
+
+### `component::chart::view::fn`
+
+- `fn` **`euv_chart`** — `pub fn euv_chart(node: VirtualNode<EuvChartProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_container`** — `pub fn euv_chart_container(node: VirtualNode<EuvChartContainerProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_tooltip`** — `pub fn euv_chart_tooltip(node: VirtualNode<EuvChartTooltipProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_tooltip_label`** — `pub fn euv_chart_tooltip_label(node: VirtualNode<EuvChartTooltipLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_tooltip_content`** — `pub fn euv_chart_tooltip_content(node: VirtualNode<EuvChartTooltipContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_tooltip_item`** — `pub fn euv_chart_tooltip_item(node: VirtualNode<EuvChartTooltipItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_legend`** — `pub fn euv_chart_legend(node: VirtualNode<EuvChartLegendProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_legend_item`** — `pub fn euv_chart_legend_item(node: VirtualNode<EuvChartLegendItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_chart_legend_content`** — `pub fn euv_chart_legend_content(node: VirtualNode<EuvChartLegendContentProps>) -> VirtualNode {...}`
+
+### `component::chart::view::struct`
+
+- `struct` **`EuvChartProps`** — `pub struct EuvChartProps {`
+- `struct` **`EuvChartTooltipItemProps`** — `pub struct EuvChartTooltipItemProps {`
+- `struct` **`EuvChartLegendItemProps`** — `pub struct EuvChartLegendItemProps {`
+- `struct` **`EuvChartTooltipProps`** — `pub struct EuvChartTooltipProps {`
+- `struct` **`EuvChartTooltipLabelProps`** — `pub struct EuvChartTooltipLabelProps {`
+- `struct` **`EuvChartLegendProps`** — `pub struct EuvChartLegendProps {`
+- `struct` **`EuvChartContainerProps`** — `pub struct EuvChartContainerProps {`
+- `struct` **`EuvChartTooltipContentProps`** — `pub struct EuvChartTooltipContentProps {`
+- `struct` **`EuvChartLegendContentProps`** — `pub struct EuvChartLegendContentProps {`
 
 ### `component::checkbox::view::fn`
 
@@ -779,6 +950,34 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvCheckboxGroupOption`** — `pub struct EuvCheckboxGroupOption {`
 - `struct` **`EuvCheckboxGroupProps`** — `pub struct EuvCheckboxGroupProps {`
 
+### `component::code_block::view::enum`
+
+- `enum` **`EuvCodeBlockVariant`** — `pub enum EuvCodeBlockVariant {`
+- `enum` **`EuvCodeBlockSize`** — `pub enum EuvCodeBlockSize {`
+- `enum` **`EuvCodeBlockLineVariant`** — `pub enum EuvCodeBlockLineVariant {`
+
+### `component::code_block::view::fn`
+
+- `fn` **`euv_code_block`** — `pub fn euv_code_block(node: VirtualNode<EuvCodeBlockProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_header`** — `pub fn euv_code_block_header(node: VirtualNode<EuvCodeBlockHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_title`** — `pub fn euv_code_block_title(node: VirtualNode<EuvCodeBlockTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_actions`** — `pub fn euv_code_block_actions(node: VirtualNode<EuvCodeBlockActionsProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_copy_button`** — `pub fn euv_code_block_copy_button(node: VirtualNode<EuvCodeBlockCopyButtonProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_content`** — `pub fn euv_code_block_content(node: VirtualNode<EuvCodeBlockContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_line`** — `pub fn euv_code_block_line(node: VirtualNode<EuvCodeBlockLineProps>) -> VirtualNode {...}`
+- `fn` **`euv_code_block_footer`** — `pub fn euv_code_block_footer(node: VirtualNode<EuvCodeBlockFooterProps>) -> VirtualNode {...}`
+
+### `component::code_block::view::struct`
+
+- `struct` **`EuvCodeBlockProps`** — `pub struct EuvCodeBlockProps {`
+- `struct` **`EuvCodeBlockHeaderProps`** — `pub struct EuvCodeBlockHeaderProps {`
+- `struct` **`EuvCodeBlockTitleProps`** — `pub struct EuvCodeBlockTitleProps {`
+- `struct` **`EuvCodeBlockActionsProps`** — `pub struct EuvCodeBlockActionsProps {`
+- `struct` **`EuvCodeBlockCopyButtonProps`** — `pub struct EuvCodeBlockCopyButtonProps {`
+- `struct` **`EuvCodeBlockContentProps`** — `pub struct EuvCodeBlockContentProps {`
+- `struct` **`EuvCodeBlockLineProps`** — `pub struct EuvCodeBlockLineProps {`
+- `struct` **`EuvCodeBlockFooterProps`** — `pub struct EuvCodeBlockFooterProps {`
+
 ### `component::collapse::view::fn`
 
 - `fn` **`euv_collapse`** — `pub fn euv_collapse(node: VirtualNode<EuvCollapseProps>) -> VirtualNode {...}`
@@ -787,6 +986,102 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvCollapseItem`** — `pub struct EuvCollapseItem {`
 - `struct` **`EuvCollapseProps`** — `pub struct EuvCollapseProps {`
+
+### `component::collapsible::view::fn`
+
+- `fn` **`euv_collapsible`** — `pub fn euv_collapsible(node: VirtualNode<EuvCollapsibleProps>) -> VirtualNode {...}`
+- `fn` **`euv_collapsible_trigger`** — `pub fn euv_collapsible_trigger(node: VirtualNode<EuvCollapsibleTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_collapsible_content`** — `pub fn euv_collapsible_content(node: VirtualNode<EuvCollapsibleContentProps>) -> VirtualNode {...}`
+
+### `component::collapsible::view::struct`
+
+- `struct` **`EuvCollapsibleProps`** — `pub struct EuvCollapsibleProps {`
+- `struct` **`EuvCollapsibleTriggerProps`** — `pub struct EuvCollapsibleTriggerProps {`
+- `struct` **`EuvCollapsibleContentProps`** — `pub struct EuvCollapsibleContentProps {`
+
+### `component::combobox::view::fn`
+
+- `fn` **`euv_combobox`** — `pub fn euv_combobox(node: VirtualNode<EuvComboboxProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_chips`** — `pub fn euv_combobox_chips(node: VirtualNode<EuvComboboxChipsProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_chip_list`** — `pub fn euv_combobox_chip_list(node: VirtualNode<EuvComboboxChipListProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_chip`** — `pub fn euv_combobox_chip(node: VirtualNode<EuvComboboxChipProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_chips_input`** — `pub fn euv_combobox_chips_input(node: VirtualNode<EuvComboboxChipsInputProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_value`** — `pub fn euv_combobox_value(node: VirtualNode<EuvComboboxValueProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_trigger`** — `pub fn euv_combobox_trigger(node: VirtualNode<EuvComboboxTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_input`** — `pub fn euv_combobox_input(node: VirtualNode<EuvComboboxInputProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_content`** — `pub fn euv_combobox_content(node: VirtualNode<EuvComboboxContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_list`** — `pub fn euv_combobox_list(node: VirtualNode<EuvComboboxListProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_item`** — `pub fn euv_combobox_item(node: VirtualNode<EuvComboboxItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_group`** — `pub fn euv_combobox_group(node: VirtualNode<EuvComboboxGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_label`** — `pub fn euv_combobox_label(node: VirtualNode<EuvComboboxLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_empty`** — `pub fn euv_combobox_empty(node: VirtualNode<EuvComboboxEmptyProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_separator`** — `pub fn euv_combobox_separator(node: VirtualNode<EuvComboboxSeparatorProps>) -> VirtualNode {...}`
+- `fn` **`euv_combobox_clear`** — `pub fn euv_combobox_clear(node: VirtualNode<EuvComboboxClearProps>) -> VirtualNode {...}`
+
+### `component::combobox::view::struct`
+
+- `struct` **`EuvComboboxProps`** — `pub struct EuvComboboxProps {`
+- `struct` **`EuvComboboxTriggerProps`** — `pub struct EuvComboboxTriggerProps {`
+- `struct` **`EuvComboboxInputProps`** — `pub struct EuvComboboxInputProps {`
+- `struct` **`EuvComboboxContentProps`** — `pub struct EuvComboboxContentProps {`
+- `struct` **`EuvComboboxListProps`** — `pub struct EuvComboboxListProps {`
+- `struct` **`EuvComboboxItemProps`** — `pub struct EuvComboboxItemProps {`
+- `struct` **`EuvComboboxGroupProps`** — `pub struct EuvComboboxGroupProps {`
+- `struct` **`EuvComboboxLabelProps`** — `pub struct EuvComboboxLabelProps {`
+- `struct` **`EuvComboboxEmptyProps`** — `pub struct EuvComboboxEmptyProps {`
+- `struct` **`EuvComboboxSeparatorProps`** — `pub struct EuvComboboxSeparatorProps {`
+- `struct` **`EuvComboboxClearProps`** — `pub struct EuvComboboxClearProps {`
+- `struct` **`EuvComboboxChipsProps`** — `pub struct EuvComboboxChipsProps {`
+- `struct` **`EuvComboboxChipListProps`** — `pub struct EuvComboboxChipListProps {`
+- `struct` **`EuvComboboxChipProps`** — `pub struct EuvComboboxChipProps {`
+- `struct` **`EuvComboboxChipsInputProps`** — `pub struct EuvComboboxChipsInputProps {`
+- `struct` **`EuvComboboxValueProps`** — `pub struct EuvComboboxValueProps {`
+
+### `component::command::view::fn`
+
+- `fn` **`euv_command`** — `pub fn euv_command(node: VirtualNode<EuvCommandProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_input`** — `pub fn euv_command_input(node: VirtualNode<EuvCommandInputProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_list`** — `pub fn euv_command_list(node: VirtualNode<EuvCommandListProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_empty`** — `pub fn euv_command_empty(node: VirtualNode<EuvCommandEmptyProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_group`** — `pub fn euv_command_group(node: VirtualNode<EuvCommandGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_item`** — `pub fn euv_command_item(node: VirtualNode<EuvCommandItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_separator`** — `pub fn euv_command_separator(node: VirtualNode<EuvCommandSeparatorProps>) -> VirtualNode {...}`
+- `fn` **`euv_command_shortcut`** — `pub fn euv_command_shortcut(node: VirtualNode<EuvCommandShortcutProps>) -> VirtualNode {...}`
+
+### `component::command::view::struct`
+
+- `struct` **`EuvCommandProps`** — `pub struct EuvCommandProps {`
+- `struct` **`EuvCommandInputProps`** — `pub struct EuvCommandInputProps {`
+- `struct` **`EuvCommandListProps`** — `pub struct EuvCommandListProps {`
+- `struct` **`EuvCommandEmptyProps`** — `pub struct EuvCommandEmptyProps {`
+- `struct` **`EuvCommandGroupProps`** — `pub struct EuvCommandGroupProps {`
+- `struct` **`EuvCommandItemProps`** — `pub struct EuvCommandItemProps {`
+- `struct` **`EuvCommandSeparatorProps`** — `pub struct EuvCommandSeparatorProps {`
+- `struct` **`EuvCommandShortcutProps`** — `pub struct EuvCommandShortcutProps {`
+
+### `component::context_menu::view::fn`
+
+- `fn` **`euv_context_menu`** — `pub fn euv_context_menu(node: VirtualNode<EuvContextMenuProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_trigger`** — `pub fn euv_context_menu_trigger(node: VirtualNode<EuvContextMenuTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_content`** — `pub fn euv_context_menu_content(node: VirtualNode<EuvContextMenuContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_item`** — `pub fn euv_context_menu_item(node: VirtualNode<EuvContextMenuItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_checkbox_item`** — `pub fn euv_context_menu_checkbox_item( node: VirtualNode<EuvContextMenuCheckboxItemProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_radio_item`** — `pub fn euv_context_menu_radio_item(node: VirtualNode<EuvContextMenuRadioItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_label`** — `pub fn euv_context_menu_label(node: VirtualNode<EuvContextMenuLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_separator`** — `pub fn euv_context_menu_separator(node: VirtualNode<EuvContextMenuSeparatorProps>) -> VirtualNode {...}`
+- `fn` **`euv_context_menu_shortcut`** — `pub fn euv_context_menu_shortcut(node: VirtualNode<EuvContextMenuShortcutProps>) -> VirtualNode {...}`
+
+### `component::context_menu::view::struct`
+
+- `struct` **`EuvContextMenuProps`** — `pub struct EuvContextMenuProps {`
+- `struct` **`EuvContextMenuTriggerProps`** — `pub struct EuvContextMenuTriggerProps {`
+- `struct` **`EuvContextMenuContentProps`** — `pub struct EuvContextMenuContentProps {`
+- `struct` **`EuvContextMenuItemProps`** — `pub struct EuvContextMenuItemProps {`
+- `struct` **`EuvContextMenuCheckboxItemProps`** — `pub struct EuvContextMenuCheckboxItemProps {`
+- `struct` **`EuvContextMenuRadioItemProps`** — `pub struct EuvContextMenuRadioItemProps {`
+- `struct` **`EuvContextMenuLabelProps`** — `pub struct EuvContextMenuLabelProps {`
+- `struct` **`EuvContextMenuSeparatorProps`** — `pub struct EuvContextMenuSeparatorProps {`
+- `struct` **`EuvContextMenuShortcutProps`** — `pub struct EuvContextMenuShortcutProps {`
 
 ### `component::date_picker::view::fn`
 
@@ -839,6 +1134,20 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvDescriptionsItem`** — `pub struct EuvDescriptionsItem {`
 - `struct` **`EuvDescriptionsProps`** — `pub struct EuvDescriptionsProps {`
 
+### `component::direction::view::enum`
+
+- `enum` **`EuvDirection`** — `pub enum EuvDirection {`
+
+### `component::direction::view::fn`
+
+- `fn` **`euv_direction`** — `pub fn euv_direction(node: VirtualNode<EuvDirectionProps>) -> VirtualNode {...}`
+- `fn` **`euv_direction_provider`** — `pub fn euv_direction_provider(node: VirtualNode<EuvDirectionProviderProps>) -> VirtualNode {...}`
+
+### `component::direction::view::struct`
+
+- `struct` **`EuvDirectionProps`** — `pub struct EuvDirectionProps {`
+- `struct` **`EuvDirectionProviderProps`** — `pub struct EuvDirectionProviderProps {`
+
 ### `component::divider::view::enum`
 
 - `enum` **`EuvDividerOrientation`** — `pub enum EuvDividerOrientation {`
@@ -862,27 +1171,65 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::drawer::view::fn`
 
 - `fn` **`euv_drawer`** — `pub fn euv_drawer(node: VirtualNode<EuvDrawerProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_trigger`** — `pub fn euv_drawer_trigger(node: VirtualNode<EuvDrawerTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_content`** — `pub fn euv_drawer_content(node: VirtualNode<EuvDrawerContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_header`** — `pub fn euv_drawer_header(node: VirtualNode<EuvDrawerHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_footer`** — `pub fn euv_drawer_footer(node: VirtualNode<EuvDrawerFooterProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_title`** — `pub fn euv_drawer_title(node: VirtualNode<EuvDrawerTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_description`** — `pub fn euv_drawer_description(node: VirtualNode<EuvDrawerDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_close`** — `pub fn euv_drawer_close(node: VirtualNode<EuvDrawerCloseProps>) -> VirtualNode {...}`
+- `fn` **`euv_drawer_overlay`** — `pub fn euv_drawer_overlay(node: VirtualNode<EuvDrawerOverlayProps>) -> VirtualNode {...}`
 
 ### `component::drawer::view::struct`
 
 - `struct` **`EuvDrawerProps`** — `pub struct EuvDrawerProps {`
+- `struct` **`EuvDrawerTriggerProps`** — `pub struct EuvDrawerTriggerProps {`
+- `struct` **`EuvDrawerContentProps`** — `pub struct EuvDrawerContentProps {`
+- `struct` **`EuvDrawerCloseProps`** — `pub struct EuvDrawerCloseProps {`
+- `struct` **`EuvDrawerHeaderProps`** — `pub struct EuvDrawerHeaderProps {`
+- `struct` **`EuvDrawerFooterProps`** — `pub struct EuvDrawerFooterProps {`
+- `struct` **`EuvDrawerTitleProps`** — `pub struct EuvDrawerTitleProps {`
+- `struct` **`EuvDrawerDescriptionProps`** — `pub struct EuvDrawerDescriptionProps {`
+- `struct` **`EuvDrawerOverlayProps`** — `pub struct EuvDrawerOverlayProps {`
 
 ### `component::dropdown::view::fn`
 
 - `fn` **`euv_dropdown`** — `pub fn euv_dropdown(node: VirtualNode<EuvDropdownProps>) -> VirtualNode {...}`
+- `fn` **`euv_dropdown_menu_item`** — `pub fn euv_dropdown_menu_item(node: VirtualNode<EuvDropdownMenuItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_dropdown_menu_label`** — `pub fn euv_dropdown_menu_label(node: VirtualNode<EuvDropdownMenuLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_dropdown_menu_separator`** — `pub fn euv_dropdown_menu_separator( node: VirtualNode<EuvDropdownMenuSeparatorProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_dropdown_menu_shortcut`** — `pub fn euv_dropdown_menu_shortcut(node: VirtualNode<EuvDropdownMenuShortcutProps>) -> VirtualNode {...}`
 
 ### `component::dropdown::view::struct`
 
 - `struct` **`EuvDropdownItem`** — `pub struct EuvDropdownItem {`
 - `struct` **`EuvDropdownProps`** — `pub struct EuvDropdownProps {`
+- `struct` **`EuvDropdownMenuItemProps`** — `pub struct EuvDropdownMenuItemProps {`
+- `struct` **`EuvDropdownMenuLabelProps`** — `pub struct EuvDropdownMenuLabelProps {`
+- `struct` **`EuvDropdownMenuSeparatorProps`** — `pub struct EuvDropdownMenuSeparatorProps {`
+- `struct` **`EuvDropdownMenuShortcutProps`** — `pub struct EuvDropdownMenuShortcutProps {`
+
+### `component::empty::view::enum`
+
+- `enum` **`EuvEmptyMediaVariant`** — `pub enum EuvEmptyMediaVariant {`
 
 ### `component::empty::view::fn`
 
 - `fn` **`euv_empty`** — `pub fn euv_empty(node: VirtualNode<EuvEmptyProps>) -> VirtualNode {...}`
+- `fn` **`euv_empty_header`** — `pub fn euv_empty_header(node: VirtualNode<EuvEmptyHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_empty_media`** — `pub fn euv_empty_media(node: VirtualNode<EuvEmptyMediaProps>) -> VirtualNode {...}`
+- `fn` **`euv_empty_title`** — `pub fn euv_empty_title(node: VirtualNode<EuvEmptyTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_empty_description`** — `pub fn euv_empty_description(node: VirtualNode<EuvEmptyDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_empty_content`** — `pub fn euv_empty_content(node: VirtualNode<EuvEmptyContentProps>) -> VirtualNode {...}`
 
 ### `component::empty::view::struct`
 
 - `struct` **`EuvEmptyProps`** — `pub struct EuvEmptyProps {`
+- `struct` **`EuvEmptyHeaderProps`** — `pub struct EuvEmptyHeaderProps {`
+- `struct` **`EuvEmptyMediaProps`** — `pub struct EuvEmptyMediaProps {`
+- `struct` **`EuvEmptyTitleProps`** — `pub struct EuvEmptyTitleProps {`
+- `struct` **`EuvEmptyDescriptionProps`** — `pub struct EuvEmptyDescriptionProps {`
+- `struct` **`EuvEmptyContentProps`** — `pub struct EuvEmptyContentProps {`
 
 ### `component::feature_grid::view::fn`
 
@@ -893,13 +1240,36 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvFeature`** — `pub struct EuvFeature {`
 - `struct` **`EuvFeatureGridProps`** — `pub struct EuvFeatureGridProps {`
 
+### `component::field::view::enum`
+
+- `enum` **`EuvFieldOrientation`** — `pub enum EuvFieldOrientation {`
+- `enum` **`EuvFieldLegendVariant`** — `pub enum EuvFieldLegendVariant {`
+
 ### `component::field::view::fn`
 
 - `fn` **`euv_field`** — `pub fn euv_field(node: VirtualNode<EuvFieldProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_set`** — `pub fn euv_field_set(node: VirtualNode<EuvFieldSetProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_legend`** — `pub fn euv_field_legend(node: VirtualNode<EuvFieldLegendProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_group`** — `pub fn euv_field_group(node: VirtualNode<EuvFieldGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_content`** — `pub fn euv_field_content(node: VirtualNode<EuvFieldContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_label`** — `pub fn euv_field_label(node: VirtualNode<EuvFieldLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_title`** — `pub fn euv_field_title(node: VirtualNode<EuvFieldTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_description`** — `pub fn euv_field_description(node: VirtualNode<EuvFieldDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_error`** — `pub fn euv_field_error(node: VirtualNode<EuvFieldErrorProps>) -> VirtualNode {...}`
+- `fn` **`euv_field_separator`** — `pub fn euv_field_separator(node: VirtualNode<EuvFieldSeparatorProps>) -> VirtualNode {...}`
 
 ### `component::field::view::struct`
 
 - `struct` **`EuvFieldProps`** — `pub struct EuvFieldProps {`
+- `struct` **`EuvFieldSetProps`** — `pub struct EuvFieldSetProps {`
+- `struct` **`EuvFieldLegendProps`** — `pub struct EuvFieldLegendProps {`
+- `struct` **`EuvFieldGroupProps`** — `pub struct EuvFieldGroupProps {`
+- `struct` **`EuvFieldContentProps`** — `pub struct EuvFieldContentProps {`
+- `struct` **`EuvFieldLabelProps`** — `pub struct EuvFieldLabelProps {`
+- `struct` **`EuvFieldTitleProps`** — `pub struct EuvFieldTitleProps {`
+- `struct` **`EuvFieldDescriptionProps`** — `pub struct EuvFieldDescriptionProps {`
+- `struct` **`EuvFieldErrorProps`** — `pub struct EuvFieldErrorProps {`
+- `struct` **`EuvFieldSeparatorProps`** — `pub struct EuvFieldSeparatorProps {`
 
 ### `component::footer::view::fn`
 
@@ -913,10 +1283,14 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::form::view::fn`
 
 - `fn` **`euv_form`** — `pub fn euv_form(node: VirtualNode<EuvFormProps>) -> VirtualNode {...}`
+- `fn` **`euv_form_field`** — `pub fn euv_form_field(node: VirtualNode<EuvFormFieldProps>) -> VirtualNode {...}`
+- `fn` **`euv_form_item`** — `pub fn euv_form_item(node: VirtualNode<EuvFormItemProps>) -> VirtualNode {...}`
 
 ### `component::form::view::struct`
 
 - `struct` **`EuvFormProps`** — `pub struct EuvFormProps {`
+- `struct` **`EuvFormFieldProps`** — `pub struct EuvFormFieldProps {`
+- `struct` **`EuvFormItemProps`** — `pub struct EuvFormItemProps {`
 
 ### `component::grid::view::fn`
 
@@ -945,6 +1319,18 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvHeroAction`** — `pub struct EuvHeroAction {`
 - `struct` **`EuvHeroProps`** — `pub struct EuvHeroProps {`
 - `struct` **`EuvHeroActionProps`** — `pub struct EuvHeroActionProps {`
+
+### `component::hover_card::view::fn`
+
+- `fn` **`euv_hover_card`** — `pub fn euv_hover_card(node: VirtualNode<EuvHoverCardProps>) -> VirtualNode {...}`
+- `fn` **`euv_hover_card_trigger`** — `pub fn euv_hover_card_trigger(node: VirtualNode<EuvHoverCardTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_hover_card_content`** — `pub fn euv_hover_card_content(node: VirtualNode<EuvHoverCardContentProps>) -> VirtualNode {...}`
+
+### `component::hover_card::view::struct`
+
+- `struct` **`EuvHoverCardProps`** — `pub struct EuvHoverCardProps {`
+- `struct` **`EuvHoverCardTriggerProps`** — `pub struct EuvHoverCardTriggerProps {`
+- `struct` **`EuvHoverCardContentProps`** — `pub struct EuvHoverCardContentProps {`
 
 ### `component::icon::view::enum`
 
@@ -1002,6 +1388,86 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::input::view::struct`
 
 - `struct` **`EuvInputProps`** — `pub struct EuvInputProps {`
+
+### `component::input_group::view::enum`
+
+- `enum` **`EuvInputGroupAlign`** — `pub enum EuvInputGroupAlign {`
+- `enum` **`EuvInputGroupButtonSize`** — `pub enum EuvInputGroupButtonSize {`
+
+### `component::input_group::view::fn`
+
+- `fn` **`euv_input_group`** — `pub fn euv_input_group(node: VirtualNode<EuvInputGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_group_addon`** — `pub fn euv_input_group_addon(node: VirtualNode<EuvInputGroupAddonProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_group_button`** — `pub fn euv_input_group_button(node: VirtualNode<EuvInputGroupButtonProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_group_text`** — `pub fn euv_input_group_text(node: VirtualNode<EuvInputGroupTextProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_group_input`** — `pub fn euv_input_group_input(node: VirtualNode<EuvInputGroupInputProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_group_textarea`** — `pub fn euv_input_group_textarea(node: VirtualNode<EuvInputGroupTextareaProps>) -> VirtualNode {...}`
+
+### `component::input_group::view::struct`
+
+- `struct` **`EuvInputGroupProps`** — `pub struct EuvInputGroupProps {`
+- `struct` **`EuvInputGroupAddonProps`** — `pub struct EuvInputGroupAddonProps {`
+- `struct` **`EuvInputGroupButtonProps`** — `pub struct EuvInputGroupButtonProps {`
+- `struct` **`EuvInputGroupTextProps`** — `pub struct EuvInputGroupTextProps {`
+- `struct` **`EuvInputGroupInputProps`** — `pub struct EuvInputGroupInputProps {`
+- `struct` **`EuvInputGroupTextareaProps`** — `pub struct EuvInputGroupTextareaProps {`
+
+### `component::input_otp::view::fn`
+
+- `fn` **`euv_input_otp`** — `pub fn euv_input_otp(node: VirtualNode<EuvInputOtpProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_otp_group`** — `pub fn euv_input_otp_group(node: VirtualNode<EuvInputOtpGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_otp_slot`** — `pub fn euv_input_otp_slot(node: VirtualNode<EuvInputOtpSlotProps>) -> VirtualNode {...}`
+- `fn` **`euv_input_otp_separator`** — `pub fn euv_input_otp_separator(node: VirtualNode<EuvInputOtpGroupProps>) -> VirtualNode {...}`
+
+### `component::input_otp::view::struct`
+
+- `struct` **`EuvInputOtpProps`** — `pub struct EuvInputOtpProps {`
+- `struct` **`EuvInputOtpGroupProps`** — `pub struct EuvInputOtpGroupProps {`
+- `struct` **`EuvInputOtpSlotProps`** — `pub struct EuvInputOtpSlotProps {`
+
+### `component::item::view::enum`
+
+- `enum` **`EuvItemVariant`** — `pub enum EuvItemVariant {`
+- `enum` **`EuvItemSize`** — `pub enum EuvItemSize {`
+- `enum` **`EuvItemMediaVariant`** — `pub enum EuvItemMediaVariant {`
+
+### `component::item::view::fn`
+
+- `fn` **`euv_item_group`** — `pub fn euv_item_group(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_item`** — `pub fn euv_item(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_media`** — `pub fn euv_item_media(node: VirtualNode<EuvItemMediaProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_content`** — `pub fn euv_item_content(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_title`** — `pub fn euv_item_title(node: VirtualNode<EuvItemTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_description`** — `pub fn euv_item_description(node: VirtualNode<EuvItemDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_actions`** — `pub fn euv_item_actions(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_header`** — `pub fn euv_item_header(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_footer`** — `pub fn euv_item_footer(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_item_separator`** — `pub fn euv_item_separator(node: VirtualNode<EuvItemProps>) -> VirtualNode {...}`
+
+### `component::item::view::struct`
+
+- `struct` **`EuvItemProps`** — `pub struct EuvItemProps {`
+- `struct` **`EuvItemMediaProps`** — `pub struct EuvItemMediaProps {`
+- `struct` **`EuvItemTitleProps`** — `pub struct EuvItemTitleProps {`
+- `struct` **`EuvItemDescriptionProps`** — `pub struct EuvItemDescriptionProps {`
+
+### `component::kbd::view::fn`
+
+- `fn` **`euv_kbd`** — `pub fn euv_kbd(node: VirtualNode<EuvKbdProps>) -> VirtualNode {...}`
+- `fn` **`euv_kbd_group`** — `pub fn euv_kbd_group(node: VirtualNode<EuvKbdGroupProps>) -> VirtualNode {...}`
+
+### `component::kbd::view::struct`
+
+- `struct` **`EuvKbdProps`** — `pub struct EuvKbdProps {`
+- `struct` **`EuvKbdGroupProps`** — `pub struct EuvKbdGroupProps {`
+
+### `component::label::view::fn`
+
+- `fn` **`euv_label`** — `pub fn euv_label(node: VirtualNode<EuvLabelProps>) -> VirtualNode {...}`
+
+### `component::label::view::struct`
+
+- `struct` **`EuvLabelProps`** — `pub struct EuvLabelProps {`
 
 ### `component::layout::hook::fn`
 
@@ -1082,6 +1548,22 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvMarkdownProps`** — `pub struct EuvMarkdownProps {`
 
+### `component::marker::view::enum`
+
+- `enum` **`EuvMarkerVariant`** — `pub enum EuvMarkerVariant {`
+
+### `component::marker::view::fn`
+
+- `fn` **`euv_marker`** — `pub fn euv_marker(node: VirtualNode<EuvMarkerProps>) -> VirtualNode {...}`
+- `fn` **`euv_marker_icon`** — `pub fn euv_marker_icon(node: VirtualNode<EuvMarkerIconProps>) -> VirtualNode {...}`
+- `fn` **`euv_marker_content`** — `pub fn euv_marker_content(node: VirtualNode<EuvMarkerContentProps>) -> VirtualNode {...}`
+
+### `component::marker::view::struct`
+
+- `struct` **`EuvMarkerProps`** — `pub struct EuvMarkerProps {`
+- `struct` **`EuvMarkerIconProps`** — `pub struct EuvMarkerIconProps {`
+- `struct` **`EuvMarkerContentProps`** — `pub struct EuvMarkerContentProps {`
+
 ### `component::mentions::view::fn`
 
 - `fn` **`euv_mentions`** — `pub fn euv_mentions(node: VirtualNode<EuvMentionsProps>) -> VirtualNode {...}`
@@ -1100,19 +1582,81 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `fn` **`euv_message`** — `pub fn euv_message(node: VirtualNode<EuvMessageProps>) -> VirtualNode {...}`
 - `fn` **`message_callback_handler`** — `pub fn message_callback_handler<E: 'static>( callback: Option<Rc<dyn Fn()>>, ) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`euv_message_group`** — `pub fn euv_message_group(node: VirtualNode<EuvMessageGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_message_header`** — `pub fn euv_message_header(node: VirtualNode<EuvMessageHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_message_avatar`** — `pub fn euv_message_avatar(node: VirtualNode<EuvMessageAvatarProps>) -> VirtualNode {...}`
+- `fn` **`euv_message_content`** — `pub fn euv_message_content(node: VirtualNode<EuvMessageContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_message_footer`** — `pub fn euv_message_footer(node: VirtualNode<EuvMessageFooterProps>) -> VirtualNode {...}`
 
 ### `component::message::view::struct`
 
 - `struct` **`EuvMessageItem`** — `pub struct EuvMessageItem {`
 - `struct` **`EuvMessageProps`** — `pub struct EuvMessageProps {`
+- `struct` **`EuvMessageGroupProps`** — `pub struct EuvMessageGroupProps {`
+- `struct` **`EuvMessageHeaderProps`** — `pub struct EuvMessageHeaderProps {`
+- `struct` **`EuvMessageAvatarProps`** — `pub struct EuvMessageAvatarProps {`
+- `struct` **`EuvMessageContentProps`** — `pub struct EuvMessageContentProps {`
+- `struct` **`EuvMessageFooterProps`** — `pub struct EuvMessageFooterProps {`
+
+### `component::message_scroller::view::enum`
+
+- `enum` **`EuvMessageScrollerDirection`** — `pub enum EuvMessageScrollerDirection {`
+
+### `component::message_scroller::view::fn`
+
+- `fn` **`euv_message_scroller`** — `pub fn euv_message_scroller(node: VirtualNode<EuvMessageScrollerProps>) -> VirtualNode {...}`
+- `fn` **`euv_message_scroller_viewport`** — `pub fn euv_message_scroller_viewport( node: VirtualNode<EuvMessageScrollerViewportProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_message_scroller_content`** — `pub fn euv_message_scroller_content( node: VirtualNode<EuvMessageScrollerContentProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_message_scroller_item`** — `pub fn euv_message_scroller_item(node: VirtualNode<EuvMessageScrollerItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_message_scroller_button`** — `pub fn euv_message_scroller_button( node: VirtualNode<EuvMessageScrollerButtonProps>, ) -> VirtualNode {...}`
+
+### `component::message_scroller::view::struct`
+
+- `struct` **`EuvMessageScrollerProps`** — `pub struct EuvMessageScrollerProps {`
+- `struct` **`EuvMessageScrollerViewportProps`** — `pub struct EuvMessageScrollerViewportProps {`
+- `struct` **`EuvMessageScrollerContentProps`** — `pub struct EuvMessageScrollerContentProps {`
+- `struct` **`EuvMessageScrollerItemProps`** — `pub struct EuvMessageScrollerItemProps {`
+- `struct` **`EuvMessageScrollerButtonProps`** — `pub struct EuvMessageScrollerButtonProps {`
 
 ### `component::modal::view::fn`
 
 - `fn` **`euv_modal`** — `pub fn euv_modal(node: VirtualNode<EuvModalProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog`** — `pub fn euv_dialog(node: VirtualNode<EuvDialogProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_header`** — `pub fn euv_dialog_header(node: VirtualNode<EuvDialogHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_title`** — `pub fn euv_dialog_title(node: VirtualNode<EuvDialogTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_description`** — `pub fn euv_dialog_description(node: VirtualNode<EuvDialogDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_footer`** — `pub fn euv_dialog_footer(node: VirtualNode<EuvDialogFooterProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_close`** — `pub fn euv_dialog_close(node: VirtualNode<EuvDialogCloseProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_overlay`** — `pub fn euv_dialog_overlay(node: VirtualNode<EuvDialogOverlayProps>) -> VirtualNode {...}`
+- `fn` **`euv_dialog_content`** — `pub fn euv_dialog_content(node: VirtualNode<EuvDialogContentProps>) -> VirtualNode {...}`
 
 ### `component::modal::view::struct`
 
 - `struct` **`EuvModalProps`** — `pub struct EuvModalProps {`
+- `struct` **`EuvDialogProps`** — `pub struct EuvDialogProps {`
+- `struct` **`EuvDialogHeaderProps`** — `pub struct EuvDialogHeaderProps {`
+- `struct` **`EuvDialogTitleProps`** — `pub struct EuvDialogTitleProps {`
+- `struct` **`EuvDialogDescriptionProps`** — `pub struct EuvDialogDescriptionProps {`
+- `struct` **`EuvDialogFooterProps`** — `pub struct EuvDialogFooterProps {`
+- `struct` **`EuvDialogCloseProps`** — `pub struct EuvDialogCloseProps {`
+- `struct` **`EuvDialogOverlayProps`** — `pub struct EuvDialogOverlayProps {`
+- `struct` **`EuvDialogContentProps`** — `pub struct EuvDialogContentProps {`
+
+### `component::native_select::view::enum`
+
+- `enum` **`EuvNativeSelectSize`** — `pub enum EuvNativeSelectSize {`
+
+### `component::native_select::view::fn`
+
+- `fn` **`euv_native_select`** — `pub fn euv_native_select(node: VirtualNode<EuvNativeSelectProps>) -> VirtualNode {...}`
+- `fn` **`euv_native_select_option`** — `pub fn euv_native_select_option(node: VirtualNode<EuvNativeSelectOptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_native_select_opt_group`** — `pub fn euv_native_select_opt_group(node: VirtualNode<EuvNativeSelectOptGroupProps>) -> VirtualNode {...}`
+
+### `component::native_select::view::struct`
+
+- `struct` **`EuvNativeSelectProps`** — `pub struct EuvNativeSelectProps {`
+- `struct` **`EuvNativeSelectOptionProps`** — `pub struct EuvNativeSelectOptionProps {`
+- `struct` **`EuvNativeSelectOptGroupProps`** — `pub struct EuvNativeSelectOptGroupProps {`
 
 ### `component::nav::view::fn`
 
@@ -1137,22 +1681,94 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `fn` **`euv_navbar`** — `pub fn euv_navbar(node: VirtualNode<EuvNavbarProps>) -> VirtualNode {...}`
 - `fn` **`euv_navbar_link`** — `pub fn euv_navbar_link(node: VirtualNode<EuvNavbarLinkProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar`** — `pub fn euv_menubar(node: VirtualNode<EuvMenubarProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_menu`** — `pub fn euv_menubar_menu(node: VirtualNode<EuvMenubarMenuProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_trigger`** — `pub fn euv_menubar_trigger(node: VirtualNode<EuvMenubarTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_content`** — `pub fn euv_menubar_content(node: VirtualNode<EuvMenubarContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_item`** — `pub fn euv_menubar_item(node: VirtualNode<EuvMenubarItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_group`** — `pub fn euv_menubar_group(node: VirtualNode<EuvMenubarGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_separator`** — `pub fn euv_menubar_separator(node: VirtualNode<EuvMenubarSeparatorProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_label`** — `pub fn euv_menubar_label(node: VirtualNode<EuvMenubarLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_shortcut`** — `pub fn euv_menubar_shortcut(node: VirtualNode<EuvMenubarShortcutProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_checkbox_item`** — `pub fn euv_menubar_checkbox_item(node: VirtualNode<EuvMenubarCheckboxItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_radio_item`** — `pub fn euv_menubar_radio_item(node: VirtualNode<EuvMenubarRadioItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_radio_group`** — `pub fn euv_menubar_radio_group(node: VirtualNode<EuvMenubarRadioGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_sub`** — `pub fn euv_menubar_sub(node: VirtualNode<EuvMenubarSubProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_sub_trigger`** — `pub fn euv_menubar_sub_trigger(node: VirtualNode<EuvMenubarSubTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_menubar_sub_content`** — `pub fn euv_menubar_sub_content(node: VirtualNode<EuvMenubarSubContentProps>) -> VirtualNode {...}`
 
 ### `component::navbar::view::struct`
 
 - `struct` **`EuvNavbarItem`** — `pub struct EuvNavbarItem {`
 - `struct` **`EuvNavbarProps`** — `pub struct EuvNavbarProps {`
 - `struct` **`EuvNavbarLinkProps`** — `pub struct EuvNavbarLinkProps {`
+- `struct` **`EuvMenubarProps`** — `pub struct EuvMenubarProps {`
+- `struct` **`EuvMenubarMenuProps`** — `pub struct EuvMenubarMenuProps {`
+- `struct` **`EuvMenubarTriggerProps`** — `pub struct EuvMenubarTriggerProps {`
+- `struct` **`EuvMenubarContentProps`** — `pub struct EuvMenubarContentProps {`
+- `struct` **`EuvMenubarItemProps`** — `pub struct EuvMenubarItemProps {`
+- `struct` **`EuvMenubarGroupProps`** — `pub struct EuvMenubarGroupProps {`
+- `struct` **`EuvMenubarSeparatorProps`** — `pub struct EuvMenubarSeparatorProps {`
+- `struct` **`EuvMenubarLabelProps`** — `pub struct EuvMenubarLabelProps {`
+- `struct` **`EuvMenubarShortcutProps`** — `pub struct EuvMenubarShortcutProps {`
+- `struct` **`EuvMenubarCheckboxItemProps`** — `pub struct EuvMenubarCheckboxItemProps {`
+- `struct` **`EuvMenubarRadioItemProps`** — `pub struct EuvMenubarRadioItemProps {`
+- `struct` **`EuvMenubarRadioGroupProps`** — `pub struct EuvMenubarRadioGroupProps {`
+- `struct` **`EuvMenubarSubProps`** — `pub struct EuvMenubarSubProps {`
+- `struct` **`EuvMenubarSubTriggerProps`** — `pub struct EuvMenubarSubTriggerProps {`
+- `struct` **`EuvMenubarSubContentProps`** — `pub struct EuvMenubarSubContentProps {`
+
+### `component::navigation_menu::view::fn`
+
+- `fn` **`euv_navigation_menu`** — `pub fn euv_navigation_menu(node: VirtualNode<EuvNavigationMenuProps>) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_list`** — `pub fn euv_navigation_menu_list(node: VirtualNode<EuvNavigationMenuListProps>) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_item`** — `pub fn euv_navigation_menu_item(node: VirtualNode<EuvNavigationMenuItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_trigger`** — `pub fn euv_navigation_menu_trigger( node: VirtualNode<EuvNavigationMenuTriggerProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_content`** — `pub fn euv_navigation_menu_content( node: VirtualNode<EuvNavigationMenuContentProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_link`** — `pub fn euv_navigation_menu_link(node: VirtualNode<EuvNavigationMenuLinkProps>) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_viewport`** — `pub fn euv_navigation_menu_viewport( node: VirtualNode<EuvNavigationMenuViewportProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_navigation_menu_indicator`** — `pub fn euv_navigation_menu_indicator( node: VirtualNode<EuvNavigationMenuIndicatorProps>, ) -> VirtualNode {...}`
+
+### `component::navigation_menu::view::struct`
+
+- `struct` **`EuvNavigationMenuProps`** — `pub struct EuvNavigationMenuProps {`
+- `struct` **`EuvNavigationMenuListProps`** — `pub struct EuvNavigationMenuListProps {`
+- `struct` **`EuvNavigationMenuItemProps`** — `pub struct EuvNavigationMenuItemProps {`
+- `struct` **`EuvNavigationMenuTriggerProps`** — `pub struct EuvNavigationMenuTriggerProps {`
+- `struct` **`EuvNavigationMenuContentProps`** — `pub struct EuvNavigationMenuContentProps {`
+- `struct` **`EuvNavigationMenuLinkProps`** — `pub struct EuvNavigationMenuLinkProps {`
+- `struct` **`EuvNavigationMenuViewportProps`** — `pub struct EuvNavigationMenuViewportProps {`
+- `struct` **`EuvNavigationMenuIndicatorProps`** — `pub struct EuvNavigationMenuIndicatorProps {`
+
+### `component::notification::view::enum`
+
+- `enum` **`EuvToastVariant`** — `pub enum EuvToastVariant {`
 
 ### `component::notification::view::fn`
 
 - `fn` **`euv_notification`** — `pub fn euv_notification(node: VirtualNode<EuvNotificationProps>) -> VirtualNode {...}`
 - `fn` **`notification_callback_handler`** — `pub fn notification_callback_handler<E: 'static>( callback: Option<Rc<dyn Fn()>>, ) -> Option<Rc<dyn Fn(E)>> {...}`
+- `fn` **`euv_toast`** — `pub fn euv_toast(node: VirtualNode<EuvToastProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_card`** — `pub fn euv_toast_card(node: VirtualNode<EuvToastCardProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_title`** — `pub fn euv_toast_title(node: VirtualNode<EuvToastTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_description`** — `pub fn euv_toast_description(node: VirtualNode<EuvToastDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_action`** — `pub fn euv_toast_action(node: VirtualNode<EuvToastActionProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_provider`** — `pub fn euv_toast_provider(node: VirtualNode<EuvToastProviderProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_viewport`** — `pub fn euv_toast_viewport(node: VirtualNode<EuvToastViewportProps>) -> VirtualNode {...}`
+- `fn` **`euv_toast_close`** — `pub fn euv_toast_close(node: VirtualNode<EuvToastCloseProps>) -> VirtualNode {...}`
 
 ### `component::notification::view::struct`
 
 - `struct` **`EuvNotificationItem`** — `pub struct EuvNotificationItem {`
 - `struct` **`EuvNotificationProps`** — `pub struct EuvNotificationProps {`
+- `struct` **`EuvToastProps`** — `pub struct EuvToastProps {`
+- `struct` **`EuvToastTitleProps`** — `pub struct EuvToastTitleProps {`
+- `struct` **`EuvToastDescriptionProps`** — `pub struct EuvToastDescriptionProps {`
+- `struct` **`EuvToastActionProps`** — `pub struct EuvToastActionProps {`
+- `struct` **`EuvToastCardProps`** — `pub struct EuvToastCardProps {`
+- `struct` **`EuvToastProviderProps`** — `pub struct EuvToastProviderProps {`
+- `struct` **`EuvToastViewportProps`** — `pub struct EuvToastViewportProps {`
+- `struct` **`EuvToastCloseProps`** — `pub struct EuvToastCloseProps {`
 
 ### `component::number_input::view::fn`
 
@@ -1167,11 +1783,13 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::pagination::view::fn`
 
 - `fn` **`euv_pagination`** — `pub fn euv_pagination(node: VirtualNode<EuvPaginationProps>) -> VirtualNode {...}`
+- `fn` **`euv_pagination_link`** — `pub fn euv_pagination_link(node: VirtualNode<EuvPaginationLinkProps>) -> VirtualNode {...}`
 
 ### `component::pagination::view::struct`
 
 - `struct` **`EuvPaginationItem`** — `pub struct EuvPaginationItem {`
 - `struct` **`EuvPaginationProps`** — `pub struct EuvPaginationProps {`
+- `struct` **`EuvPaginationLinkProps`** — `pub struct EuvPaginationLinkProps {`
 
 ### `component::panel::view::enum`
 
@@ -1214,15 +1832,65 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvProgressProps`** — `pub struct EuvProgressProps {`
 
+### `component::questionnaire::view::enum`
+
+- `enum` **`EuvQuestionnaireChoiceType`** — `pub enum EuvQuestionnaireChoiceType {`
+
+### `component::questionnaire::view::fn`
+
+- `fn` **`euv_questionnaire`** — `pub fn euv_questionnaire(node: VirtualNode<EuvQuestionnaireProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_progress`** — `pub fn euv_questionnaire_progress(node: VirtualNode<EuvQuestionnaireProgressProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_item`** — `pub fn euv_questionnaire_item(node: VirtualNode<EuvQuestionnaireItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_title`** — `pub fn euv_questionnaire_title(node: VirtualNode<EuvQuestionnaireTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_description`** — `pub fn euv_questionnaire_description( node: VirtualNode<EuvQuestionnaireDescriptionProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_choices`** — `pub fn euv_questionnaire_choices(node: VirtualNode<EuvQuestionnaireChoicesProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_choice`** — `pub fn euv_questionnaire_choice(node: VirtualNode<EuvQuestionnaireChoiceProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_choice_label`** — `pub fn euv_questionnaire_choice_label( node: VirtualNode<EuvQuestionnaireChoiceLabelProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_choice_description`** — `pub fn euv_questionnaire_choice_description( node: VirtualNode<EuvQuestionnaireChoiceDescriptionProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_choice_indicator`** — `pub fn euv_questionnaire_choice_indicator( node: VirtualNode<EuvQuestionnaireChoiceIndicatorProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_input`** — `pub fn euv_questionnaire_input(node: VirtualNode<EuvQuestionnaireInputProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_error`** — `pub fn euv_questionnaire_error(node: VirtualNode<EuvQuestionnaireErrorProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_actions`** — `pub fn euv_questionnaire_actions(node: VirtualNode<EuvQuestionnaireActionsProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_previous`** — `pub fn euv_questionnaire_previous(node: VirtualNode<EuvQuestionnairePreviousProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_skip`** — `pub fn euv_questionnaire_skip(node: VirtualNode<EuvQuestionnaireSkipProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_next`** — `pub fn euv_questionnaire_next(node: VirtualNode<EuvQuestionnaireNextProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_submit`** — `pub fn euv_questionnaire_submit(node: VirtualNode<EuvQuestionnaireSubmitProps>) -> VirtualNode {...}`
+- `fn` **`euv_questionnaire_choice_shortcut`** — `pub fn euv_questionnaire_choice_shortcut( node: VirtualNode<EuvQuestionnaireChoiceShortcutProps>, ) -> VirtualNode {...}`
+
+### `component::questionnaire::view::struct`
+
+- `struct` **`EuvQuestionnaireProps`** — `pub struct EuvQuestionnaireProps {`
+- `struct` **`EuvQuestionnaireProgressProps`** — `pub struct EuvQuestionnaireProgressProps {`
+- `struct` **`EuvQuestionnaireItemProps`** — `pub struct EuvQuestionnaireItemProps {`
+- `struct` **`EuvQuestionnaireTitleProps`** — `pub struct EuvQuestionnaireTitleProps {`
+- `struct` **`EuvQuestionnaireDescriptionProps`** — `pub struct EuvQuestionnaireDescriptionProps {`
+- `struct` **`EuvQuestionnaireChoicesProps`** — `pub struct EuvQuestionnaireChoicesProps {`
+- `struct` **`EuvQuestionnaireChoiceProps`** — `pub struct EuvQuestionnaireChoiceProps {`
+- `struct` **`EuvQuestionnaireChoiceLabelProps`** — `pub struct EuvQuestionnaireChoiceLabelProps {`
+- `struct` **`EuvQuestionnaireChoiceDescriptionProps`** — `pub struct EuvQuestionnaireChoiceDescriptionProps {`
+- `struct` **`EuvQuestionnaireChoiceIndicatorProps`** — `pub struct EuvQuestionnaireChoiceIndicatorProps {`
+- `struct` **`EuvQuestionnaireInputProps`** — `pub struct EuvQuestionnaireInputProps {`
+- `struct` **`EuvQuestionnaireErrorProps`** — `pub struct EuvQuestionnaireErrorProps {`
+- `struct` **`EuvQuestionnaireActionsProps`** — `pub struct EuvQuestionnaireActionsProps {`
+- `struct` **`EuvQuestionnairePreviousProps`** — `pub struct EuvQuestionnairePreviousProps {`
+- `struct` **`EuvQuestionnaireSkipProps`** — `pub struct EuvQuestionnaireSkipProps {`
+- `struct` **`EuvQuestionnaireNextProps`** — `pub struct EuvQuestionnaireNextProps {`
+- `struct` **`EuvQuestionnaireSubmitProps`** — `pub struct EuvQuestionnaireSubmitProps {`
+- `struct` **`EuvQuestionnaireChoiceShortcutProps`** — `pub struct EuvQuestionnaireChoiceShortcutProps {`
+
 ### `component::radio::view::fn`
 
 - `fn` **`euv_radio`** — `pub fn euv_radio(node: VirtualNode<EuvRadioGroupProps>) -> VirtualNode {...}`
 - `fn` **`on_radio_change`** — `pub fn on_radio_change( signal: Signal<String>, option_value: &'static str, ) -> Option<Rc<dyn Fn(Event)>> {...}`
+- `fn` **`euv_radio_group`** — `pub fn euv_radio_group(node: VirtualNode<EuvRadioGroupRootProps>) -> VirtualNode {...}`
+- `fn` **`euv_radio_group_item`** — `pub fn euv_radio_group_item(node: VirtualNode<EuvRadioGroupItemProps>) -> VirtualNode {...}`
 
 ### `component::radio::view::struct`
 
 - `struct` **`EuvRadioOption`** — `pub struct EuvRadioOption {`
 - `struct` **`EuvRadioGroupProps`** — `pub struct EuvRadioGroupProps {`
+- `struct` **`EuvRadioGroupRootProps`** — `pub struct EuvRadioGroupRootProps {`
+- `struct` **`EuvRadioGroupItemProps`** — `pub struct EuvRadioGroupItemProps {`
 
 ### `component::rating::view::enum`
 
@@ -1240,6 +1908,23 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::rating::view::struct`
 
 - `struct` **`EuvRatingProps`** — `pub struct EuvRatingProps {`
+
+### `component::resizable::view::enum`
+
+- `enum` **`EuvResizableDirection`** — `pub enum EuvResizableDirection {`
+
+### `component::resizable::view::fn`
+
+- `fn` **`euv_resizable_panel_group`** — `pub fn euv_resizable_panel_group(node: VirtualNode<EuvResizablePanelGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_resizable_panel`** — `pub fn euv_resizable_panel(node: VirtualNode<EuvResizablePanelProps>) -> VirtualNode {...}`
+- `fn` **`euv_resizable_handle`** — `pub fn euv_resizable_handle(node: VirtualNode<EuvResizableHandleProps>) -> VirtualNode {...}`
+
+### `component::resizable::view::struct`
+
+- `struct` **`EuvResizablePanelGroupProps`** — `pub struct EuvResizablePanelGroupProps {`
+- `struct` **`EuvResizablePanelProps`** — `pub struct EuvResizablePanelProps {`
+- `struct` **`EuvResizableHandleProps`** — `pub struct EuvResizableHandleProps {`
+- `struct` **`ResizableDragSession`** — `pub(crate) struct ResizableDragSession {`
 
 ### `component::result::view::fn`
 
@@ -1330,6 +2015,15 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvRouteConfig`** — `pub struct EuvRouteConfig {`
 - `struct` **`EuvRoutesProps`** — `pub struct EuvRoutesProps {`
 
+### `component::scroll_area::view::fn`
+
+- `fn` **`euv_scroll_area`** — `pub fn euv_scroll_area(node: VirtualNode<EuvScrollAreaProps>) -> VirtualNode {...}`
+- `fn` **`euv_scroll_bar`** — `pub fn euv_scroll_bar(node: VirtualNode<EuvScrollAreaProps>) -> VirtualNode {...}`
+
+### `component::scroll_area::view::struct`
+
+- `struct` **`EuvScrollAreaProps`** — `pub struct EuvScrollAreaProps {`
+
 ### `component::segmented::view::fn`
 
 - `fn` **`euv_segmented`** — `pub fn euv_segmented(node: VirtualNode<EuvSegmentedProps>) -> VirtualNode {...}`
@@ -1347,23 +2041,114 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `fn` **`euv_select`** — `pub fn euv_select(node: VirtualNode<EuvSelectProps>) -> VirtualNode {...}`
 - `fn` **`use_euv_select_open`** — `pub fn use_euv_select_open() -> Signal<bool> {...}`
+- `fn` **`euv_select_scroll_up_button`** — `pub fn euv_select_scroll_up_button(node: VirtualNode<EuvSelectScrollUpButtonProps>) -> VirtualNode {...}`
+- `fn` **`euv_select_scroll_down_button`** — `pub fn euv_select_scroll_down_button( node: VirtualNode<EuvSelectScrollDownButtonProps>, ) -> VirtualNode {...}`
+
+### `component::select::view::impl`
+
+- `fn` **`matches_typeahead`** — `pub(crate) fn matches_typeahead(&self, query: &str) -> bool {...}`
 
 ### `component::select::view::struct`
 
 - `struct` **`EuvSelectOption`** — `pub struct EuvSelectOption {`
 - `struct` **`EuvSelectProps`** — `pub struct EuvSelectProps {`
+- `struct` **`EuvSelectOptionContext`** — `pub(crate) struct EuvSelectOptionContext {`
+- `struct` **`EuvSelectScrollUpButtonProps`** — `pub struct EuvSelectScrollUpButtonProps {`
+- `struct` **`EuvSelectScrollDownButtonProps`** — `pub struct EuvSelectScrollDownButtonProps {`
+
+### `component::separator::view::enum`
+
+- `enum` **`EuvSeparatorOrientation`** — `pub enum EuvSeparatorOrientation {`
+
+### `component::separator::view::fn`
+
+- `fn` **`euv_separator`** — `pub fn euv_separator(node: VirtualNode<EuvSeparatorProps>) -> VirtualNode {...}`
+
+### `component::separator::view::struct`
+
+- `struct` **`EuvSeparatorProps`** — `pub struct EuvSeparatorProps {`
+
+### `component::sheet::view::enum`
+
+- `enum` **`EuvSheetSide`** — `pub enum EuvSheetSide {`
+
+### `component::sheet::view::fn`
+
+- `fn` **`euv_sheet`** — `pub fn euv_sheet(node: VirtualNode<EuvSheetProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_trigger`** — `pub fn euv_sheet_trigger(node: VirtualNode<EuvSheetTriggerProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_overlay`** — `pub fn euv_sheet_overlay(node: VirtualNode<EuvSheetOverlayProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_content`** — `pub fn euv_sheet_content(node: VirtualNode<EuvSheetContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_header`** — `pub fn euv_sheet_header(node: VirtualNode<EuvSheetHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_footer`** — `pub fn euv_sheet_footer(node: VirtualNode<EuvSheetFooterProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_title`** — `pub fn euv_sheet_title(node: VirtualNode<EuvSheetTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_description`** — `pub fn euv_sheet_description(node: VirtualNode<EuvSheetDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_sheet_close`** — `pub fn euv_sheet_close(node: VirtualNode<EuvSheetCloseProps>) -> VirtualNode {...}`
+
+### `component::sheet::view::struct`
+
+- `struct` **`EuvSheetProps`** — `pub struct EuvSheetProps {`
+- `struct` **`EuvSheetTriggerProps`** — `pub struct EuvSheetTriggerProps {`
+- `struct` **`EuvSheetOverlayProps`** — `pub struct EuvSheetOverlayProps {`
+- `struct` **`EuvSheetContentProps`** — `pub struct EuvSheetContentProps {`
+- `struct` **`EuvSheetHeaderProps`** — `pub struct EuvSheetHeaderProps {`
+- `struct` **`EuvSheetFooterProps`** — `pub struct EuvSheetFooterProps {`
+- `struct` **`EuvSheetTitleProps`** — `pub struct EuvSheetTitleProps {`
+- `struct` **`EuvSheetDescriptionProps`** — `pub struct EuvSheetDescriptionProps {`
+- `struct` **`EuvSheetCloseProps`** — `pub struct EuvSheetCloseProps {`
 
 ### `component::sidebar::view::fn`
 
 - `fn` **`first_navigable_route`** — `pub fn first_navigable_route(items: &[EuvSidebarItem]) -> Option<&'static str> {...}`
 - `fn` **`euv_sidebar`** — `pub fn euv_sidebar(node: VirtualNode<EuvSidebarProps>) -> VirtualNode {...}`
 - `fn` **`euv_sidebar_item`** — `pub fn euv_sidebar_item(node: VirtualNode<EuvSidebarItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_header`** — `pub fn euv_sidebar_header(node: VirtualNode<EuvSidebarHeaderProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_content`** — `pub fn euv_sidebar_content(node: VirtualNode<EuvSidebarContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_footer`** — `pub fn euv_sidebar_footer(node: VirtualNode<EuvSidebarFooterProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_group`** — `pub fn euv_sidebar_group(node: VirtualNode<EuvSidebarGroupProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_group_label`** — `pub fn euv_sidebar_group_label(node: VirtualNode<EuvSidebarGroupLabelProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_group_action`** — `pub fn euv_sidebar_group_action(node: VirtualNode<EuvSidebarGroupActionProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_group_content`** — `pub fn euv_sidebar_group_content(node: VirtualNode<EuvSidebarGroupContentProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu`** — `pub fn euv_sidebar_menu(node: VirtualNode<EuvSidebarMenuProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_item`** — `pub fn euv_sidebar_menu_item(node: VirtualNode<EuvSidebarMenuItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_button`** — `pub fn euv_sidebar_menu_button(node: VirtualNode<EuvSidebarMenuButtonProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_action`** — `pub fn euv_sidebar_menu_action(node: VirtualNode<EuvSidebarMenuActionProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_badge`** — `pub fn euv_sidebar_menu_badge(node: VirtualNode<EuvSidebarMenuBadgeProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_sub`** — `pub fn euv_sidebar_menu_sub(node: VirtualNode<EuvSidebarMenuSubProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_sub_item`** — `pub fn euv_sidebar_menu_sub_item(node: VirtualNode<EuvSidebarMenuSubItemProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_sub_button`** — `pub fn euv_sidebar_menu_sub_button(node: VirtualNode<EuvSidebarMenuSubButtonProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_menu_skeleton`** — `pub fn euv_sidebar_menu_skeleton(node: VirtualNode<EuvSidebarMenuSkeletonProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_input`** — `pub fn euv_sidebar_input(node: VirtualNode<EuvSidebarInputProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_inset`** — `pub fn euv_sidebar_inset(node: VirtualNode<EuvSidebarInsetProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_rail`** — `pub fn euv_sidebar_rail(node: VirtualNode<EuvSidebarRailProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_separator`** — `pub fn euv_sidebar_separator(node: VirtualNode<EuvSidebarSeparatorProps>) -> VirtualNode {...}`
+- `fn` **`euv_sidebar_trigger`** — `pub fn euv_sidebar_trigger(node: VirtualNode<EuvSidebarTriggerProps>) -> VirtualNode {...}`
 
 ### `component::sidebar::view::struct`
 
 - `struct` **`EuvSidebarItem`** — `pub struct EuvSidebarItem {`
 - `struct` **`EuvSidebarProps`** — `pub struct EuvSidebarProps {`
 - `struct` **`EuvSidebarItemProps`** — `pub struct EuvSidebarItemProps {`
+- `struct` **`EuvSidebarHeaderProps`** — `pub struct EuvSidebarHeaderProps {`
+- `struct` **`EuvSidebarContentProps`** — `pub struct EuvSidebarContentProps {`
+- `struct` **`EuvSidebarFooterProps`** — `pub struct EuvSidebarFooterProps {`
+- `struct` **`EuvSidebarGroupProps`** — `pub struct EuvSidebarGroupProps {`
+- `struct` **`EuvSidebarGroupLabelProps`** — `pub struct EuvSidebarGroupLabelProps {`
+- `struct` **`EuvSidebarGroupActionProps`** — `pub struct EuvSidebarGroupActionProps {`
+- `struct` **`EuvSidebarGroupContentProps`** — `pub struct EuvSidebarGroupContentProps {`
+- `struct` **`EuvSidebarMenuProps`** — `pub struct EuvSidebarMenuProps {`
+- `struct` **`EuvSidebarMenuItemProps`** — `pub struct EuvSidebarMenuItemProps {`
+- `struct` **`EuvSidebarMenuButtonProps`** — `pub struct EuvSidebarMenuButtonProps {`
+- `struct` **`EuvSidebarMenuActionProps`** — `pub struct EuvSidebarMenuActionProps {`
+- `struct` **`EuvSidebarMenuBadgeProps`** — `pub struct EuvSidebarMenuBadgeProps {`
+- `struct` **`EuvSidebarMenuSubProps`** — `pub struct EuvSidebarMenuSubProps {`
+- `struct` **`EuvSidebarMenuSubItemProps`** — `pub struct EuvSidebarMenuSubItemProps {`
+- `struct` **`EuvSidebarMenuSubButtonProps`** — `pub struct EuvSidebarMenuSubButtonProps {`
+- `struct` **`EuvSidebarMenuSkeletonProps`** — `pub struct EuvSidebarMenuSkeletonProps {`
+- `struct` **`EuvSidebarInputProps`** — `pub struct EuvSidebarInputProps {`
+- `struct` **`EuvSidebarInsetProps`** — `pub struct EuvSidebarInsetProps {`
+- `struct` **`EuvSidebarRailProps`** — `pub struct EuvSidebarRailProps {`
+- `struct` **`EuvSidebarSeparatorProps`** — `pub struct EuvSidebarSeparatorProps {`
+- `struct` **`EuvSidebarTriggerProps`** — `pub struct EuvSidebarTriggerProps {`
 
 ### `component::skeleton::view::fn`
 
@@ -1403,6 +2188,14 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 ### `component::space::view::struct`
 
 - `struct` **`EuvSpaceProps`** — `pub struct EuvSpaceProps {`
+
+### `component::spinner::view::fn`
+
+- `fn` **`euv_spinner`** — `pub fn euv_spinner(node: VirtualNode<EuvSpinnerProps>) -> VirtualNode {...}`
+
+### `component::spinner::view::struct`
+
+- `struct` **`EuvSpinnerProps`** — `pub struct EuvSpinnerProps {`
 
 ### `component::splitter::view::fn`
 
@@ -1482,6 +2275,14 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 
 - `struct` **`EuvTagProps`** — `pub struct EuvTagProps {`
 
+### `component::textarea::view::fn`
+
+- `fn` **`euv_textarea`** — `pub fn euv_textarea(node: VirtualNode<EuvTextareaProps>) -> VirtualNode {...}`
+
+### `component::textarea::view::struct`
+
+- `struct` **`EuvTextareaProps`** — `pub struct EuvTextareaProps {`
+
 ### `component::theme::hook::impl`
 
 - `fn` **`use_theme_state`** — `pub fn use_theme_state(mobile_signal: Signal<bool>) -> ThemeState {...}`
@@ -1533,6 +2334,30 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvTocItem`** — `pub struct EuvTocItem {`
 - `struct` **`EuvTocProps`** — `pub struct EuvTocProps {`
 
+### `component::toggle::view::enum`
+
+- `enum` **`EuvToggleVariant`** — `pub enum EuvToggleVariant {`
+- `enum` **`EuvToggleSize`** — `pub enum EuvToggleSize {`
+
+### `component::toggle::view::fn`
+
+- `fn` **`euv_toggle`** — `pub fn euv_toggle(node: VirtualNode<EuvToggleProps>) -> VirtualNode {...}`
+- `fn` **`toggle_class`** — `pub(crate) fn toggle_class( variant: EuvToggleVariant, size: EuvToggleSize, is_pressed: bool, ) -> String {...}`
+
+### `component::toggle::view::struct`
+
+- `struct` **`EuvToggleProps`** — `pub struct EuvToggleProps {`
+
+### `component::toggle_group::view::fn`
+
+- `fn` **`euv_toggle_group`** — `pub fn euv_toggle_group(node: VirtualNode<EuvToggleGroupProps>) -> VirtualNode {...}`
+
+### `component::toggle_group::view::struct`
+
+- `struct` **`EuvToggleGroupItem`** — `pub struct EuvToggleGroupItem {`
+- `struct` **`EuvToggleGroupProps`** — `pub struct EuvToggleGroupProps {`
+- `struct` **`ToggleGroupEntry`** — `pub(crate) struct ToggleGroupEntry {`
+
 ### `component::tooltip::view::enum`
 
 - `enum` **`EuvTooltipPlacement`** — `pub enum EuvTooltipPlacement {`
@@ -1583,6 +2408,32 @@ Re-exported at the crate root as `euv::euv_button`, `euv::use_async`, etc. via `
 - `struct` **`EuvGestureRecognizer`** — `pub struct EuvGestureRecognizer {`
 - `struct` **`GestureProgress`** — `pub struct GestureProgress {`
 - `struct` **`GesturePoint`** — `pub struct GesturePoint {`
+
+### `component::trace::view::enum`
+
+- `enum` **`EuvTraceStatus`** — `pub enum EuvTraceStatus {`
+
+### `component::trace::view::fn`
+
+- `fn` **`euv_trace`** — `pub fn euv_trace(node: VirtualNode<EuvTraceProps>) -> VirtualNode {...}`
+- `fn` **`euv_trace_line`** — `pub fn euv_trace_line(node: VirtualNode<EuvTraceLineProps>) -> VirtualNode {...}`
+- `fn` **`euv_trace_icon`** — `pub fn euv_trace_icon(node: VirtualNode<EuvTraceIconProps>) -> VirtualNode {...}`
+- `fn` **`euv_trace_title`** — `pub fn euv_trace_title(node: VirtualNode<EuvTraceTitleProps>) -> VirtualNode {...}`
+- `fn` **`euv_trace_description`** — `pub fn euv_trace_description(node: VirtualNode<EuvTraceDescriptionProps>) -> VirtualNode {...}`
+- `fn` **`euv_trace_collapsible`** — `pub fn euv_trace_collapsible(node: VirtualNode<EuvTraceCollapsibleProps>) -> VirtualNode {...}`
+- `fn` **`euv_trace_collapsible_trigger`** — `pub fn euv_trace_collapsible_trigger( node: VirtualNode<EuvTraceCollapsibleTriggerProps>, ) -> VirtualNode {...}`
+- `fn` **`euv_trace_collapsible_content`** — `pub fn euv_trace_collapsible_content( node: VirtualNode<EuvTraceCollapsibleContentProps>, ) -> VirtualNode {...}`
+
+### `component::trace::view::struct`
+
+- `struct` **`EuvTraceProps`** — `pub struct EuvTraceProps {`
+- `struct` **`EuvTraceLineProps`** — `pub struct EuvTraceLineProps {`
+- `struct` **`EuvTraceIconProps`** — `pub struct EuvTraceIconProps {`
+- `struct` **`EuvTraceTitleProps`** — `pub struct EuvTraceTitleProps {`
+- `struct` **`EuvTraceDescriptionProps`** — `pub struct EuvTraceDescriptionProps {`
+- `struct` **`EuvTraceCollapsibleProps`** — `pub struct EuvTraceCollapsibleProps {`
+- `struct` **`EuvTraceCollapsibleTriggerProps`** — `pub struct EuvTraceCollapsibleTriggerProps {`
+- `struct` **`EuvTraceCollapsibleContentProps`** — `pub struct EuvTraceCollapsibleContentProps {`
 
 ### `component::transfer::view::fn`
 

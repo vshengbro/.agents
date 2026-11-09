@@ -5,12 +5,10 @@ Source: `request/src/` — auto-extracted from `pub` declarations.
 Crate name: `http-request` (the directory is still called `request/`).
 
 
-### `common::enum`
 
 - `struct` **`Body`** — `pub struct Body {`
 - `fn` **`empty`** — `pub const fn empty() -> Self {...}`
 - `fn` **`from_bytes`** — `pub fn from_bytes<B: Into<Vec<u8>>>(bytes: B) -> Self {...}`
-- `fn` **`get_bytes_ref`** — `pub fn get_bytes_ref(&self) -> &[u8] {...}`
 - `fn` **`as_slice`** — `pub fn as_slice(&self) -> &[u8] {...}`
 - `fn` **`as_str`** — `pub fn as_str(&self) -> Option<&str> {...}`
 
@@ -90,17 +88,9 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `fn` **`set_config`** — `pub fn set_config(&mut self, config: RequestConfig) -> &mut Self {...}`
 - `fn` **`get_method`** — `pub fn get_method(&self) -> Method {...}`
 - `fn` **`get_url`** — `pub fn get_url(&self) -> String {...}`
-- `fn` **`get_url_ref`** — `pub fn get_url_ref(&self) -> &str {...}`
 - `fn` **`get_headers`** — `pub fn get_headers(&self) -> HashMap<String, String> {...}`
-- `fn` **`get_headers_ref`** — `pub fn get_headers_ref(&self) -> &HashMap<String, String> {...}`
-- `fn` **`get_headers_mut`** — `pub fn get_headers_mut(&mut self) -> &mut HashMap<String, String> {...}`
 - `fn` **`get_body`** — `pub fn get_body(&self) -> Body {...}`
-- `fn` **`get_body_ref`** — `pub fn get_body_ref(&self) -> &Body {...}`
 - `fn` **`get_config`** — `pub fn get_config(&self) -> RequestConfig {...}`
-- `fn` **`get_config_ref`** — `pub fn get_config_ref(&self) -> &RequestConfig {...}`
-- `fn` **`get_config_mut`** — `pub fn get_config_mut(&mut self) -> &mut RequestConfig {...}`
-- `fn` **`get_tmp_ref`** — `pub(crate) fn get_tmp_ref(&self) -> &Tmp {...}`
-- `fn` **`get_tmp_mut`** — `pub(crate) fn get_tmp_mut(&mut self) -> &mut Tmp {...}`
 
 ### `request::http_request::trait`
 
@@ -115,6 +105,9 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `type` **`RequestHeadersValue`** — `pub type RequestHeadersValue = String;`
 - `type` **`RequestHeaders`** — `pub type RequestHeaders = HashMapXxHash3_64<RequestHeadersKey, RequestHeadersValue>;`
 - `type` **`RequestResult`** — `pub type RequestResult = Result<HttpResponse, RequestError>;`
+
+- `type` **`BoxAsyncReadWrite`** — `pub(crate) type BoxAsyncReadWrite = Box<dyn AsyncReadWrite>;`
+- `type` **`BoxReadWrite`** — `pub(crate) type BoxReadWrite = Box<dyn ReadWrite>;`
 
 ### `request::parser::fn`
 
@@ -131,6 +124,13 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `fn` **`parse_status_code`** — `pub(crate) fn parse_status_code(status_bytes: &[u8]) -> usize {...}`
 - `fn` **`calculate_buffer_capacity`** — `pub(crate) fn calculate_buffer_capacity( response_bytes: &[u8], n: usize, current_capacity: usize, ) -> usize {...}`
 - `fn` **`parse_response_headers`** — `pub(crate) fn parse_response_headers( headers_bytes: &[u8], http_version_bytes: &[u8], location_sign_key: &[u8], content_length: &mut usize, redirect_url: &mut Option<Vec<u8>>, is_chunked: &mut bool, ) -> Result<(), RequestError> {...}`
+
+- `fn` **`parse_chunk_size`** — `pub(crate) fn parse_chunk_size(line: &[u8]) -> Result<usize, RequestError> {...}`
+- `fn` **`chunked_body_end`** — `pub(crate) fn chunked_body_end(body_bytes: &[u8]) -> Result<Option<usize>, RequestError> {...}`
+- `fn` **`is_valid_header_name`** — `pub(crate) fn is_valid_header_name(name: &[u8]) -> bool {...}`
+- `fn` **`is_valid_header_value`** — `pub(crate) fn is_valid_header_value(value: &[u8]) -> bool {...}`
+- `fn` **`validate_request_headers`** — `pub(crate) fn validate_request_headers( headers: &HashMap<String, String>, ) -> Result<(), RequestError> {...}`
+- `fn` **`response_header_value`** — `pub(crate) fn response_header_value<'a>( headers_bytes: &'a [u8], field_name: &[u8], ) -> Result<Option<&'a [u8]>, RequestError> {...}`
 
 ### `request::proxy::impl`
 
@@ -156,7 +156,6 @@ Crate name: `http-request` (the directory is still called `request/`).
 
 - `struct` **`RequestBuilder`** — `pub struct RequestBuilder {`
 - `fn` **`new`** — `pub fn new() -> Self {...}`
-- `fn` **`get_request_mut`** — `pub fn get_request_mut(&mut self) -> &mut HttpRequest {...}`
 - `fn` **`get`** — `pub fn get(&mut self, url: impl Into<String>) -> &mut Self {...}`
 - `fn` **`post`** — `pub fn post(&mut self, url: impl Into<String>) -> &mut Self {...}`
 - `fn` **`method`** — `pub fn method(&mut self, method: Method) -> &mut Self {...}`
