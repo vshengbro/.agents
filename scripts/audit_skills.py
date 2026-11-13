@@ -73,7 +73,9 @@ DEFAULT_PROTECTED_PREFIXES = ("skills/rust-standards/",)
 # uniqueness) is still enforced. Waived for a vendored subtree:
 # description length and keyword dump, the entry line budget, and the
 # relative-link and anchor checks (upstream links may be broken upstream).
-DEFAULT_VENDORED_PREFIXES = ("skills/mcode-stack/", "skills/minimax-skills/")
+DEFAULT_VENDORED_PREFIXES = (
+    "skills/mcode-stack/", "skills/minimax-skills/", "skills/blender-skills/",
+)
 
 # Relative links carrying any of these are documentation placeholders, not
 # claims about a real file. They are reported in `skipped` — never dropped
