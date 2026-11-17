@@ -35,7 +35,9 @@ first three stay on crates.io at `10.3.0`, and so does the old
 crate **is** published now, at `10.4.0`. So a consumer can still depend on
 `server-manager = "10.3.0"` from the registry while the workspace no longer
 builds it. Verify with
-`curl -s https://crates.io/api/v1/crates/<name> | python3 -c 'import json,sys;print(json.load(sys.stdin)["crate"]["max_stable_version"])'`.
+`curl -s -H 'User-Agent: skill-sync-audit/1.0' https://crates.io/api/v1/crates/<name> | python3 -c 'import json,sys;print(json.load(sys.stdin)["crate"]["max_stable_version"])'`.
+The `User-Agent` is required: without it the registry answers **403** and the
+command prints nothing instead of the version.
 
 Note the `ctares` **root is a virtual workspace**, so `cargo fmt` at the root
 reaches every member (see the `crate fmt` scope note in SKILL.md §13).

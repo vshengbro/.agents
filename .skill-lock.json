@@ -1217,8 +1217,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-17T15:12:52.530Z",
-      "skillFolderHash": "6384511061630b16d96f77726b90830c303ad8cf"
+      "updatedAt": "2026-11-17T15:17:25.419Z",
+      "skillFolderHash": "d6c683e1b28e7a64218894a20f5492da7af16a54"
     },
     "euv-engine-renderer-api": {
       "source": "local",

@@ -73,7 +73,8 @@ publishes the workspace members one crate at a time, so a crate added to the
 workspace is not installable by version until its own publish step has run.
 Resolve what a consumer can actually install from the registry, not from
 `Cargo.toml`: `cargo add euv-chart@<version>`, or
-`curl -s https://crates.io/api/v1/crates/euv-chart`.
+`curl -s -H 'User-Agent: skill-sync-audit/1.0' https://crates.io/api/v1/crates/euv-chart`.
+The registry answers **403** without a `User-Agent`, so a bare `curl` returns nothing.
 
 The committed tree and the registry agree right now: `origin/master` is at
 `0.35.93` and every workspace member — `euv`, `euv-core`, `euv-macros`,

@@ -25,7 +25,7 @@ carries no links to documents that don't exist.
 | The internal CSS minify / inline pipeline blows the stack on some inputs | Macro output size or nesting depth; see the flattening selector rule in `euv-ui-standards` §3.G |
 | Wrong crates.io publish order at release time → path-dep resolution failure | Check against the real dependency graph and the publish pipeline; the order in which workspace members are listed is not itself proof of a topological order |
 | Downstream `cargo add euv-chart` reports "could not be found in registry index" | The crate is published, so the consumer's index/lockfile is stale; run `cargo update` / refresh the index, and check the registry for the version that actually exists |
-| After writing `euv-chart = "0.32"` cargo cannot resolve it | Repository version ≠ published version; ask the registry which version exists (`curl -s https://crates.io/api/v1/crates/euv-chart`) instead of reading `Cargo.toml` |
+| After writing `euv-chart = "0.32"` cargo cannot resolve it | Repository version ≠ published version; ask the registry which version exists (`curl -s -H 'User-Agent: skill-sync-audit/1.0' https://crates.io/api/v1/crates/euv-chart` — a bare `curl` is refused with 403) instead of reading `Cargo.toml` |
 | Expecting `use euv::*` to give you the chart types | The `euv` root crate does not re-export chart; get the chart types from `euv_chart::*` |
 | The chart renders blank but reports no error | First confirm which backend was selected: `BackendKind::name()` returns `webgpu` / `webgl2` / `canvas2d` |
 | The chart animation does not move | The animation is advanced by `Chart::advance(delta)`; without calling it only the first frame is drawn |
