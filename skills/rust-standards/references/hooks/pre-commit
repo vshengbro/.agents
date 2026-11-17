@@ -12,12 +12,12 @@
 # a violation introduced by THIS commit, regardless of repo history.
 #
 # Installed at ~/.git-hooks/pre-commit with git config --global core.hooksPath.
-# Escape hatch (NOT recommended, see rust-standards SKILL.md):
-#   git commit --no-verify
+# Hooks are mandatory; violations must be fixed before committing.
 
 set -euo pipefail
 
 # Never leave bytecode caches in the skills tree (.agents temp-file ban, 2026-10-10)
+unset STAGED_FILE_GATE_ONLY_VERIFIERS  # Commit hooks always run every required verifier.
 export PYTHONDONTWRITEBYTECODE=1
 
 # -------------------------------------------------------------------
@@ -33,8 +33,14 @@ if [[ -z "$REPO_ROOT" ]]; then
     exit 0
 fi
 
-if ! find "$REPO_ROOT" -maxdepth 4 -name Cargo.toml -not -path '*/target/*' 2>/dev/null | head -1 | grep -q .; then
-    exit 0  # not a Rust repo, skip
+# Detect Rust from the complete index, not from unstaged files/directories.
+TRACKED_PATHS=$(git -C "$REPO_ROOT" ls-files --cached) || exit 1
+HEAD_PATHS=""
+if git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD >/dev/null; then
+    HEAD_PATHS=$(git -C "$REPO_ROOT" ls-tree -r --name-only HEAD) || exit 1
+fi
+if ! printf '%s\n%s\n' "$TRACKED_PATHS" "$HEAD_PATHS" | grep -E '(^|/)Cargo\.toml$' >/dev/null; then
+    exit 0
 fi
 
 # Locate rust-standards scripts dir
@@ -48,8 +54,8 @@ for candidate in \
     fi
 done
 if [[ -z "$SCRIPTS_DIR" ]]; then
-    echo "pre-commit hook: rust-standards skill not found, skipping audit" >&2
-    exit 0
+    echo "pre-commit hook: required rust-standards skill not found" >&2
+    exit 1
 fi
 
 # -------------------------------------------------------------------
@@ -101,7 +107,7 @@ fi
 # findings) stayed blocked forever.
 #
 # staged_file_gate.py imports the verifiers and diffs violation counts
-# between HEAD and the worktree, so only NEW violations block. It owns the
+# between complete HEAD and index trees, so only NEW violations block. It owns the
 # per-file loop now.
 # The gate accepts .rs AND .toml: §2.5 (2026-10-09) forbids comments in
 # every TOML file and every mod.rs, and verify_no_toml_mod_comments is the
@@ -110,7 +116,7 @@ fi
 GATE_FILES=$(echo "$STAGED_FILES" | grep -E '\.(rs|toml)$' || true)
 if [[ -n "$GATE_FILES" ]]; then
     # shellcheck disable=SC2086
-    if ! python3 "$SCRIPTS_DIR/staged_file_gate.py" "$REPO_ROOT" --file $GATE_FILES; then
+    if ! python3 "$SCRIPTS_DIR/staged_file_gate.py" "$REPO_ROOT" --staged; then
         VIOLATIONS=$((VIOLATIONS + 1))
         FAILED_FILES+=("staged .rs/.toml files (staged_file_gate.py — new violations vs HEAD)")
     fi
@@ -144,6 +150,5 @@ echo "" >&2
 echo "To see detailed violation output, re-run the specific verifier on a file:" >&2
 echo "  python3 $SCRIPTS_DIR/verify_doc_comment_format.py <file>" >&2
 echo "" >&2
-echo "Escape hatch (NOT recommended, see rust-standards SKILL.md):" >&2
-echo "  git commit --no-verify" >&2
+echo "Hooks are mandatory. Fix the violations before committing." >&2
 exit 1

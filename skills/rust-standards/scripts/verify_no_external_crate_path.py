@@ -27,11 +27,13 @@ Exit 0 clean, 1 violations found, 2 usage error.
 
 from __future__ import annotations
 
+import importlib
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
+
+from verify_fn_body_blank_lines import rust_syntax
 
 # In-repo crates and the std trio are never "external".
 IGNORE = {
@@ -39,12 +41,6 @@ IGNORE = {
     "euv", "euv-ui", "euv-cli", "euv-core",
     "euv-engine", "euv-macros", "euv-example", "hyperlane",
 }
-
-DEP_SECTIONS = ("[dependencies]", "[build-dependencies]",
-                "[dev-dependencies]", "[workspace.dependencies]")
-DEP_NAME = re.compile(r"^([a-zA-Z0-9_-]+)\s*=")
-USE_EXT = re.compile(r"^use\s+([a-zA-Z0-9_-]+)::")
-ANNOTATION_EXT = re.compile(r":\s*([a-zA-Z0-9_-]+)::")
 
 
 def _git(root: Path, *args: str) -> str:
@@ -90,25 +86,29 @@ def changed_sub_files(root: Path) -> list[str]:
     ]
 
 
-def parse_cargo_toml(path: Path) -> set[str]:
-    deps: set[str] = set()
-    if not path.is_file():
-        return deps
-    in_deps = False
+def load_cargo_toml(path: Path) -> dict:
+    """Read actual Cargo tables rather than matching header spelling."""
     try:
-        text = path.read_text()
-    except (OSError, UnicodeDecodeError):
-        return deps
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("["):
-            in_deps = stripped in DEP_SECTIONS
-            continue
-        if in_deps:
-            m = DEP_NAME.match(line)
-            if m:
-                deps.add(m.group(1))
-    return deps
+        tomllib = importlib.import_module('tomllib')
+    except ImportError:
+        try:
+            tomllib = importlib.import_module('tomli')
+        except ImportError as error:
+            raise RuntimeError('Python <3.11 requires tomli to read Cargo manifests') from error
+    with path.open('rb') as handle:
+        return tomllib.load(handle)
+
+
+def parse_cargo_toml(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
+    cargo = load_cargo_toml(path)
+    sections = ('dependencies', 'build-dependencies', 'dev-dependencies')
+    tables = [cargo.get(section, {}) for section in sections]
+    tables.append(cargo.get('workspace', {}).get('dependencies', {}))
+    for target in cargo.get('target', {}).values():
+        tables.extend(target.get(section, {}) for section in sections)
+    return {name.replace('-', '_') for table in tables for name in table}
 
 
 def external_crates(root: Path, files: list[str]) -> set[str]:
@@ -122,7 +122,7 @@ def external_crates(root: Path, files: list[str]) -> set[str]:
                 break
             cur = os.path.dirname(cur)
     found |= parse_cargo_toml(root / "Cargo.toml")
-    return found - IGNORE
+    return found - {name.replace('-', '_') for name in IGNORE}
 
 
 def added_lines(root: Path, rel: str) -> list[str]:
@@ -149,6 +149,57 @@ def added_lines(root: Path, rel: str) -> list[str]:
     return list(dict.fromkeys(line for line in lines if line in current))
 
 
+def root_imports(root: Path, rel: str) -> dict[str, set[tuple[str, ...]]]:
+    """Only explicit, unconditional crate-root imports can prove a collision."""
+    directory = (root / rel).parent
+    while directory != directory.parent and not (directory / 'Cargo.toml').is_file():
+        directory = directory.parent
+    candidates = [directory / 'src/lib.rs', directory / 'lib.rs']
+    # Cargo permits a non-default [lib].path; do not guess a different root.
+    manifest = directory / 'Cargo.toml'
+    if manifest.is_file():
+        cargo = load_cargo_toml(manifest)
+        library = cargo.get('lib', {})
+        if 'path' in library:
+            candidates = [directory / library['path']]
+        elif directory.joinpath('src/lib.rs').is_file():
+            candidates = [directory / 'src/lib.rs']
+        else:
+            # Cargo does not auto-discover a flat lib.rs without [lib].path.
+            candidates = []
+    entry = next((path for path in candidates if path.is_file()), None)
+    if entry is None:
+        return {}
+    result: dict[str, set[tuple[str, ...]]] = {}
+    for _, name, path in rust_syntax(entry.read_text())['root_imports']:
+        if name != '*':
+            result.setdefault(name, set()).add(tuple(path))
+    return result
+
+
+def qualified_findings(text: str, ext: set[str], imports=None) -> list[tuple[int, str]]:
+    """Classify Rust type nodes, not colon-adjacent patterns or expressions."""
+    syntax = rust_syntax(text)
+    imports = imports or {}
+    findings = set()
+    for line, _, path in syntax['imports']:
+        if path and path[0] in ext:
+            findings.add((line, 'import'))
+    for start, end, parts in syntax['paths']:
+        path = tuple(parts)
+        if path[0] not in ext:
+            continue
+        # §6.5: importing this short name must actually collide with a
+        # different explicit crate-root binding. Textual mentions prove nothing.
+        short = path[-1]
+        collisions = imports.get(short, set())
+        if collisions and all(binding != path for binding in collisions):
+            continue
+        for line in range(start, end + 1):
+            findings.add((line, 'type'))
+    return sorted(findings)
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     if not root.is_dir():
@@ -161,20 +212,21 @@ def main() -> int:
     ext = external_crates(root, files)
     hits: list[str] = []
     if ext:
-        for rel in files:
-            for line in added_lines(root, rel):
-                stripped = line.lstrip()
-                m = USE_EXT.match(stripped)
-                if m and m.group(1) in ext:
-                    hits.append(f"{rel}: {line.strip()[:120]}")
-                    continue
-                m = ANNOTATION_EXT.search(stripped)
-                if m and m.group(1) in ext:
-                    if not re.match(r"[A-Z]", stripped[m.end():]):
-                        continue
-                    if stripped.startswith("#"):
-                        continue
-                    hits.append(f"{rel}: {line.strip()[:120]}")
+        try:
+            for rel in files:
+                if not (root / rel).exists():
+                    continue  # A deleted path has no current source to inspect.
+                text = (root / rel).read_text()
+                lines = text.splitlines()
+                added = set(added_lines(root, rel))
+                imports = root_imports(root, rel)
+                for number, _ in qualified_findings(text, ext, imports):
+                    line = lines[number - 1]
+                    if line in added:
+                        hits.append(f"{rel}:{number}: {line.strip()[:120]}")
+        except (OSError, UnicodeDecodeError, RuntimeError, ValueError, TypeError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
     for h in hits:
         print(h)
     print(f"\n=== no-external-crate-path (R6.4): {len(hits)} violation(s) "

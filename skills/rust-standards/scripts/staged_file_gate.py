@@ -1,67 +1,11 @@
 #!/usr/bin/env python3
-"""Staged-file rust-standards gate: block NEW violations only, never legacy debt.
+"""Compare staged Rust/TOML findings against HEAD in isolated complete trees.
 
-Why this exists
----------------
-`~/.git-hooks/pre-commit` has always been broken, for two independent
-reasons:
-
-  1. ARGUMENT-TYPE BUG — the hook invoked the verifiers with a FILE path
-     (`python3 verify_*.py "$REPO_ROOT/$f"`), but every `verify_*.py` ends
-     its `main()` with `if not root.is_dir(): return 2`. Passing a file
-     therefore always failed, so EVERY commit touching a `.rs` file was
-     blocked regardless of content. Verified 2026-09-27: all four
-     file-level verifiers exit non-zero on a file argument, and no `.rs`
-     commit had ever succeeded on ctares since the hook was installed.
-
-  2. NO BASELINE COMPARISON — the hook counted violations in the working
-     tree. A file that already carried historical violations
-     (e.g. `lombok-macros/src/generate/fn.rs` had 48 pre-existing
-     doc-comment findings) was blocked even when the staged diff
-     introduced nothing. That directly contradicts the hook's own
-     documented intent: "block NEW violations, not legacy debt".
-
-This gate fixes both. For every staged `.rs` file it compares the
-violation count in the working tree against the same file at HEAD, and
-reports only the DELTA.
-
-Usage
------
-    python3 staged_file_gate.py <repo-root> [--staged | --file PATH ...]
-
-Exit codes
-----------
-    0 — no new violations (commit allowed)
-    1 — new violations introduced by the staged changes (commit blocked)
-    2 — usage / environment error (not a git repo, scripts missing, ...)
-
-Design notes
-------------
-- Verifiers are imported as modules and driven through their `audit_one()`
-  entry point rather than re-implemented, so there is exactly one parser
-  per rule. Importing also sidesteps the argv contract entirely.
-- HEAD content is materialised next to the working file (same name plus a
-  `.head-baseline` suffix) so path-relative logic keeps working —
-  `verify_lib_rs_doc_comment._read_package_name()` walks up to the nearest
-  Cargo.toml to resolve `[package].name`, which a temp file in the scratch
-  dir would break. The suffix does not match `*.rs` or `lib.rs`, so it is
-  invisible to the verifiers' own `find` patterns, and it is removed in a
-  `finally` block.
-- `verify_lib_rs_doc_comment` is only meaningful for `lib.rs`; running it
-  on any other file name is meaningless work, so it is skipped.
-- Files are checked in a `multiprocessing.Pool`: the per-file work (25+
-  CPU-bound verifier passes, twice — worktree and HEAD baseline) is
-  embarrassingly parallel, and a mega-commit of several hundred files
-  otherwise takes >10 minutes serially. Verdicts and report order are
-  identical to the serial loop (`Pool.map` preserves input order, and the
-  JOBS=1 path runs the very same worker function). Override the worker
-  count with STAGED_FILE_GATE_JOBS; 1 forces the serial path.
-- The staged `git diff --name-status` listing is computed ONCE per run and
-  the HEAD contents of every rename/split source are prefetched ONCE —
-  the serial version re-ran two full diff listings plus the source fetches
-  for EVERY file, which dominated the runtime on large commits.
+Only new per-verifier finding counts block a commit. The index is captured
+once with write-tree; neither verifier inputs nor context come from the user's
+working tree. All temporary files live under TMPDIR, never beside user sources.
+Missing verifiers and import, execution, or snapshot errors fail closed.
 """
-
 from __future__ import annotations
 
 import importlib.util
@@ -69,32 +13,17 @@ import multiprocessing
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-# The baseline temp file must keep the original extension: every verifier
-# entry point decides scope from the path (e.g.
-# verify_const_visibility.audit_one starts with `if path.suffix != ".rs" ...
-# return []`), so a temp named `foo.rs.head-baseline` silently audits to
-# ZERO findings and every legacy violation in the touched file is then
-# reported as "introduced by this commit" -- the exact legacy-debt blindness
-# this gate exists to avoid. The marker is appended after the full name, so
-# `mod.rs` -> `mod.rs.head-baseline.rs` and `Cargo.toml` ->
-# `Cargo.toml.head-baseline.toml`; scope-aware verifiers strip the suffix
-# before deciding. TOML baselines keep `.toml` so repo-wide `*.rs` rglobs
-# (e.g. verify_no_panicking_option_getter) never parse TOML as Rust.
-SUFFIX = ".head-baseline.rs"
-TOML_SUFFIX = ".head-baseline.toml"
-
-
-def _suffix_for(target: Path) -> str:
-    return TOML_SUFFIX if target.name.endswith(".toml") else SUFFIX
-
-# Minimum Jaccard overlap for a staged new file to be treated as a split of
-# a staged-deleted source. Conservative on purpose: a wrong pairing would hide
-# real violations, an absent pairing only over-reports (which is safer).
 SPLIT_MIN_OVERLAP = 0.30
-
-# verifier module name -> human label
+GIT_LOCAL_ENV = {
+    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_GRAFT_FILE", "GIT_PREFIX", "GIT_INTERNAL_SUPER_PREFIX",
+    "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
+    "GIT_SHALLOW_FILE", "GIT_IMPLICIT_WORK_TREE",
+}
 VERIFIERS = {
     "verify_doc_comment_format": "doc-comment §2.1/§2.2",
     "verify_hardcoded_strings": "hardcoded strings §1.3c",
@@ -218,471 +147,283 @@ FILE_SCOPED = {"verify_lib_rs_doc_comment": "lib.rs"}
 TOML_AWARE = {"verify_no_toml_mod_comments"}
 
 
-def die(message: str, code: int = 2) -> int:
-    print(f"staged_file_gate: {message}", file=sys.stderr)
-    return code
+
+def git(repo: Path, *args: str) -> bytes:
+    return subprocess.run(["git", "-C", str(repo), *args], check=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
 
 
-def load_verifier(scripts_dir: Path, name: str):
-    """Import a verifier module by path, so argv/CLI is bypassed entirely."""
-    path = scripts_dir / f"{name}.py"
+def load_verifier(scripts: Path, name: str):
+    path = scripts / f"{name}.py"
     if not path.is_file():
-        return None
+        raise RuntimeError(f"required verifier missing: {path}")
     spec = importlib.util.spec_from_file_location(f"rsv_{name}", path)
     if spec is None or spec.loader is None:
-        return None
+        raise RuntimeError(f"cannot load required verifier: {path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     try:
         spec.loader.exec_module(module)
-    except Exception as error:  # noqa: BLE001 - a broken verifier must not
-        return f"  ! cannot import {name}.py: {error}"
+    except BaseException as error:
+        raise RuntimeError(f"cannot import required verifier {path}: {error}") from error
+    if not callable(getattr(module, "audit_one", None)):
+        raise RuntimeError(f"required audit_one missing: {path}")
     return module
 
 
-def audit(module, path: Path, warnings: list[str]) -> list[str]:
-    """Run a verifier's per-file check, tolerating a missing entry point."""
-    if path is None:
-        return []
-    audit_one = getattr(module, "audit_one", None)
-    if audit_one is None:
+def audit(module, path: Path | None) -> list:
+    if path is None or not path.is_file():
         return []
     try:
-        return list(audit_one(path))
-    except Exception as error:  # noqa: BLE001
-        warnings.append(f"  ! {module.__name__}.audit_one failed: {error}")
-        return []
+        return list(module.audit_one(path))
+    except BaseException as error:
+        raise RuntimeError(f"{module.__name__}.audit_one failed on {path}: {error}") from error
 
 
-def git(repo_root: Path, *args: str) -> tuple[int, str]:
-    """Run git and return its exit code and decoded stdout.
-
-    A staged deletion can name a binary file, and `git show HEAD:<path>` then
-    hands back PNG or font bytes. Decoding strictly would raise here and take
-    the whole gate down over a file no verifier can read anyway, so undecodable
-    bytes are replaced: the verifiers only ever look for text.
-    """
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), *args],
-        capture_output=True,
-    )
-    return result.returncode, result.stdout.decode("utf-8", errors="replace")
+def entries(repo: Path, tree: str) -> list:
+    result = []
+    for record in git(repo, "ls-tree", "-r", "-z", tree).split(b"\0"):
+        if record:
+            header, relative = record.split(b"\t", 1)
+            mode, kind, oid = header.split()
+            result.append((os.fsdecode(relative), mode, kind, oid))
+    return result
 
 
-def parse_staged_listing(listing: str) -> tuple[dict[str, str], list[str]]:
-    """Parse one `git diff --cached --name-status -M` listing.
-
-    Returns (renames, sources): renames maps a staged rename's NEW path to
-    its OLD path; sources is the de-duplicated, order-preserving list of
-    OLD paths from D and R entries (the split-baseline candidates). The
-    serial version derived the same two structures by re-running the full
-    listing per file; one parse feeds every file.
-    """
-    renames: dict[str, str] = {}
-    sources: list[str] = []
-    seen: set[str] = set()
-    for line in listing.splitlines():
-        parts = line.split("\t")
-        status = parts[0][:1] if parts else ""
-        if status == "R" and len(parts) >= 3:
-            old_path, new_path = parts[1], parts[2]
-            # Git never emits two renames to the same new path; first wins.
-            renames.setdefault(new_path, old_path)
-            if old_path not in seen:
-                seen.add(old_path)
-                sources.append(old_path)
-        elif status == "D" and len(parts) >= 2:
-            old_path = parts[1]
-            if old_path not in seen:
-                seen.add(old_path)
-                sources.append(old_path)
-    return renames, sources
-
-
-def split_baseline(ctx: dict, rel: str) -> str | None:
-    """Best-effort HEAD baseline for a file created by SPLITTING another file.
-
-    A staged move is often recorded as `D old` + `N x A new` rather than a
-    rename, because one source file was split into several targets (e.g.
-    §1.3d restructuring `class/fn.rs` into `class/{display,page,shell}/fn.rs`).
-    Git cannot pair those, so every new path gets baseline `None` and the
-    whole pre-existing debt in the split source is reported as
-    "introduced by this commit" — the exact legacy-debt blindness the gate
-    exists to prevent.
-
-    Resolution is deliberately conservative: a candidate source is accepted
-    ONLY when the same-directory sibling rule plus a real content overlap
-    both hold, and the accepted baseline is the source's HEAD text. The
-    caller still diffs violation COUNTS against it, so genuinely new
-    violations in the new file are still caught; the fallback merely stops
-    inherited debt from being double-counted as new.
-
-    Returns None (i.e. "treat as a new file") whenever the pairing is
-    ambiguous, which keeps the gate strict in the doubtful case.
-    """
-    repo_root: Path = ctx["repo_root"]
-    target = repo_root / rel
-    if not target.is_file():
-        return None
-
-    # A split may move code in either direction:
-    #   class/fn.rs          -> class/page/fn.rs   (into a NEW subdir)
-    #   renderer/impl.rs     -> renderer/canvas/impl.rs (into a NEW subdir)
-    # so the source is usually the target's PARENT dir, not its own dir.
-    # Accept the source when either directory contains the other.
-    try:
-        target_dir = str(target.parent.relative_to(repo_root))
-    except ValueError:
-        return None
-    if target_dir in {".", ""}:
-        target_dir = ""
-
-    current_lines = set(_content_lines(target.read_text(errors="replace")))
-    if not current_lines:
-        return None
-
-    head_cache: dict[str, str] = ctx["head_cache"]
-    best: tuple[float, str] | None = None
-    for old_path in ctx["sources"]:
-        if not _same_or_nested_dir(old_path, target_dir):
+def materialise(repo: Path, tree: str, destination: Path) -> None:
+    """Copy every tracked blob, including verifier configuration and context."""
+    destination.mkdir()
+    # Keep metadata and the index private; share only immutable object reads.
+    # An empty index changes ls-files/check-ignore and silently drops context.
+    clean_env = {key: value for key, value in os.environ.items() if key not in GIT_LOCAL_ENV}
+    subprocess.run(["git", "-C", str(destination), "init", "--quiet", "--template="],
+                   env=clean_env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    objects = Path(os.fsdecode(git(repo, "rev-parse", "--git-path", "objects")).strip())
+    if not objects.is_absolute():
+        objects = repo / objects
+    (destination / ".git/objects/info/alternates").write_text(str(objects.resolve()) + "\n")
+    subprocess.run(["git", "-C", str(destination), "read-tree", tree],
+                   env=clean_env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    source_head = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", "HEAD"],
+                                 check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if source_head.returncode == 0:
+        subprocess.run(["git", "-C", str(destination), "update-ref", "HEAD", source_head.stdout.decode().strip()],
+                       env=clean_env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    elif source_head.returncode != 1:
+        raise RuntimeError("cannot resolve snapshot HEAD")
+    records = entries(repo, tree)
+    for relative, mode, kind, oid in records:
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts or any(part.casefold() == ".git" for part in path.parts):
+            raise RuntimeError(f"unsafe tree path: {relative!r}")
+    blobs = [entry for entry in records if entry[2] == b"blob"]
+    request = b"".join(oid + b"\n" for _, _, _, oid in blobs)
+    data = subprocess.run(["git", "-C", str(repo), "cat-file", "--batch"],
+                          input=request, check=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE).stdout
+    offset = 0
+    links = []
+    for relative, mode, kind, oid in blobs:
+        path = Path(relative)
+        end = data.index(b"\n", offset)
+        found, found_kind, length = data[offset:end].split()
+        if found != oid or found_kind != kind:
+            raise RuntimeError(f"invalid blob response: {relative!r}")
+        size = int(length)
+        content = data[end + 1:end + 1 + size]
+        offset = end + size + 2
+        if len(content) != size:
+            raise RuntimeError(f"truncated blob: {relative!r}")
+        target = destination / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Write ordinary files before creating any links, so writes can never
+        # follow a tree-controlled link. Validate chains only once all exist.
+        if mode == b"120000":
+            link = os.fsdecode(content)
+            lexical = Path(os.path.abspath(target.parent / link))
+            if (not link or Path(link).is_absolute() or
+                    any(part.casefold() == ".git" for part in Path(link).parts) or
+                    not lexical.is_relative_to(destination.resolve())):
+                raise RuntimeError(f"unsafe symlink target: {relative!r}")
+            links.append((target, link))
             continue
-        content = head_cache.get(old_path)
-        if not content:
-            continue
-        old_lines = set(_content_lines(content))
-        if not old_lines:
-            continue
-        # Jaccard overlap: how much of the new file existed in the source.
-        overlap = len(current_lines & old_lines) / len(current_lines)
-        if overlap < SPLIT_MIN_OVERLAP:
-            continue
-        if best is None or overlap > best[0]:
-            best = (overlap, content)
+        if mode not in (b"100644", b"100755"):
+            raise RuntimeError(f"unsupported blob mode: {mode!r} {relative!r}")
+        target.write_bytes(content)
+        target.chmod(0o755 if mode == b"100755" else 0o644)
+    for relative, mode, kind, oid in records:
+        if kind == b"commit":
+            (destination / relative).mkdir(parents=True, exist_ok=True)
+    for target, link in links:
+        target.symlink_to(link)
+    root = destination.resolve()
+    for target, link in links:
+        try:
+            resolved = target.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise RuntimeError(f"broken or cyclic symlink: {target.relative_to(root)!s}") from error
+        if (not resolved.is_relative_to(root) or
+                any(part.casefold() == ".git" for part in resolved.relative_to(root).parts)):
+            raise RuntimeError(f"unsafe symlink chain: {target.relative_to(root)!s}")
 
-    if best is None:
-        return None
-    return best[1]
+
+def changes(repo: Path, head: str, index: str) -> tuple[list[str], dict[str, str], list[str]]:
+    fields = git(repo, "diff-tree", "--no-commit-id", "-r", "--name-status", "-z",
+                 "--find-renames", head, index).split(b"\0")
+    selected, renames, sources = [], {}, []
+    iterator = iter(fields)
+    for status in iterator:
+        if not status:
+            continue
+        old = os.fsdecode(next(iterator))
+        action = status[:1]
+        new = os.fsdecode(next(iterator)) if action in (b"R", b"C") else old
+        if action == b"R":
+            renames[new] = old
+            sources.append(old)
+        elif action == b"D":
+            sources.append(old)
+        if action in (b"A", b"C", b"M", b"R", b"T") and new.endswith((".rs", ".toml")):
+            if not new.startswith("target/"):
+                selected.append(new)
+    return selected, renames, list(dict.fromkeys(sources))
+
+
+def _content_lines(path: Path) -> set[str]:
+    return {line.strip() for line in path.read_text().splitlines()
+            if line.strip() and not line.strip().startswith("//")}
 
 
 def _same_or_nested_dir(old_path: str, target_dir: str) -> bool:
-    """True when the deleted file's directory and the target directory nest.
-
-    Covers both split directions: a file split out into a new sub-directory
-    (source is the parent) and one split down from a parent (source is an
-    ancestor). Sibling dirs are excluded: unrelated code should not be
-    used as a baseline.
-    """
     old_dir = str(Path(old_path).parent)
-    if old_dir in {".", ""}:
-        old_dir = ""
-    if old_dir == target_dir:
-        return True
-    if not old_dir or not target_dir:
-        return False
-    return old_dir.startswith(target_dir + "/") or target_dir.startswith(old_dir + "/")
+    return (old_dir == target_dir or
+            (old_dir != "." and target_dir != "." and
+             (old_dir.startswith(target_dir + "/") or target_dir.startswith(old_dir + "/"))))
 
 
-def _content_lines(text: str) -> list[str]:
-    """Significant lines only, so reindentation alone is not an overlap."""
-    return [
-        line.strip()
-        for line in text.splitlines()
-        if line.strip() and not line.strip().startswith("//")
-    ]
+def baseline_paths(ctx: dict, rel: str) -> list[Path]:
+    """Preserve rename/split debt, always auditing original HEAD paths/context."""
+    head, staged = ctx["head"], ctx["index"]
+    own = head / ctx["renames"].get(rel, rel)
+    result = [own] if own.is_file() else []
+    current = _content_lines(staged / rel)
+    best = None
+    for source in ctx["sources"]:
+        path = head / source
+        if path in result or not path.is_file() or path.suffix != Path(rel).suffix:
+            continue
+        if not _same_or_nested_dir(source, str(Path(rel).parent)):
+            continue
+        overlap = len(current & _content_lines(path)) / len(current) if current else 0
+        if overlap >= SPLIT_MIN_OVERLAP and (best is None or overlap > best[0]):
+            best = overlap, path
+    if best is not None:
+        result.append(best[1])
+    return result
 
 
-def materialise(target: Path, text: str) -> Path:
-    """Write `text` beside `target` so path-relative logic still resolves."""
-    tmp = target.with_name(target.name + _suffix_for(target))
-    tmp.write_text(text)
-    return tmp
-
-
-def baseline_for(ctx: dict, rel: str) -> str | None:
-    """File content at HEAD, or None when the file is new / untracked.
-
-    A staged rename makes `HEAD:<newpath>` fail even though the file is not
-    new: the content lives at the OLD path in HEAD. Without this lookup the
-    baseline is `None`, `before` becomes `[]`, and every pre-existing
-    violation in the renamed file is counted as "introduced by this commit"
-    — which is exactly the legacy-debt blindness the gate exists to avoid.
-    """
-    repo_root: Path = ctx["repo_root"]
-    code, out = git(repo_root, "show", f"HEAD:{rel}")
-    split = split_baseline(ctx, rel)
-    if code == 0 and out is not None:
-        if split is None:
-            return out
-        # Union baseline. A file that was MODIFIED may still have received
-        # code from a sibling that this commit deleted (the §1.3d move case:
-        # `class/display/fn.rs` existed in HEAD but was only a partial file,
-        # and the rest arrived from the deleted `class/fn.rs`). Baselining
-        # against the partial HEAD copy alone makes the moved-in debt look
-        # brand new. Concatenating the sources gives the gate the full
-        # pre-commit content set; the caller still diffs per-verifier
-        # violation COUNTS, so real new findings are still reported.
-        return out + "\n" + split
-    old_path = ctx["renames"].get(rel)
-    if old_path is not None:
-        # A failed prefetch (missing entry) maps to None, exactly like the
-        # serial version's `git show` failure path.
-        return ctx["head_cache"].get(old_path)
-    return split
-
-
-# ---------------------------------------------------------------------------
-# Worker plumbing — one module load per PROCESS, then files map over the pool.
-# ---------------------------------------------------------------------------
-
-_CTX: dict = {}
+_CTX = {}
 
 
 def _init_worker(ctx: dict) -> None:
-    """Pool initializer: load verifiers once per worker, stash shared state."""
     global _CTX
-    modules: dict[str, object] = {}
-    load_errors: list[str] = []
-    for name in VERIFIERS:
-        if ctx["only"] and name not in ctx["only"]:
-            continue
-        module = load_verifier(ctx["scripts_dir"], name)
-        if isinstance(module, str):
-            load_errors.append(module)
-        elif module is not None:
-            modules[name] = module
-    _CTX = {**ctx, "modules": modules, "load_errors": load_errors}
+    for key in GIT_LOCAL_ENV:
+        os.environ.pop(key, None)
+    _CTX = {**ctx, "modules": {}}
 
 
-def _check_file(rel: str) -> tuple[list[str], int, list[str]]:
-    """Run every verifier on one staged file; return (report, delta, warnings).
-
-    Side-effect free apart from the per-file baseline temp (unique name,
-    removed in `finally`), so it is safe to run in a worker process.
-    """
+def _check_file(rel: str) -> tuple[int, list[str]]:
     ctx = _CTX
-    warnings: list[str] = []
-    report: list[str] = []
-    repo_root: Path = ctx["repo_root"]
-    working = repo_root / rel
-    if not working.is_file():
-        report.append(f"    - {rel}: staged but missing from worktree, skipped")
-        return report, 0, warnings
-
-    baseline = baseline_for(ctx, rel)
-    baseline_path: Path | None = None
-    if baseline is not None:
-        try:
-            baseline_path = materialise(working, baseline)
-        except OSError as error:
-            warnings.append(f"  ! cannot stage baseline for {rel}: {error}")
-            baseline_path = None
-
-    total_new = 0
+    if not ctx["modules"]:
+        ctx["modules"] = {name: load_verifier(ctx["scripts"], name) for name in ctx["names"]}
+    target = ctx["index"] / rel
+    if not target.is_file():
+        raise RuntimeError(f"selected path absent from index snapshot: {rel!r}")
+    baselines = baseline_paths(ctx, rel)
+    count, report = 0, []
     for name, module in ctx["modules"].items():
-        required_name = FILE_SCOPED.get(name)
-        if required_name and working.name != required_name:
-            continue
         if rel.endswith(".toml") and name not in TOML_AWARE:
             continue
-        before = audit(module, baseline_path, warnings) if baseline_path else []
-        after = audit(module, working, warnings)
-        if len(after) > len(before):
-            delta = len(after) - len(before)
-            total_new += delta
-            report.append(
-                f"    - {rel}: +{delta} new ({name} — {VERIFIERS[name]})"
-            )
-    return report, total_new, warnings
-
-
-def parse_args(argv: list[str]) -> tuple[Path, list[str]]:
-    args = argv[1:]
-    if not args:
-        raise ValueError("usage: staged_file_gate.py <repo-root> [--staged | --file PATH ...]")
-    root = Path(args[0]).resolve()
-    files: list[str] = []
-    rest = args[1:]
-    if "--file" in rest:
-        index = rest.index("--file")
-        files = rest[index + 1 :]
-    else:
-        code, out = git(root, "diff", "--cached", "--name-only", "--diff-filter=ACMR")
-        if code != 0:
-            raise ValueError("not a git repository, or git failed")
-        files = [line for line in out.splitlines() if line.strip()]
-    return root, files
-
-
-def _jobs(file_count: int) -> int:
-    """Worker count: STAGED_FILE_GATE_JOBS wins, else one per core, capped."""
-    raw = os.environ.get("STAGED_FILE_GATE_JOBS", "").strip()
-    if raw:
-        try:
-            value = int(raw)
-            if value > 0:
-                return min(value, file_count)
-        except ValueError:
-            pass
-    return min(file_count, os.cpu_count() or 4)
+        required = FILE_SCOPED.get(name)
+        if required and target.name != required:
+            continue
+        before = sum(len(audit(module, p)) for p in baselines
+                     if not required or p.name == required)
+        after = len(audit(module, target))
+        delta = max(0, after - before)
+        count += delta
+        if delta:
+            report.append(f"  {rel}: +{delta} new ({name} — {VERIFIERS[name]})")
+    return count, report
 
 
 def main() -> int:
-    try:
-        repo_root, staged = parse_args(sys.argv)
-    except ValueError as error:
-        return die(str(error))
-
-    if not repo_root.is_dir():
-        return die(f"{repo_root} is not a directory")
-
-    scripts_dir: Path | None = None
-    for candidate in (
-        Path.home() / ".agents/skills/rust-standards/scripts",
-        Path.home() / ".hermes/skills/rust-standards/scripts",
-    ):
-        if (candidate / "verify_doc_comment_format.py").is_file():
-            scripts_dir = candidate
-            break
-    if scripts_dir is None:
-        return die("rust-standards skill scripts not found")
-
-    rs_files = [
-        f for f in dict.fromkeys(staged) if f.endswith((".rs", ".toml"))
-    ]
-    if not rs_files:
+    if len(sys.argv) < 2:
+        raise ValueError("usage: staged_file_gate.py <repo-root> [--staged | --file PATH ...]")
+    repo = Path(sys.argv[1]).resolve()
+    args = sys.argv[2:]
+    if args and args[0] not in ("--staged", "--file"):
+        raise ValueError("unknown arguments")
+    # Resolve helpers beside this executable, so isolated installations and
+    # regression copies exercise exactly the selected verifier dependencies.
+    scripts = Path(__file__).resolve().parent
+    index_path = Path(os.fsdecode(git(repo, "rev-parse", "--git-path", "index")).strip())
+    if not index_path.is_absolute():
+        index_path = repo / index_path
+    with tempfile.TemporaryDirectory(prefix="staged-index-copy-", dir=os.environ.get("TMPDIR")) as copied:
+        private_index = Path(copied) / "index"
+        private_index.write_bytes(index_path.read_bytes())
+        index = subprocess.run(["git", "-C", str(repo), "write-tree"],
+                               env={**os.environ, "GIT_INDEX_FILE": str(private_index)},
+                               check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode().strip()
+    probe = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", "HEAD"],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if probe.returncode == 0:
+        head = probe.stdout.decode().strip()
+    elif probe.returncode == 1 and not git(repo, "symbolic-ref", "-q", "HEAD").strip() == b"":
+        head = subprocess.run(["git", "-C", str(repo), "hash-object", "-t", "tree", "-w", "--stdin"],
+                              input=b"", check=True, stdout=subprocess.PIPE).stdout.decode().strip()
+    else:
+        raise RuntimeError("cannot resolve HEAD")
+    selected, renames, sources = changes(repo, head, index)
+    if args and args[0] == "--file":
+        requested = set(args[1:])
+        selected = [rel for rel in selected if rel in requested]
+    if not selected:
         print("staged_file_gate: no staged .rs/.toml files, nothing to check")
         return 0
-
-    # Fixture support: run a subset of the gate's verifiers so one rule's
-    # fixture is not masked by another rule's findings.  Unset in normal
-    # use, so the gate always runs the full set.
-    only = {
-        part.strip()
-        for part in os.environ.get("STAGED_FILE_GATE_ONLY_VERIFIERS", "").split(",")
-        if part.strip()
-    }
-
-    # Load every verifier once in the parent as well: import failures are
-    # reported exactly once (not once per worker), and a fully broken
-    # scripts dir dies here instead of inside a pool worker.
-    usable = 0
-    for name in VERIFIERS:
-        if only and name not in only:
-            continue
-        module = load_verifier(scripts_dir, name)
-        if isinstance(module, str):
-            print(module, file=sys.stderr)
-        elif module is not None:
-            usable += 1
-    if usable == 0:
-        return die("no verifier could be imported")
-
-    # One staged listing for the whole run; the serial version re-ran it
-    # (twice!) per file. Rename map + split candidates come from the same
-    # text, and every source's HEAD content is prefetched once.
-    code, listing = git(
-        repo_root, "diff", "--cached", "--name-status", "--find-renames", "-M"
-    )
-    renames: dict[str, str] = {}
-    sources: list[str] = []
-    if code == 0:
-        renames, sources = parse_staged_listing(listing)
-
-    head_cache: dict[str, str] = {}
-    for old_path in sources:
-        found, content = git(repo_root, "show", f"HEAD:{old_path}")
-        if found == 0 and content:
-            head_cache[old_path] = content
-
-    ctx = {
-        "repo_root": repo_root,
-        "scripts_dir": scripts_dir,
-        "renames": renames,
-        "sources": sources,
-        "head_cache": head_cache,
-        "only": only,
-    }
-
-    print("============================================================")
-    print("staged_file_gate: new-violation gate (staged vs HEAD)")
-    print(f"  repo:    {repo_root}")
-    print(f"  scripts: {scripts_dir}")
-    print(f"  .rs/.toml files: {len(rs_files)}")
-    print("============================================================")
-
-    jobs = _jobs(len(rs_files))
-    results: list[tuple[list[str], int, list[str]]]
-
-    # Baseline temps survive for the whole run now: a worker no longer
-    # unlinks its own baseline, because repo-wide verifiers (e.g.
-    # verify_no_panicking_option_getter rglob the tree once per file) would
-    # otherwise read a sibling worker's baseline in the exact window between
-    # materialise and unlink and crash with ENOENT — nondeterministically.
-    # Any stale temp from a previously killed run is swept up front, and
-    # every temp this run may have created is removed at the end, whichever
-    # path (pool, serial fallback, exception) produced it.
-    for pattern in (f"*{SUFFIX}", f"*{TOML_SUFFIX}"):
-        for stale in repo_root.rglob(pattern):
-            if "/target/" not in str(stale):
-                try:
-                    stale.unlink()
-                except OSError:
-                    pass
-    try:
+    only = {part.strip() for part in os.environ.get("STAGED_FILE_GATE_ONLY_VERIFIERS", "").split(",") if part.strip()}
+    unknown = only - VERIFIERS.keys()
+    if unknown:
+        raise RuntimeError(f"unknown required verifiers: {sorted(unknown)}")
+    names = [name for name in VERIFIERS if not only or name in only]
+    # Validate every required helper in the parent before starting workers.
+    for name in names:
+        load_verifier(scripts, name)
+    with tempfile.TemporaryDirectory(prefix="staged-rust-context-", dir=os.environ.get("TMPDIR")) as temporary:
+        root = Path(temporary)
+        baseline, staged = root / "head", root / "index"
+        materialise(repo, head, baseline)
+        materialise(repo, index, staged)
+        ctx = dict(head=baseline, index=staged, scripts=scripts, names=names, renames=renames, sources=sources)
+        jobs = min(len(selected), int(os.environ.get("STAGED_FILE_GATE_JOBS", os.cpu_count() or 4)))
         if jobs <= 1:
             _init_worker(ctx)
-            results = [_check_file(rel) for rel in rs_files]
+            results = [_check_file(rel) for rel in selected]
         else:
-            try:
-                with multiprocessing.Pool(
-                    processes=jobs,
-                    initializer=_init_worker,
-                    initargs=(ctx,),
-                ) as pool:
-                    chunksize = max(1, len(rs_files) // (jobs * 4))
-                    # map preserves input order, so the report is byte-identical
-                    # to the serial loop's.
-                    results = pool.map(_check_file, rs_files, chunksize)
-            except Exception as error:  # noqa: BLE001 - a pool failure must not
-                print(  # block the commit; fall back to the serial path
-                    f"  ! worker pool unavailable ({error}), running serially",
-                    file=sys.stderr,
-                )
-                _init_worker(ctx)
-                results = [_check_file(rel) for rel in rs_files]
-    finally:
-        for rel in rs_files:
-            target = repo_root / rel
-            tmp = target.with_name(target.name + _suffix_for(target))
-            try:
-                tmp.unlink(missing_ok=True)
-            except OSError:
-                pass
-
-    total_new = 0
-    report: list[str] = []
-    warnings: list[str] = []
-    for lines, delta, file_warnings in results:
-        report.extend(lines)
-        total_new += delta
-        warnings.extend(file_warnings)
-    for line in dict.fromkeys(warnings):
-        print(line, file=sys.stderr)
-
-    if total_new == 0:
-        print("\n  0 new violations — commit allowed")
-        print("  (legacy violations in touched files are NOT counted)")
-        print("============================================================")
-        return 0
-
-    print(f"\n  {total_new} NEW violation(s) introduced by staged changes:")
-    for line in report:
-        print(line)
-    print("")
-    print("============================================================")
-    print("staged_file_gate: FAIL — commit BLOCKED")
-    print("============================================================")
-    return 1
+            with multiprocessing.Pool(processes=jobs, initializer=_init_worker, initargs=(ctx,)) as pool:
+                results = pool.map(_check_file, selected)
+    count = sum(item[0] for item in results)
+    for _, report in results:
+        for line in report:
+            print(line)
+    print(f"staged_file_gate: {len(selected)} staged .rs/.toml files; {count} new violations (index vs HEAD)")
+    return 1 if count else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as error:
+        print(f"staged_file_gate: ERROR — commit BLOCKED: {error}", file=sys.stderr)
+        sys.exit(2)

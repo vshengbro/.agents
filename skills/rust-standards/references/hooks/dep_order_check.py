@@ -32,17 +32,59 @@ def manifest(path):
 
 
 def write_tree(destination, entries):
-    for relative, mode, object_id in entries:
+    # Resolve links from this Git view only; never follow the original worktree.
+    # Materialize bytes at the logical manifest path so workspace inheritance
+    # remains relative to Cargo.toml, not to its backing blob's filename.
+    tree = {relative: (mode, object_id) for relative, mode, object_id in entries}
+    directories = {str(parent) for relative in tree for parent in Path(relative).parents}
+
+    def blob(relative):
+        pending = relative.split("/")
+        resolved = []
+        links = 0
+        while pending:
+            component = pending.pop(0)
+            if component in ("", "."):
+                continue
+            if component == "..":
+                if not resolved:
+                    raise RuntimeError(f"manifest link escapes Git tree: {relative}")
+                resolved.pop()
+                continue
+            if component.casefold() == ".git" or "\x00" in component:
+                raise RuntimeError(f"invalid manifest link path: {relative}")
+            candidate = "/".join([*resolved, component])
+            entry = tree.get(candidate)
+            if entry is None:
+                if candidate in directories and pending:
+                    resolved.append(component)
+                    continue
+                raise RuntimeError(f"manifest target missing from Git tree: {candidate}")
+            mode, object_id = entry
+            if mode == b"120000":
+                links += 1
+                if links > 40:
+                    raise RuntimeError(f"cyclic or excessive manifest links: {relative}")
+                link = os.fsdecode(git("cat-file", "blob", object_id.decode("ascii")))
+                if not link or link.startswith("/") or "\x00" in link:
+                    raise RuntimeError(f"invalid manifest link target: {candidate}")
+                pending = link.split("/") + pending
+                continue
+            if mode not in (b"100644", b"100755") or pending:
+                raise RuntimeError(f"unsupported manifest mode/path {mode!r}: {candidate}")
+            return git("cat-file", "blob", object_id.decode("ascii"))
+        raise RuntimeError(f"manifest target is not a blob: {relative}")
+
+    for relative in tree:
         if not manifest(relative):
             continue
         path = Path(relative)
-        if path.is_absolute() or ".." in path.parts:
+        if path.is_absolute() or ".." in path.parts or any(p.casefold() == ".git" for p in path.parts):
             raise RuntimeError(f"invalid manifest path: {relative!r}")
-        if mode not in (b"100644", b"100755"):
-            raise RuntimeError(f"unsupported manifest mode {mode!r}: {relative}")
+        content = blob(relative)
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(git("cat-file", "blob", object_id.decode("ascii")))
+        target.write_bytes(content)
 
 
 def local_names(path, view):
@@ -96,7 +138,9 @@ try:
         path = os.fsdecode(relative)
         if manifest(path) and stage != b"0":
             raise RuntimeError(f"unmerged manifest in index: {path}")
-        index_entries.append((path, mode, object_id))
+        # A link target may have any filename; unresolved target stages must
+        # never silently become the last stage returned by ls-files.
+        index_entries.append((path, mode if stage == b"0" else b"unmerged", object_id))
     if not set(selected).issubset({entry[0] for entry in index_entries}):
         raise RuntimeError("staged TOML path missing from index snapshot")
     head_probe = subprocess.run(
