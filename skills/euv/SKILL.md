@@ -41,6 +41,7 @@ Shortest path · Load by task · Workspace shape · Native builds · What CI run
 | Game/scene/physics and engine abstractions | [Engine API](references/api-engine.md) |
 | Charting: option model, display list, chart backends | [Chart API](references/api-chart.md) |
 | CLI: run/build/fmt modes and native bundle planning | [CLI API](references/api-cli.md) |
+| Docs-site components, locale tables | [Docs API](references/api-docs.md) |
 | WebGPU/WebGL renderer contracts and readback | [Renderer workflow](euv-engine-renderer-api/SKILL.md) |
 | euv UI layout, class registry and visual verification | [UI standards](../euv-ui-standards/SKILL.md) |
 | Symptom-first diagnosis | [Pitfalls](references/pitfalls.md) |
@@ -74,11 +75,13 @@ Resolve what a consumer can actually install from the registry, not from
 `Cargo.toml`: `cargo add euv-chart@<version>`, or
 `curl -s https://crates.io/api/v1/crates/euv-chart`.
 
-Three versions now differ and only the last is installable: the committed tree is
-at `0.34.7`, the local worktree is at `0.34.16` (uncommitted), and every member
-is published at `0.34.2` — `0.34.3` and later are not on crates.io. The committed
-root `Cargo.toml` still pins its `[workspace.dependencies]` members at `0.34.2`.
-Re-check the registry rather than trusting this paragraph when it matters.
+The committed tree and the registry agree right now: `origin/master` is at
+`0.35.93` and every workspace member — `euv`, `euv-core`, `euv-macros`,
+`euv-ui`, `euv-engine`, `euv-chart`, `euv-cli`, `euv-docs`, `euv-example`,
+`euv-automation` and `euv-performance` — is published at `0.35.93`, so the
+whole workspace is installable in lockstep. The committed root `Cargo.toml`
+pins its `[workspace.dependencies]` members at `0.35.93` too. Re-check the
+registry rather than trusting this paragraph when it matters.
 
 ## Native builds
 
@@ -92,6 +95,9 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to
 - `--platforms macos,android` names an explicit subset; `--plan` prints the
   resolved plan and exits without building; `--native-path` points at another
   native project directory and requires `--all` or `--platforms`.
+- `--all` and `--platforms` are mutually exclusive: `--all` means *every*
+  platform this host can build, so naming a subset with it is a contradiction
+  the CLI refuses (`resolve_requested_platforms` errors out).
 - The native flags are **refused in `run` mode**: it serves pages in a browser
   and has no native deliverable to produce.
 - The web build runs **once**; its output directory reaches every native builder

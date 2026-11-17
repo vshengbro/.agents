@@ -32,7 +32,7 @@ The `*_extra` groups hold the parts the shadcn reference splits out — a field'
 
 **Two token owners, never one.** The theme class (`c_theme_light` / `c_theme_dark`) owns the semantic mapping and the universal structure scale (the four-pixel spacing base, motion, layout); the scheme class (`c_scheme_<name>`) owns the colour roles, the radius scale, the shadow ramp, the type ramp, the tracking and case treatments and the control heights. The two sets are disjoint by construction, so both can sit on the same root element without either shadowing the other. `ui/tests/theme` fails the build if they ever overlap, if a scheme drops a token, if the registry reads a token nobody defines, or if a token is left orphaned.
 
-**A scheme is a design language, not a colour swap.** The registry is written in the shadcn/ui idiom — a hairline-bordered card, a solid separator, a raised overlay, a 1px control border, a focus ring — and every scheme expresses its own geometry through those tokens. Adding a scheme means adding a `ui/src/style/var/scheme/<name>/fn.rs` with the same 102 tokens in the same order, plus a `theme-<name>` feature in `ui/Cargo.toml` and a line in the selection chain in `ui/src/style/var/theme/fn.rs`. Copy `scheme/shadcn/fn.rs` as the shape reference; never copy its values.
+**A scheme is a design language, not a colour swap.** The registry is written in the shadcn/ui idiom — a hairline-bordered card, a solid separator, a raised overlay, a 1px control border, a focus ring — and every scheme expresses its own geometry through those tokens. Adding a scheme means adding a `ui/src/style/var/scheme/<name>/fn.rs` with the same 103 tokens in the same order, plus a `theme-<name>` feature in `ui/Cargo.toml` and a line in the selection chain in `ui/src/style/var/theme/fn.rs`. Copy `scheme/shadcn/fn.rs` as the shape reference; never copy its values.
 
 **Hard constraints — violating any is a review reject.** Every `class!` block lives in the registry; a page's `view/fn.rs` only calls `c_xxx()`. Naming is `c_` + scope + element, snake_case lowercase: reused across pages ⇒ no page name (`c_card`), page-scoped ⇒ `c_<page>_<element>`. Never hardcode a colour or spacing literal in `class!`; always `var!(…)`.
 
@@ -50,7 +50,7 @@ Then open the route, read the rule back from `document.styleSheets`, and — if 
 ## 1. Design Tokens
 
 The system is **not** monochrome. There are seventeen schemes
-(`ui/src/style/var/scheme/<name>/fn.rs`, each with the same 102 tokens) and a
+(`ui/src/style/var/scheme/<name>/fn.rs`, each with the same 103 tokens) and a
 theme pair (`ui/src/style/var/theme/fn.rs`); the built-in selection chain
 decides which scheme a build ships. Values and scales:
 `references/design-tokens.md`. `bg-overlay` is overlay-only, never the
@@ -74,11 +74,11 @@ Desktop nav hidden; sticky `c_mobile_header` (`mobile-header-height` + `var(--eu
 
 ### 2.4 Nav
 
-`c_nav_header` → `c_nav_section_label` → `c_nav_items_scroll` with `c_nav_item_inactive` / `_active` → optional `c_nav_locale_row` → `c_nav_theme_toggle` → `c_nav_footer`. Hover is an inset left border (`box-shadow: inset 4px 0 0 accent`), **not** `border-left-width`: it takes no layout space, and grepping `:hover` for a border change finds nothing.
+`c_nav_header` → `c_nav_section_label` → `c_nav_items_scroll` with `c_nav_item_inactive` / `_active` → optional `c_nav_locale_row` → `c_nav_theme_toggle` → `c_nav_footer`. Hover is an inset left border (`box-shadow: inset 4px 0 0 0 var(--foreground)`), **not** `border-left-width`: it takes no layout space, and grepping `:hover` for a border change finds nothing.
 
 ## 3. Core Component HTML Templates
 
-**Never hand-roll a button** — `euv_button` is the only one, inside `c_button_controls` for its gap. `EuvButtonVariant` carries `Primary` / `Default` (the same filled default under two names — `Primary` is the historical name and `Default` the registry's own), `Secondary`, `Destructive`, `Outline`, `Ghost` and `Link`; `EuvButtonSize` carries `Default` / `Small` / `Large` / `Icon`. **Default to `Primary`**, flipping variant only in a mutually exclusive group where exactly one button *is* the current state (action and escape buttons never flip; two `Primary` in a group is a reject). **`euv_card` is a real surface** — a `var!(surface-border-width)` solid `var!(border)` edge, a `var!(card)` fill, `var!(radius-xl)` corners and `var!(shadow-sm)`; the title sets type and spacing, no edge of its own. **Overlays stay mounted**, toggling `c_*_open` / `c_*_closed`; wrapping their children in a reactive `if` fails to compile (`VirtualNode` is not `Copy`). Props, HTML and site components: `references/component-templates.md`.
+**Never hand-roll a button** — `euv_button` is the only one, inside `c_button_controls` for its gap. `EuvButtonVariant` carries `Primary` / `Default` (the same filled default under two names — `Primary` is the historical name and `Default` the registry's own), `Secondary`, `Destructive`, `Outline`, `Ghost` and `Link`; `EuvButtonSize` carries `Default` / `Small` / `Large` / `Icon` plus `ExtraSmall` / `IconExtraSmall` / `IconSmall` / `IconLarge`. **Default to `Primary`**, flipping variant only in a mutually exclusive group where exactly one button *is* the current state (action and escape buttons never flip; two `Primary` in a group is a reject). **`euv_card` is a real surface** — a `var!(surface-border-width)` solid `var!(border)` edge, a `var!(card)` fill, `var!(radius-xl)` corners and `var!(shadow-sm)`; the title sets type and spacing, no edge of its own. **Overlays stay mounted**, toggling `c_*_open` / `c_*_closed`; wrapping their children in a reactive `if` fails to compile (`VirtualNode` is not `Copy`). Props, HTML and site components: `references/component-templates.md`.
 
 ### 3.B euv_field — label + input + error in one
 
@@ -94,7 +94,7 @@ A consuming project overrides upstream styles with `Css::inject_css`; sidebar, f
 
 ## 5. Class Naming Conventions
 
-Cross-page `c_<component>` (`c_card`) · shell `c_app_*` / `c_page_*` / `c_mobile_*` (`c_app_root`) · page-scoped `c_<page>_<element>` (`c_home_title`) · sub-component `c_<component>_<element>` (`c_euv_input_wrapper`) · state/variant suffix `_active` `_hidden` `_closed` `_primary` `_outline` `_sm` `_md` · parameterised `c_x(arg: &str)` (`c_game_canvas_wrapper(ar)`) · mixin reuse `c_xxx();` inside another block (`c_info_value { c_text_ellipsis(); … }`). Plural and a double prefix are both allowed.
+Cross-page `c_<component>` (`c_card`) · shell `c_app_*` / `c_page_*` / `c_mobile_*` (`c_app_root`) · page-scoped `c_<page>_<element>` (`c_home_title`) · sub-component `c_<component>_<element>` (`c_euv_input_wrapper`) · state/variant suffix `_active` `_hidden` `_closed` `_primary` `_outline` `_sm` `_md` · parameterised `c_x(arg: &str)` (`c_binding_color_preview_bg(bg)`, `c_loading_overlay(background)`) · mixin reuse `c_xxx();` inside another block (`c_info_value { c_text_ellipsis(); … }`). Plural and a double prefix are both allowed.
 
 ## 6. Responsive / Breakpoints
 
@@ -102,17 +102,16 @@ Cross-page `c_<component>` (`c_card`) · shell `c_app_*` / `c_page_*` / `c_mobil
 
 ## 7. Accessibility / Touch
 
-The global `:focus-visible { outline: none }`, `prefers-reduced-motion` and `(hover: none) and (pointer: coarse)` blocks come from `inject_app_global_css()` and are never overridden from a custom class (exact text: `references/design-tokens.md`).
+The global `:focus-visible { outline: none }` block and the `prefers-reduced-motion` block come from `inject_app_global_css()` — the former from the `c_app_root` reset, the latter from `APP_A11Y_CSS_REDUCED_MOTION` — and are never overridden from a custom class. There is **no** `(hover: none) and (pointer: coarse)` block in the codebase.
 
 **Two recipes for bordered inline elements — never mix them.** Wrapping atom (tag, badge): `inline-block` / `vertical-align: middle` / `line-height: 1` + `text-align: center` + `box-sizing: border-box`. Inline highlight (`<code>`, `<kbd>`, bordered `<span>`): `inline-block` / `baseline` / `1` + `box-decoration-break: clone`. `inline-flex` is an **atomic** box: wrapped lines left-align while the border stays at parent width — a "missing right border" — and `box-decoration-break` cannot rescue it, while `middle` drifts on multi-line fragments and `baseline` holds the prose baseline at any wrap length. Swap to `inline-block` **only** when the box wraps multiple lines *and* has a border; `nowrap` buttons and flex rows are correct as-is — a button or a row declares `white-space: nowrap` and keeps its `inline-flex`. A badge is a wrapping atom, so it uses the first recipe even where it happens to sit in a flex row today. Rects and the diagnosis recipe: `references/euv-tag-wrap-recipe.md`.
 
 **Gesture / touch hooks.** `App::use_window_event(name, FnMut())` is the only window-event registration entry point and it **discards the `Event`**, so a gesture hook cannot reach `TouchEvent.touches()` from there — return an `Option<Rc<dyn Fn(Event)>>` bundle and let the caller wire `ontouchstart` / `ontouchmove` / `ontouchend` / `ontouchcancel` in `html!`. Classify a tap by **both net displacement and total path length** (net displacement alone misreads a "circle back to origin" gesture as a tap), and read hook state through the generated accessors, never `self.field`.
 
-**The focus ring lives in the global stylesheet.** The ring is a `box-shadow`
-spread by `var(--ring-width) + var(--ring-offset)` in the `var(--ring)` colour
-(`APP_A11Y_CSS_FOCUS_RING`, next to the pinned `:focus-visible { outline: none }`
-block), so it takes no space and the text does not shift when the field takes
-the focus. Its colour is a **scheme** token (`role-ring-light` /
+**The focus ring lives in the control class, not in the global stylesheet.** The
+ring is a `box-shadow` spread by `var(--ring-width) + var(--ring-offset)` in the
+`var(--ring)` colour, so it takes no space and the text does not shift when the
+field takes the focus. Its colour is a **scheme** token (`role-ring-light` /
 `role-ring-dark`), so it is not tied to the border or the accent. A control
 whose *box* is a wrapper (the number input) carries the ring on the wrapper
 through `:focus-within` and suppresses it on the inner field.
@@ -156,4 +155,4 @@ Props are an empty derive-able struct. Hero pages (§4) skip `euv_header` and co
 ✅ Composite spacing tokens over raw scale steps; `var!(border-width) solid var!(border)` for separators; safe-area tokens on edge-hugging overlays and `--euv-mobile-safe-top` for the top.
 ✅ Express hierarchy with weight (`var!(primary)` for values, `var!(muted-foreground)` for labels) rather than colour.
 ✅ z-index budget — one value per layer, low to high: content 1 · loading overlay 5 · affix 10 · app chrome 100 (sticky mobile header, navbar) · nav dropdown 101 · tooltip 140 · floating panels 150 (select, auto-complete, cascader, date-picker, mentions, popconfirm, popover, time-picker, tree-select) · overlay 200 · drawer 201 · back top 900 · modal 1000 · message 1100 · notification 1200 · vconsole fab 9999 · vconsole overlay 10000 · vconsole panel 10001 · fullscreen canvas 10002. Two layers that share a value are ordered by DOM position, not by the design — that is the bug this budget exists to prevent. `ui/tests/zindex_budget` enforces it: a rule that declares a z-index without being registered there fails the build.
-✅ `ui/tests/class_registry` enforces the registry rules: no colour literal in a `class!` rule, no `env(safe-area-inset-top)`, no bare `hover { … }` block, a hardcoded spacing literal is either on the scale or carries a comment that records the decision, a bordered inline box is never an atomic `inline-flex` (§7 — it is either the wrapping-atom recipe or `white-space: nowrap`), and the cards are separated by the `page-block-gap` token. A spacing value that is derived from two other lengths — the slider thumb's centring margin, the optically enlarged hit area of the sidebar arrow — has no token to name it, so it stays a literal with the reason next to it.
+✅ `ui/tests/class_registry` enforces the registry rules: no colour literal in a `class!` rule, no `env(safe-area-inset-top)`, no bare `hover { … }` block, a hardcoded spacing literal is either on the scale or carries a comment that records the decision, a bordered inline box is never an atomic `inline-flex` (§7 — it is either the wrapping-atom recipe or `white-space: nowrap`), and the cards are separated by the `page-block-gap` token. A spacing value that is derived from two other lengths — the optically enlarged hit area of the sidebar arrow (a literal `9px` padding with `-9px` margins, because `format!` around `var!(…)` yields the invalid `-var(--x)`) — has no token to name it, so it stays a literal with the reason next to it.

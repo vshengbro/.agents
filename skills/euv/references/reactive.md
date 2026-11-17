@@ -84,7 +84,7 @@ count.subscribe(move || {
 
 > [!tip]
 >
-> `subscribe` 追加一个监听器，信号值变化时会调用所有已注册的监听器。`replace_listener` 和 `deactivate` 是框架内部使用的方法，不对外暴露。`replace_listener` 用于信号属性绑定时替换监听器，避免在动态节点 重新渲染时产生监听器累积。`deactivate` 用于 `match` 分支切换时清理旧信号（清除所有监听器和依赖列表，将信号标记为不活跃），确保过时的异步闭包引用这些信号时变为无害操作。`deactivate` 不会释放堆内存，因为 `Signal<T>` 是 `Copy` 类型（仅存储指针地址），异步回调可能仍持有副本，释放会导致 use-after-free。
+> `subscribe` 追加一个监听器，信号值变化时会调用所有已注册的监听器，并返回可用于 `unsubscribe` 的订阅 id。`unsubscribe` 按 id 摘除单个监听器，避免在动态节点 重新渲染时产生监听器累积。`deactivate` 是框架内部使用的方法，不对外暴露，用于 `match` 分支切换时清理旧信号（清除所有监听器和依赖列表，将信号标记为不活跃），确保过时的异步闭包引用这些信号时变为无害操作。`deactivate` 不会释放堆内存，因为 `Signal<T>` 是 `Copy` 类型（仅存储指针地址），异步回调可能仍持有副本，释放会导致 use-after-free。
 
 ## use_cleanup
 

@@ -365,10 +365,14 @@ Re-exported at the crate root as `euv::*` via `core/src/lib.rs`.
 - `fn` **`key`** — `pub fn key(&self) -> Option<&str> {...}`
 - `fn` **`has_key`** — `pub fn has_key(&self) -> bool {...}`
 - `fn` **`create_dynamic`** — `pub fn create_dynamic<F>(render_fn: F) -> Self where F: FnMut(&mut HookContext) -> Self + 'static, {...}`
+- `fn` **`from_text`** — `pub fn from_text<T>(text: T) -> Self where T: Into<Cow<'static, str>>, {...}`
+- `fn` **`as_str`** — `pub fn as_str(&self) -> &str {...}`
+- `fn` **`to_string_owned`** — `pub fn to_string_owned(&self) -> String {...}`
 
 ### `vdom::node::struct`
 
 - `struct` **`RenderFnInner`** — `pub(crate) struct RenderFnInner {`
+- `struct` **`CowText`** — `pub struct CowText(pub(crate) Cow<'static, str>);`
 - `struct` **`TextNode`** — `pub struct TextNode {`
 - `struct` **`DynamicNode`** — `pub struct DynamicNode {`
 

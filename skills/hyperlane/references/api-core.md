@@ -46,10 +46,12 @@ item stay unreachable.
 
 ### `context::impl`
 
+- `fn` **`reset_request_attributes`** — `pub(crate) fn reset_request_attributes(&mut self) -> &mut Self {...}`
 - `fn` **`clear_route_params`** — `pub(crate) fn clear_route_params(&mut self) -> &mut Self {...}`
 - `fn` **`try_get_route_param`** — `pub fn try_get_route_param<T>(&self, name: T) -> Option<String> where T: AsRef<str>, {...}`
 - `fn` **`get_route_param`** — `pub fn get_route_param<T>(&self, name: T) -> String where T: AsRef<str>, {...}`
 - `fn` **`get_request_target`** — `pub fn get_request_target(&self) -> Option<String> {...}`
+- `fn` **`get_request_target_ref`** — `pub(crate) fn get_request_target_ref(&self) -> Option<&String> {...}`
 - `fn` **`set_request_target`** — `pub(crate) fn set_request_target(&mut self, target: String) -> &mut Self {...}`
 - `fn` **`try_get_attribute`** — `pub fn try_get_attribute<V, K>(&self, key: K) -> Option<V> where V: AnySendSyncClone, K: AsRef<str>, {...}`
 - `fn` **`get_attribute`** — `pub fn get_attribute<V, K>(&self, key: K) -> V where V: AnySendSyncClone, K: AsRef<str>, {...}`

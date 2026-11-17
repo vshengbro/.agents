@@ -1,6 +1,6 @@
 # euv component HTML templates
 
-Props are typed structs in `ui/src/component/<name>/struct.rs`; views are
+Props are typed structs in `ui/src/component/<name>/view/struct.rs`; views are
 `ui/src/component/<name>/view/fn.rs`. Regenerate the real component list from
 source:
 
@@ -10,13 +10,19 @@ grep -rn 'pub struct Euv[A-Za-z]*Props' ui/src/component/ | sort
 ```
 
 `euv_button { variant: Primary | Outline, label, onclick }` is the only button.
-`Primary` → `c_euv_button_primary_md` (`flex: 1 1 120px`, height
-`var!(control-height)`, `nowrap`, `user-select: none`, hover = `primary-hover`,
-disabled = `muted-foreground` + `not-allowed`, `:active` scales by
-`press-scale`); `Outline` → `c_euv_button_outline_md` (same box and the same
-`control-height`, `border: var!(border-width) solid var!(border)`,
-`box-shadow: var!(shadow-xs)`, hover → `secondary`/`secondary-foreground` with
-`border-color: var!(input)`).
+The component composes **three** classes — `c_euv_button` (the shared box:
+`inline-flex`, `nowrap`, `font-sm`, `radius-lg`) + a variant class
+(`c_euv_button_primary` / `_default` / `_secondary` / `_destructive` /
+`_outline` / `_ghost` / `_link`) + a size class (`c_euv_button_size_default` /
+`_small` / `_large` / `_icon` / `_xs` / `_icon_xs` / `_icon_sm` / `_icon_lg`).
+`Primary` → `c_euv_button_primary` (`background: primary`,
+`color: primary-foreground`, hover → `primary-hover`); `Outline` →
+`c_euv_button_outline` (`background: background`, `border: var!(border-width)
+solid var!(input)`, `box-shadow: var!(shadow-xs)`, hover → `accent` /
+`accent-foreground`). The size class owns the height: `c_euv_button_size_default`
+is `var!(control-height-sm)` (32px), `_large` is `var!(control-height)` (36px),
+`_small` is `calc(control-height-sm - space-xs)`. `:active` scales by
+`press-scale`, `:disabled` drops to `opacity: 0.5` + `pointer-events: none`.
 
 **Button variant rule:** default every button to `Primary`. Flip variant only
 inside a **mutually exclusive group** where exactly one button represents the
@@ -24,66 +30,81 @@ current state (Resolve/Fail, Healthy/Panic) — exactly one `Primary` in the
 group. Action buttons (Refetch / Load / Submit) and escape actions (Reset,
 Cancel, Back) always stay `Primary`, even beside a flipping group. Never express
 hover via variant; that's CSS. Group buttons in `c_button_controls` (`flex;
-flex-wrap: wrap; gap: gap-element; margin-top: gap-component`).
+flex-wrap: wrap; gap: gap-element; margin-top/bottom: gap-component`).
 
-`euv_card { title }` renders `<div class=c_card><h3 class=c_card_title>`.
-`c_card` is a real surface — a `var!(surface-border-width)` solid `var!(border)` edge,
-a `var!(card)` fill, `var!(radius-xl)` corners, `var!(shadow-sm)` and
-`var!(space-2xl)` padding. `c_card_title` sets type and spacing, no edge of its
-own; the card's own edge separates it.
+`euv_card { title }` renders `<div class=c_card>` with the title in a
+`c_euv_card_header` / `c_card_title` pair. `c_card` is a real surface — a
+`var!(surface-border-width)` solid `var!(border)` edge, a `var!(card)` fill,
+`var!(radius-xl)` corners, `var!(shadow-sm)` and `var!(space-2xl)` padding;
+it also carries `margin-top: var!(page-block-gap)` (20px under 768px), which
+is what separates the cards. `c_card_title` sets type and spacing, no edge of
+its own; the card's own edge separates it. The heading level is a prop
+(`level: Option<EuvHeadingLevel>`, default `H3`).
 
 Form controls:
 
-- `euv_field` — label + input + error in one (see §3.B).
-- `c_euv_input` — 100% width, `min-height: var!(control-height)`,
-  `padding: 0 space-lg`, `border: var!(border-width) solid var!(input)`;
-  hover/focus swap to `border-color: var!(ring)` + `background: var!(muted)`.
-  Error state is `c_euv_input_error` — `border-color: var!(destructive)` on a
+- `euv_field` — label + input + error in one (see §3.B). Its props are
+  `id`, `name`, `label`, `input_type`, `placeholder`, `autocomplete`, `value:
+  Signal<String>`, `error: Option<Signal<String>>`, `oninput`.
+- `c_euv_input` — 100% width, `min-height: var!(control-height-sm)`,
+  `padding: 0 control-pad-inline`, `border: var!(border-width) solid var!(input)`;
+  hover/focus swap to `border-color: var!(ring)`. Error state is
+  `c_euv_input_error` — `border-color: var!(destructive)` on a
   `var(--error-container)` fill, so the error **is** a colour here. Wrapper
   `c_euv_input_wrapper`; inline row `c_inline_input_row` +
   `c_inline_input_button_wrap` (a `flex-shrink: 0` spacer so the button keeps
   its size when the input grows).
 - Textarea `c_textarea_input` (padding `space-md space-lg`, vertical resize,
-  word-wrap); counter `c_textarea_counter` / `c_textarea_counter_text`.
+  word-wrap); counter `c_textarea_counter` / `c_textarea_counter_text`. The
+  component `euv_textarea` uses `c_euv_textarea` instead.
 - Select `c_select_input` matches the input look; draw the chevron yourself, do
-  not rely on the native appearance. There is no `euv_select` / `euv_textarea`
-  component.
-- `euv_checkbox` → `c_form_checkbox_row` + `c_form_checkbox` (16×16) +
-  `c_form_checkbox_label`; label class `c_form_label` (block,
-  `margin-bottom: space-sm`, `font-base/500`).
+  not rely on the native appearance. The component `euv_select` uses
+  `c_euv_select_trigger` + `c_euv_select_panel` instead. There is no
+  `euv_native_select` in the shared kit's docs — it does exist in the crate.
+- `euv_checkbox` → `c_form_checkbox_row` + `c_form_checkbox` (`space-lg` square)
+  + `c_form_checkbox_indicator` / `_checked` + `c_form_checkbox_label`; label
+  class `c_form_label` (block, `margin-bottom: space-sm`, `font-base`/medium).
 
-`euv_badge` — `c_badge` (solid: padding `space-2xs space-sm`, `border-width solid
-var!(primary)`, `font-xs`/`font-weight-semibold`, `background: var!(primary)`,
-`color: var!(primary-foreground)`, `radius-full`) / `c_badge_outline`
-(`1.5px solid var!(border)`, transparent bg, `color: foreground`); row
-`c_badge_row` (`gap: gap-inline`, wrap), hint `c_badge_hint`. A badge is a
-wrapping atom — it uses the `inline-block` recipe, not `inline-flex` (§7).
+`euv_badge` — `c_euv_badge` (the shared base: `inline-block`, `height: 20px`,
+padding `2px space-sm`, `font-xs`/`font-weight-semibold`, `radius-full`) plus a
+variant class — `c_euv_badge_default` (`background: var!(primary)`,
+`color: var!(primary-foreground)`) / `_secondary` / `_destructive` /
+`_outline` (`border-width solid var!(border)`, transparent bg, `color:
+foreground`) / `_ghost` / `_link`; a clickable badge adds `c_euv_badge_clickable`.
+`EuvBadgeVariant` carries all six, and the historical `outline: bool` prop
+still forces the outline variant. Row `c_badge_row` (`gap: gap-inline`, wrap),
+hint `c_badge_hint`. A badge is a wrapping atom — it uses the `inline-block`
+recipe, not `inline-flex` (§7).
 
 `euv_tag` — four variants `c_euv_tag_{solid,outline}_{black,white}` (all
-`font-weight: var!(font-weight-semibold)`, clickable, one size step above
-badge). **Must be `inline-block` + `vertical-align: middle` + `text-align: center` +
+`font-weight: var!(font-weight-semibold)`, clickable, `radius-sm`; the solid
+black tag is `font-sm` with `background: var!(primary)` and
+`color: var!(primary-foreground)`, the other three are `font-xs`). **Must be
+`inline-block` + `vertical-align: middle` + `text-align: center` +
 `line-height: 1` + `box-sizing: border-box`** — see §7 and
 `euv-tag-wrap-recipe.md` (same directory).
 
-`euv_alert { variant: Error | Success }` → `c_error_box` / `c_success_box`
+`euv_alert { variant }` → `AlertVariant` carries `Error` / `Success` /
+`Default` / `Destructive`; the first two map to `c_error_box` / `c_success_box`
 (`margin: gap-component 0`, `background: var(--destructive)` /
 `var(--success)` with the matching `-foreground`, `font-base`,
-`padding: space-sm space-lg`, `radius-sm`). The two differ in colour **and**
-copy.
+`padding: space-sm space-lg`, `radius-sm`) and the last two to
+`c_euv_alert_default` / `c_euv_alert_destructive`. The two differ in colour
+**and** copy.
 
-`euv_info` — `c_info_row` with `c_info_label` (min-width 72, `font-sm/500`,
-muted, `flex-shrink: 0`) and `c_info_value` (`flex:1`, monospace, `font-base/600`,
-ellipsis injected by `c_text_ellipsis`); link variant `c_info_link`.
+`euv_info` — `c_info_row` with `c_info_label` (min-width 72, `font-sm`/medium,
+muted, `flex-shrink: 0`) and `c_info_value` (`flex:1`, monospace, `font-base`/
+semibold, ellipsis injected by `c_text_ellipsis`); link variant `c_info_link`.
 
-`euv_modal { open }` → `c_modal_overlay` (fixed, `var!(bg-overlay)`, z-index
+`euv_modal { title, onclick }` → `c_modal_overlay` (fixed, `var!(bg-overlay)`, z-index
 1000, `euv-fade-in`) wrapping `c_modal_content` (`max-width` 480,
 `euv-scale-in-modal` .3s `ease-bounce`; mobile `calc(100% - 32px)`,
-`max-height: 85vh`, `overflow-y: auto`) with `c_modal_header` +
-`c_modal_title` + `c_modal_close_button` (opacity transition .15s),
-`c_modal_body`, `c_modal_actions`.
+`max-height: 85%`, `overflow-y: auto`) with `c_modal_header` +
+`c_modal_title` + `c_modal_close_button` (opacity transition), `c_modal_body`.
+`c_modal_actions` is the action row, used by the example app's modal page.
 
 `euv_loading` — `c_loading_container` (`display:flex`) / `c_loading_text_col` /
-`c_loading_title` / `c_loading_subtitle`; spinner `c_spinner` (28px, `50%`,
+`c_loading_title` / `c_loading_subtitle`; spinner `c_spinner` (40px, `50%`,
 `euv-spin .8s linear infinite`); `c_loading_overlay(background: &str)` takes a
 background argument.
 
@@ -92,26 +113,29 @@ background argument.
 
 Hand-rolled atoms — tabs, lists and progress have components, so prefer
 those: tabs (`euv_tabs` — its `c_euv_tabs_bar` carries the `var!(muted)`
-fill and `var!(radius-lg)` corners; the bare `c_tab_bar` is only a
-`var!(border-width)` `var!(border)` bottom border with `var!(gap-element)`
-gaps, `c_tab_item_active` / `_inactive` are `var!(radius-md)` pills), lists
+fill and `var!(radius-lg)` corners, and `c_euv_tab_item` is the row; the bare
+`c_tab_bar` is only a `var(--border-width)` `var(--border)` bottom border with
+`var(--gap-element)` gaps, `c_tab_item_active` / `_inactive` are
+`var!(radius-md)` pills), lists
 (`euv_list` — the bare `c_list_ul`, `c_list_item`, `c_list_item_text`,
 `c_list_item_button` max-width 120px),
-drag/drop zones (`c_event_drag_zone` → `c_event_drop_zone_active`, dashed 2px
-border, 40px padding), counter grid (`c_counter_row` 2-col → 1-col mobile,
-`c_counter_value`), progress (`c_progress_container`, `c_progress_bar_running`
-with `euv-progress`, `_stopped` static), animation classes (`c_anim_fade_in`,
-`c_anim_spin` / `_stopped`, `c_anim_pulse` / `_stopped`, `c_anim_scale_box`).
+drag/drop zones (`c_event_drag_zone` → `c_event_drag_zone_active`, dashed 2px
+border, `space-xl` padding; the drop side is `c_event_drop_zone` →
+`c_event_drop_zone_active`), counter grid (`c_counter_row` 2-col → 1-col
+mobile, `c_counter_value`), progress (`c_progress_container`,
+`c_progress_bar_running` with `euv-progress`, `_stopped` static), animation
+classes (`c_anim_fade_in`, `c_anim_spin` / `_stopped`, `c_anim_pulse` /
+`_stopped`, `c_anim_scale_box`).
 `c_anim_scale_shrink` / `c_anim_scale_normal` are **page-local** classes
-(`example/src/style/class/fn.rs`), not shared kit: the shared scale effect is
-the `press-scale` transform on `:active`.
+(`example/src/style/class/application/fn.rs`), not shared kit: the shared scale
+effect is the `press-scale` transform on `:active`.
 
-Camera/canvas/game helpers live only in `example/src/style/class/fn.rs` and are
-named `c_<page>_<element>` (`c_game_stats_bar`, `c_game_canvas_wrapper(ar)`,
-`c_game_2d_canvas`, `c_game_3d_canvas`, `c_canvas_pixelated`,
-`c_game_loading_overlay`, `c_keep_alive_tab_visible` / `_hidden`,
-`c_binding_slider_label_accent`, `c_binding_color_preview_bg(bg)`,
-`c_slider_value`) so they never pollute the global ui package.
+Camera/canvas/game helpers live only in `example/src/style/class/application/fn.rs`
+and are named `c_<page>_<element>` (`c_game_stats_bar`, `c_game_canvas_wrapper`,
+`c_game_2d_canvas`, `c_game_3d_canvas`, `c_game_loading_overlay`,
+`c_keep_alive_tab_visible` / `_hidden`, `c_binding_slider_label_accent`,
+`c_binding_color_preview_bg(bg)`, `c_slider_value`, `c_canvas_pixelated`) so they
+never pollute the global ui package.
 
 
 ## Site components

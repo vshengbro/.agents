@@ -97,7 +97,7 @@ html! {
 
 ## 事件委托
 
-渲染器对冒泡事件使用全局事件委托：同一事件名只会在 `window` 上注册一次 `addEventListener`，各元素的事件处理器通过全局注册表（`HandlerRegistry`）按 `(euv_id, event_name)` 键查找和调用。对于非冒泡事件（如 `load`、`error`、`loadstart`），则在对应 DOM 元素上直接绑定监听器。
+渲染器对冒泡事件使用全局事件委托：同一事件名只会在 `window` 上注册一次 `addEventListener`，各元素的事件处理器通过全局注册表（`HandlerRegistryMap`）按 `(euv_id, event_name)` 键查找和调用。对于非冒泡事件（如 `load`、`error`、`loadstart`），则在对应 DOM 元素上直接绑定监听器。
 
 > [!tip]
 >

@@ -177,6 +177,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 
 - `fn` **`code`** — `pub fn code(&self) -> ResponseStatusCode {...}`
 - `fn` **`phrase`** — `pub fn phrase(code: ResponseStatusCode) -> String {...}`
+- `fn` **`phrase_ref`** — `pub fn phrase_ref(code: ResponseStatusCode) -> &'static str {...}`
 - `fn` **`same`** — `pub fn same<C>(&self, code_str: C) -> bool where C: AsRef<str>, {...}`
 
 ### `http_url::enum`
@@ -197,6 +198,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 
 ### `http_version::impl`
 
+- `fn` **`as_str`** — `pub fn as_str(&self) -> &str {...}`
 - `fn` **`is_http0_9`** — `pub fn is_http0_9(&self) -> bool {...}`
 - `fn` **`is_http1_0`** — `pub fn is_http1_0(&self) -> bool {...}`
 - `fn` **`is_http1_1`** — `pub fn is_http1_1(&self) -> bool {...}`
@@ -394,6 +396,15 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `type` **`RwLockReadGuardResponse`** — `pub type RwLockReadGuardResponse<'a> = RwLockReadGuard<'a, Response>;`
 - `type` **`RwLockWriteGuardResponse`** — `pub type RwLockWriteGuardResponse<'a> = RwLockWriteGuard<'a, Response>;`
 
+### `response::fn`
+
+- `fn` **`default_content_type`** — `pub(crate) fn default_content_type() -> &'static str {...}`
+- `fn` **`render_length`** — `pub(crate) fn render_length(length: usize, buffer: &mut [u8]) -> &str {...}`
+
+### `response::static`
+
+- `static` **`DEFAULT_CONTENT_TYPE`** — `pub(crate) static DEFAULT_CONTENT_TYPE: OnceLock<String> = OnceLock::new();`
+
 ### `status::enum`
 
 - `enum` **`Status`** — `pub enum Status {`
@@ -410,8 +421,6 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 
 - `fn` **`take_header_entry`** — `pub(crate) fn take_header_entry() -> Option<(String, VecDeque<String>)> {...}`
 - `fn` **`return_header_entry`** — `pub(crate) fn return_header_entry(entry: (String, VecDeque<String>)) {...}`
-- `fn` **`take_recycled_string`** — `pub(crate) fn take_recycled_string() -> Option<String> {...}`
-- `fn` **`return_recycled_string`** — `pub(crate) fn return_recycled_string(value: String) {...}`
 - `fn` **`poll_once`** — `pub(crate) async fn poll_once<F>(mut future: Pin<&mut F>) -> Option<F::Output> where F: Future, {...}`
 
 ### `stream::impl`
@@ -444,7 +453,6 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `static` **`READ_BUFFER_POOL`** — `pub(crate) static READ_BUFFER_POOL: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };`
 
 - `static` **`HEADER_ENTRY_POOL`** — `pub(crate) static HEADER_ENTRY_POOL: RefCell<Vec<(String, VecDeque<String>)>> = const { RefCell::new(Vec::new()) };`
-- `static` **`STRING_POOL`** — `pub(crate) static STRING_POOL: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };`
 
 ### `stream::type`
 

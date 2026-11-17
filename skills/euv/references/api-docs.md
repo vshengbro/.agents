@@ -67,6 +67,7 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `fn` **`decode_anchor`** — `pub(crate) fn decode_anchor(encoded: &str) -> String {...}`
 - `fn` **`parse_route`** — `pub fn parse_route(raw: &str) -> (String, Option<String>) {...}`
 - `fn` **`same_route_anchor`** — `pub fn same_route_anchor(left: &str, right: &str) -> bool {...}`
+- `fn` **`route_page_matches`** — `pub(crate) fn route_page_matches(path: &str, hash: &str) -> bool {...}`
 - `fn` **`locale_of`** — `pub(crate) fn locale_of(route: &str) -> &'static DocsLocale {...}`
 - `fn` **`find_page`** — `pub(crate) fn find_page(route: &str) -> Option<&'static DocsPage> {...}`
 - `fn` **`flatten_links`** — `pub fn flatten_links(items: &'static [EuvSidebarItem]) -> Vec<&'static EuvSidebarItem> {...}`
@@ -160,6 +161,7 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 
 ### `component::site_footer::view::fn`
 
+- `fn` **`docs_footer_props`** — `pub(crate) fn docs_footer_props( locale: &DocsLocale, page: Option<&DocsPage>, site: &DocsSite, ) -> EuvFooterProps {...}`
 - `fn` **`docs_site_footer`** — `pub(crate) fn docs_site_footer(node: VirtualNode<DocsSiteFooterProps>) -> VirtualNode {...}`
 
 ### `component::site_footer::view::struct`
@@ -186,3 +188,23 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 ### `highlight::struct`
 
 - `struct` **`CodeToken`** — `pub(crate) struct CodeToken {`
+
+### `component::header::preview::fn`
+
+- `fn` **`header_search_preview`** — `pub(crate) fn header_search_preview( route_signal: Signal<String>, query: Signal<String>, state: Signal<HeaderSearchState>, input_id: String, target: NodeRef<Element>, ) -> VirtualNode {...}`
+
+### `component::header::search::fn`
+
+- `fn` **`header_search_matches`** — `pub(crate) fn header_search_matches(pages: &[DocsPage], query: &str) -> Vec<DocsPage> {...}`
+- `fn` **`header_search_focus`** — `pub(crate) fn header_search_focus(state: Signal<HeaderSearchState>) {...}`
+- `fn` **`header_search_select`** — `pub(crate) fn header_search_select( route_signal: Signal<String>, query: Signal<String>, state: Signal<HeaderSearchState>, route: &'static str, ) {...}`
+
+### `component::header::search::impl`
+
+- `fn` **`focus`** — `pub(crate) fn focus(&mut self) {...}`
+- `fn` **`dismiss`** — `pub(crate) fn dismiss(&mut self) {...}`
+- `fn` **`key`** — `pub(crate) fn key( &mut self, key: &str, composing: bool, results: &[DocsPage], ) -> (bool, Option<&'static str>) {...}`
+
+### `component::header::search::struct`
+
+- `struct` **`HeaderSearchState`** — `pub(crate) struct HeaderSearchState {`

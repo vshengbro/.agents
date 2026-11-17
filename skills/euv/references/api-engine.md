@@ -1220,8 +1220,8 @@ Re-exported at the crate root through the `pub use` chain in `engine/src/lib.rs`
 - `enum` **`GpuReceiverClass`** — `pub enum GpuReceiverClass {`
 
 ### `renderer::webgpu::fn`
-- `fn` **`texture_write_extent`** — `pub(crate) fn texture_write_extent(descriptor: &TextureWriteDescriptor) -> Option<[u32; 3]> {...}`
 
+- `fn` **`texture_write_extent`** — `pub(crate) fn texture_write_extent(descriptor: &TextureWriteDescriptor) -> Option<[u32; 3]> {...}`
 - `fn` **`js_error_to_string`** — `pub(crate) fn js_error_to_string(value: &JsValue) -> String {...}`
 - `fn` **`pick_depth_format`** — `pub(crate) fn pick_depth_format(high_precision: bool, with_stencil: bool) -> &'static str {...}`
 - `fn` **`map_mode_for`** — `pub(crate) fn map_mode_for(read: bool, write: bool) -> u32 {...}`

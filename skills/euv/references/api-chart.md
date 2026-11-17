@@ -689,7 +689,7 @@ Re-exported at the crate root via `chart/src/lib.rs` `pub use {animation::*, bac
 - `fn` **`gpu_object`** — `pub(crate) fn gpu_object(entries: &[(&str, &JsValue)]) -> JsValue {...}`
 - `fn` **`gpu_array`** — `pub(crate) fn gpu_array(values: &[JsValue]) -> JsValue {...}`
 - `fn` **`gpu_get`** — `pub(crate) fn gpu_get(target: &JsValue, key: &str) -> Option<JsValue> {...}`
-- `fn` **`gpu_method`** — `pub(crate) fn gpu_method(target: &JsValue, key: &str) -> Option<js_sys::Function> {...}`
+- `fn` **`gpu_method`** — `pub(crate) fn gpu_method(target: &JsValue, key: &str) -> Option<Function> {...}`
 - `fn` **`gpu_set`** — `pub(crate) fn gpu_set(target: &JsValue, key: &str, value: &JsValue) -> bool {...}`
 - `fn` **`gpu_queue`** — `pub(crate) fn gpu_queue(device: &JsValue) -> Option<JsValue> {...}`
 - `fn` **`hash_path`** — `pub(crate) fn hash_path(hasher: &mut GpuHasher, path: &Path) {...}`
