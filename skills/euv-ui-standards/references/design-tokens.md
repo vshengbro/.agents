@@ -21,9 +21,10 @@ grep -oE '^\s{8}[a-z0-9-]+:' ui/src/style/var/scheme/shadcn/fn.rs | tr -d ' :' |
 ```
 
 The theme file holds two class blocks (`c_theme_light`, `c_theme_dark`), so its
-list is the union of both — 105 unique names, of which `side-indent` and
-`side-indent-num` exist only in the light block. The scheme file holds one
-block, so its list is the scheme's own token set.
+list is the union of both — **105 unique names**: 103 in each block, plus
+`side-indent` (`9px`) and `side-indent-num` (`9`), which exist **only in the
+light block**. The scheme file holds one block, so its list is the scheme's own
+token set.
 
 ## Schemes
 
@@ -90,11 +91,13 @@ Base scale: `space-2xs` 2 · `space-xs` 4 · `space-sm` 8 · `space-md` 12 ·
 `space-sm-md` 10.
 
 **Prefer composite tokens** — they encode intent: `gap-section` 16 ·
-`gap-component` 12 · `gap-element` 8 · `gap-inline` 8 · `page-block-gap` 24.
-Where a mobile variant exists it is a separate token:
-`gap-section-mobile` 12 · `gap-component-mobile` 10 ·
+`gap-component` 12 · `gap-element` 8 · `gap-inline` 8 · `page-block-gap` 24 ·
+`gap-page-header` 16 · `gap-page-title` 6. Where a mobile variant exists it is
+a separate token: `gap-section-mobile` 12 · `gap-component-mobile` 10 ·
 `page-block-gap-mobile` 20. `gap-element` and `gap-inline` have no mobile
-variant.
+variant. `side-indent` (9px) and `side-indent-num` (9) are the optical
+sidebar indent; `side-indent-num` is the unitless form, because
+`var(--side-indent-num)px` is not a length.
 
 ## Typography
 

@@ -1217,8 +1217,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-17T15:17:25.419Z",
-      "skillFolderHash": "d6c683e1b28e7a64218894a20f5492da7af16a54"
+      "updatedAt": "2026-11-18T14:46:42.943Z",
+      "skillFolderHash": "43b7a02d74f03643453767d72aec92d5ee81e5d0"
     },
     "euv-engine-renderer-api": {
       "source": "local",
@@ -1233,8 +1233,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv-ui-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-17T15:12:52.530Z",
-      "skillFolderHash": "81fb0ed82cfcb8468cc7361439c5de220a2d37ec"
+      "updatedAt": "2026-11-18T14:46:42.943Z",
+      "skillFolderHash": "0f0730c83284f8a46ad725b5868bb8c1e54f19b9"
     },
     "gh-pr-creation-workflow": {
       "source": "local",

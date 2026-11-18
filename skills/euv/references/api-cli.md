@@ -31,6 +31,7 @@ Source: `cli/src/` — auto-extracted from `pub` declarations.
 - `fn` **`clean_out_dir`** — `pub async fn clean_out_dir(out_dir: &Path) {...}`
 - `fn` **`run_build_pipeline`** — `pub async fn run_build_pipeline( args: &ModeArgs, reload_tx: Option<&broadcast::Sender<ReloadEvent>>, ) -> Result<String, EuvError> {...}`
 - `fn` **`watch_and_build`** — `pub(crate) async fn watch_and_build(state: Arc<AppState>) -> Result<(), EuvError> {...}`
+- `fn` **`wasm_pack_build_command`** — `pub(crate) fn wasm_pack_build_command(args: &ModeArgs) -> Command {...}`
 - `fn` **`build_wasm`** — `pub async fn build_wasm(args: &ModeArgs) -> Result<(), EuvError> {...}`
 - `fn` **`print_banner`** — `pub fn print_banner(action: Action) {...}`
 - `fn` **`print_server_urls`** — `pub(crate) fn print_server_urls(config: &ServerUrlConfig) {...}`

@@ -33,12 +33,18 @@ hover via variant; that's CSS. Group buttons in `c_button_controls` (`flex;
 flex-wrap: wrap; gap: gap-element; margin-top/bottom: gap-component`).
 
 `euv_card { title }` renders `<div class=c_card>` with the title in a
-`c_euv_card_header` / `c_card_title` pair. `c_card` is a real surface — a
-`var!(surface-border-width)` solid `var!(border)` edge, a `var!(card)` fill,
-`var!(radius-xl)` corners, `var!(shadow-sm)` and `var!(space-2xl)` padding;
-it also carries `margin-top: var!(page-block-gap)` (20px under 768px), which
-is what separates the cards. `c_card_title` sets type and spacing, no edge of
-its own; the card's own edge separates it. The heading level is a prop
+`c_euv_card_header` / `c_card_title` pair — and **only when the title is
+non-empty** (`if has_title`), so an untitled card has no empty header row.
+`c_card` is a real surface — a `var!(surface-border-width)` solid `var!(border)`
+edge, a `var!(card)` fill, `var!(radius-xl)` corners, `var!(shadow-sm)` and
+`var!(space-2xl)` padding. It is a `flex` column with `gap: var!(space-2xl)`,
+and it zeroes its children's `margin-block` through the `slot` and
+`[data-euv-dynamic-id]` boundaries, so the shell owns the rhythm. The block gap
+belongs to a **page-level** card only: `margin-top: "0px"` by default, and
+`margin-top: var(--page-block-gap)` (20px under 768px) under
+`:is(".c_page_container > .c_card, .c_page_container > slot > .c_card, .c_page_container > slot > slot > .c_card")`.
+A composed card inherits its parent's gap. `c_card_title` sets type and
+spacing, no edge of its own (its margin is `0px`). The heading level is a prop
 (`level: Option<EuvHeadingLevel>`, default `H3`).
 
 Form controls:
@@ -196,10 +202,11 @@ Css::inject_css(r#"
   class.
 - **Keep padding when restyling a card** — only change the border and radius, or
   the content ends up flush against the edge.
-- **Flatten nested selectors.** A build-time CSS optimiser can collapse
-  `> div >` descendant chains that work in a local build, so a rule that passes
-  locally can fail in CI. Lock the deep target with `:nth-child()` or
-  `html body …`. Don't assume a passing local build means CI passes.
+- **Relative selectors need the structured path.** The legacy runtime CSS
+  parser only recognises colon-leading nested rules, so a nested rule that
+  starts with a combinator (`>`, `+`, `~`) is now emitted structurally by the
+  `class!` macro instead of being parsed back. Lock a deep target with
+  `:nth-child()` or `html body …` so the rule survives either path.
 
 A sidebar's dashed child border should sit flush with each level's first
 character, so zero out the group padding and indent only the children container:
