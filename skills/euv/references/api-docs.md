@@ -16,6 +16,15 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `struct` **`DocsLanguageLink`** — `pub(crate) struct DocsLanguageLink {`
 - `struct` **`DocsRedirect`** — `pub(crate) struct DocsRedirect {`
 
+### `document_html::fn`
+
+- `fn` **`localize_document_html`** — `pub(crate) fn localize_document_html(html: &str, language: &str) -> Option<String> {...}`
+- `fn` **`localize_document_output`** — `pub(crate) fn localize_document_output(out_dir: &Path) -> Result<(), String> {...}`
+
+### `document_language::fn`
+
+- `fn` **`document_language_for_label`** — `pub(crate) fn document_language_for_label(label: &str) -> &'static str {...}`
+
 ### `locale::fn`
 
 - `fn` **`locale_tag_for`** — `pub fn locale_tag_for(route: &str) -> &'static str {...}`

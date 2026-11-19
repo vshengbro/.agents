@@ -30,6 +30,9 @@ carries no links to documents that don't exist.
 | The chart renders blank but reports no error | First confirm which backend was selected: `BackendKind::name()` returns `webgpu` / `webgl2` / `canvas2d` |
 | The chart animation does not move | The animation is advanced by `Chart::advance(delta)`; without calling it only the first frame is drawn |
 | `euv run --all` (or `--platforms`) is rejected | The native flags select a native build, which the run mode cannot perform; use `euv build` instead |
+| The docs locale dropdown stops responding after a route change | Its trigger must be the shared `euv_dropdown_trigger` inside `euv_dropdown`, rendered in its **own** `VirtualNode::create_dynamic` hook lifecycle (`docs/src/component/layout/view/fn.rs`); a document-level listener registered in the shell root loses its callbacks when the route re-renders |
+| A docs page is served with the wrong `<html lang>` | The language is bound to the **locale label**, not to the frontmatter `lang:` key: `document_language_for_label` writes `.deploy/document-lang.txt`, and `localize_document_output` rewrites `index.html` and copies it to `404.html` (`docs/src/document_html/`) |
+| An absolute `https://` badge is rewritten to a broken `../https://…` URL in a non-default locale bundle | `rebase_asset_url` skips `https://` as well as `http://`; a relative asset is the only thing it rebases |
 
 ## euv-chart Deep Dive
 

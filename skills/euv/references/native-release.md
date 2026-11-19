@@ -33,7 +33,7 @@ independent example build:
 — the website-owned inventory the native client trusts:
 
 ```json
-{ "format": 1, "version": "0.36.0", "files": [ { "path": "...", "sha256": "...", "size": 0 } ] }
+{ "format": 1, "version": "0.36.2", "files": [ { "path": "...", "sha256": "...", "size": 0 } ] }
 ```
 
 - The version comes from the `euv-example` manifest, and must be a plain
