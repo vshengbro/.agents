@@ -25,6 +25,35 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 
 - `fn` **`document_language_for_label`** — `pub(crate) fn document_language_for_label(label: &str) -> &'static str {...}`
 
+### `locale::const`
+
+- `const` **`PW_GATE_KEY_HINT`** — `pub(crate) const PW_GATE_KEY_HINT: &str = "docs.password_gate.hint"`
+- `const` **`PW_GATE_KEY_IDLE`** — `pub(crate) const PW_GATE_KEY_IDLE: &str = "docs.password_gate.idle"`
+- `const` **`PW_GATE_KEY_BUSY`** — `pub(crate) const PW_GATE_KEY_BUSY: &str = "docs.password_gate.busy"`
+- `const` **`PW_GATE_KEY_ERROR`** — `pub(crate) const PW_GATE_KEY_ERROR: &str = "docs.password_gate.error"`
+- `const` **`PW_GATE_KEY_LABEL`** — `pub(crate) const PW_GATE_KEY_LABEL: &str = "docs.password_gate.label"`
+- `const` **`PW_GATE_KEY_PLACEHOLDER`** — `pub(crate) const PW_GATE_KEY_PLACEHOLDER: &str = "docs.password_gate.placeholder"`
+- `const` **`DOCS_KEY_DRAWER_OPEN`** — `pub(crate) const DOCS_KEY_DRAWER_OPEN: &str = "docs.drawer.open"`
+- `const` **`DOCS_KEY_DRAWER_CLOSE`** — `pub(crate) const DOCS_KEY_DRAWER_CLOSE: &str = "docs.drawer.close"`
+- `const` **`DOCS_KEY_DRAWER_TITLE`** — `pub(crate) const DOCS_KEY_DRAWER_TITLE: &str = "docs.drawer.title"`
+- `const` **`DOCS_KEY_THEME_TOGGLE`** — `pub(crate) const DOCS_KEY_THEME_TOGGLE: &str = "docs.theme.toggle"`
+- `const` **`DOCS_KEY_SEARCH_LABEL`** — `pub(crate) const DOCS_KEY_SEARCH_LABEL: &str = "docs.search.label"`
+- `const` **`DOCS_KEY_SEARCH_EMPTY`** — `pub(crate) const DOCS_KEY_SEARCH_EMPTY: &str = "docs.search.empty"`
+- `const` **`DOCS_KEY_SEARCH_NONE`** — `pub(crate) const DOCS_KEY_SEARCH_NONE: &str = "docs.search.none"`
+- `const` **`DOCS_KEY_SEARCH_PLACEHOLDER`** — `pub(crate) const DOCS_KEY_SEARCH_PLACEHOLDER: &str = "docs.search.placeholder"`
+- `const` **`DOCS_KEY_SEARCH_COUNT`** — `pub(crate) const DOCS_KEY_SEARCH_COUNT: &str = "docs.search.count"`
+- `const` **`DOCS_SEARCH_COUNT_TOKEN`** — `pub(crate) const DOCS_SEARCH_COUNT_TOKEN: &str = "{count}"`
+- `const` **`LOCALE_TAGS`** — `pub(crate) const LOCALE_TAGS: [(&str, &str); 4] = [...]`
+- `const` **`PW_GATE_LOCALE_TAG_ZH`** — `pub(crate) const PW_GATE_LOCALE_TAG_ZH: &str = "zh-CN"`
+- `const` **`PW_GATE_LOCALE_TAG_EN`** — `pub(crate) const PW_GATE_LOCALE_TAG_EN: &str = "en-US"`
+- `const` **`PW_GATE_LOCALE_TAG_JA`** — `pub(crate) const PW_GATE_LOCALE_TAG_JA: &str = "ja-JP"`
+- `const` **`PW_GATE_LOCALE_TAG_KO`** — `pub(crate) const PW_GATE_LOCALE_TAG_KO: &str = "ko-KR"`
+- `const` **`LOCALE_TAG_DEFAULT`** — `pub(crate) const LOCALE_TAG_DEFAULT: &str = PW_GATE_LOCALE_TAG_EN`
+- `const` **`LOCALE_LABEL_ZH`** — `pub(crate) const LOCALE_LABEL_ZH: &str = "简体中文"`
+- `const` **`LOCALE_LABEL_EN`** — `pub(crate) const LOCALE_LABEL_EN: &str = "English"`
+- `const` **`LOCALE_LABEL_JA`** — `pub(crate) const LOCALE_LABEL_JA: &str = "日本語"`
+- `const` **`LOCALE_LABEL_KO`** — `pub(crate) const LOCALE_LABEL_KO: &str = "한국어"`
+
 ### `locale::fn`
 
 - `fn` **`locale_tag_for`** — `pub fn locale_tag_for(route: &str) -> &'static str {...}`
@@ -125,7 +154,7 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 
 ### `component::header::view::fn`
 
-- `fn` **`docs_header`** — `pub(crate) fn docs_header( locale: &'static DocsLocale, route_signal: Signal<String>, theme_signal: Signal<String>, search_query: Signal<String>, ) -> VirtualNode {...}`
+- `fn` **`docs_header`** — `pub(crate) fn docs_header( locale: &'static DocsLocale, route_signal: Signal<String>, theme_signal: Signal<String>, search_query: Signal<String>, mobile_signal: Signal<bool>, ) -> VirtualNode {...}`
 
 ### `component::home_page::view::fn`
 
@@ -139,6 +168,16 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `struct` **`DocsFeatureProps`** — `pub(crate) struct DocsFeatureProps {`
 - `struct` **`DocsFeatureGridProps`** — `pub(crate) struct DocsFeatureGridProps {`
 - `struct` **`DocsStatsRowProps`** — `pub(crate) struct DocsStatsRowProps {`
+
+### `component::layout::drawer::fn`
+
+- `fn` **`use_docs_responsive_scope`** — `pub(crate) fn use_docs_responsive_scope(context: HookContext, mobile: Signal<bool>, owner: bool) {...}`
+- `fn` **`use_docs_drawer_modal`** — `pub(crate) fn use_docs_drawer_modal( drawer_open: Signal<bool>, locale_menu_open: Signal<bool>, mobile: Signal<bool>, ) {...}`
+- `fn` **`dismiss_docs_drawer`** — `pub(crate) fn dismiss_docs_drawer(drawer_open: Signal<bool>) {...}`
+
+### `component::layout::drawer::type`
+
+- `type` **`DocsDrawerModalState`** — `pub(crate) type DocsDrawerModalState = Rc<( Cell<bool>, RefCell<Option<HtmlElement>>, Cell<Option<i32>>, Cell<Option<i32>>, )>;`
 
 ### `component::layout::view::fn`
 

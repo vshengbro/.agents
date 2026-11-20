@@ -33,6 +33,12 @@ let _: u64 = hasher.finish();
 copied: `HttpStatus::phrase_ref` returns `&'static str`, and `build()` writes
 it into the phrase buffer the response already owns.
 
+`22.6.0` split the serializer in two: `build()` for a normal response and
+`build_head()` for the header-only answer a `HEAD` request gets.
+`Context::build_response()` picks between them from the recorded wire method,
+and the `#[send]` / `#[try_send]` macros call it. See
+[Wire behaviour](wire-behaviour.md).
+
 These bytes are what the wire sees, so a change here is a change to the
 protocol: check the exact bytes a response produces, not only that a route
 answered.

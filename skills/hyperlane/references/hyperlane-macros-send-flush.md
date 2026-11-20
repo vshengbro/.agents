@@ -14,6 +14,17 @@ script will leave it alone.
 
 <Share colorful />
 
+> [!warning]
+>
+> **Since `22.6.0`, prefer `ctx.build_response()` over `ctx.get_mut_response().build()`.**
+> `build_response()` is the HEAD-aware serializer: on a wire `HEAD` request it
+> writes the status line and headers only, with no body and no generated
+> `Content-Length`. `build()` always serializes the body.
+> The argument-less `#[send]` / `#[try_send]` macros already call
+> `build_response()`; only the explicit-argument form sends
+> `get_mut_response().build()` verbatim.
+> See [Wire behaviour](wire-behaviour.md).
+
 > [!tip]
 >
 > `hyperlane-macros` 提供了发送和刷新网络数据的属性宏，用于在路由处理函数执行完毕后自动发送响应或刷新缓冲区。

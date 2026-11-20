@@ -4,6 +4,11 @@ Source: `type/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-type` (the directory is still called `type/`); use as `hyperlane::http_type::*` or `http_type::*`.
 
+Verified against `origin/master` (`63dd9f8`, workspace version `22.6.0`). The
+`22.6.0` release added the `chunked` module, `Response::build_head`,
+`Request::matches_if_none_match` and `Context::build_response()`'s
+counterpart `RequestFraming`. See [Wire behaviour](wire-behaviour.md).
+
 
 ### `any::trait`
 
@@ -257,6 +262,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 
 ### `request::enum`
 
+- `enum` **`RequestFraming`** — `pub(crate) enum RequestFraming {`
 - `enum` **`RequestError`** — `pub enum RequestError {`
 
 ### `request::impl`
@@ -276,7 +282,8 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`check_http_header_key_size`** — `pub(crate) fn check_http_header_key_size( key: &str, max_size: usize, ) -> Result<(), RequestError> {...}`
 - `fn` **`check_http_header_value_size`** — `pub(crate) fn check_http_header_value_size( value: &str, max_size: usize, ) -> Result<(), RequestError> {...}`
 - `fn` **`check_http_body_size`** — `pub(crate) fn check_http_body_size( value: &str, max_size: usize, ) -> Result<usize, RequestError> {...}`
-- `fn` **`get_http_headers`** — `pub(crate) async fn get_http_headers<R>( &mut self, reader: &mut R, config: &RequestConfig, header_line_buffer: &mut String, ) -> Result<usize, RequestError> where R: AsyncBufReadExt + Unpin, {...}`
+- `fn` **`get_http_headers`** — `pub(crate) async fn get_http_headers<R>( &mut self, reader: &mut R, config: &RequestConfig, header_line_buffer: &mut String, ) -> Result<RequestFraming, RequestError> where R: AsyncBufReadExt + Unpin, {...}`
+- `fn` **`normalize_chunked_headers`** — `pub(crate) fn normalize_chunked_headers(&mut self) {...}`
 - `fn` **`fill_http_body`** — `pub(crate) async fn fill_http_body<R>( reader: &mut R, body: &mut RequestBody, content_size: usize, ) -> Result<(), RequestError> where R: AsyncRead + Unpin, {...}`
 - `fn` **`try_get_query`** — `pub fn try_get_query<K>(&self, key: K) -> Option<RequestQuerysValue> where K: AsRef<str>, {...}`
 - `fn` **`get_query`** — `pub fn get_query<K>(&self, key: K) -> RequestQuerysValue where K: AsRef<str>, {...}`
@@ -300,6 +307,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`get_body_string`** — `pub fn get_body_string(&self) -> String {...}`
 - `fn` **`try_get_body_json`** — `pub fn try_get_body_json<T>(&self) -> Result<T, serde_json::Error> where T: DeserializeOwned, {...}`
 - `fn` **`get_body_json`** — `pub fn get_body_json<T>(&self) -> T where T: DeserializeOwned, {...}`
+- `fn` **`matches_if_none_match`** — `pub fn matches_if_none_match(&self, current_etag: &str) -> bool {...}`
 - `fn` **`is_ws_upgrade_type`** — `pub fn is_ws_upgrade_type(&self) -> bool {...}`
 - `fn` **`is_h2c_upgrade_type`** — `pub fn is_h2c_upgrade_type(&self) -> bool {...}`
 - `fn` **`is_tls_upgrade_type`** — `pub fn is_tls_upgrade_type(&self) -> bool {...}`
@@ -375,6 +383,7 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 - `fn` **`try_get_cookie`** — `pub fn try_get_cookie<K>(&self, key: K) -> Option<CookieValue> where K: AsRef<str>, {...}`
 - `fn` **`get_cookie`** — `pub fn get_cookie<K>(&self, key: K) -> CookieValue where K: AsRef<str>, {...}`
 - `fn` **`build`** — `pub fn build(&mut self) -> ResponseData {...}`
+- `fn` **`build_head`** — `pub fn build_head(&mut self) -> ResponseData {...}`
 
 ### `response::struct`
 
@@ -416,6 +425,8 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 
 ### `stream::fn`
 
+- `fn` **`fill_chunked_request`** — `pub(super) async fn fill_chunked_request( reader: &mut PooledReader<'_>, request: &mut Request, config: &RequestConfig, ) -> Result<(), RequestError> {...}`
+- `fn` **`expects_http_continue`** — `pub(super) fn expects_http_continue(request: &Request) -> bool {...}`
 - `fn` **`take_read_buffer`** — `pub(crate) fn take_read_buffer(capacity: usize) -> Vec<u8> {...}`
 - `fn` **`return_read_buffer`** — `pub(crate) fn return_read_buffer(buffer: Vec<u8>) {...}`
 
@@ -525,6 +536,18 @@ Crate name: `http-type` (the directory is still called `type/`); use as `hyperla
 ### `websocket_frame::struct`
 
 - `struct` **`WebSocketFrame`** — `pub struct WebSocketFrame {`
+
+### `chunked::const`
+
+- `const` **`MAX_CHUNK_LINE_BYTES`** — `pub(crate) const MAX_CHUNK_LINE_BYTES: usize = 8 * 1024;`
+- `const` **`MAX_CHUNK_EXTENSION_BYTES`** — `pub(crate) const MAX_CHUNK_EXTENSION_BYTES: usize = 64 * 1024;`
+- `const` **`MAX_CHUNK_TRAILER_BYTES`** — `pub(crate) const MAX_CHUNK_TRAILER_BYTES: usize = 64 * 1024;`
+- `const` **`INVALID_CHUNK`** — `pub(crate) const INVALID_CHUNK: RequestError = RequestError::HttpRead(HttpStatus::BadRequest);`
+- `const` **`CHUNK_METADATA_TOO_LARGE`** — `pub(crate) const CHUNK_METADATA_TOO_LARGE: RequestError = RequestError::HeaderLineTooLong(HttpStatus::RequestHeaderFieldsTooLarge);`
+
+### `chunked::fn`
+
+- `fn` **`fill_chunked_body`** — `pub(crate) async fn fill_chunked_body<R>( reader: &mut R, body: &mut RequestBody, config: &RequestConfig, ) -> Result<(), RequestError> where R: AsyncBufReadExt + Unpin, {...}`
 
 ### `cookie::enum`
 

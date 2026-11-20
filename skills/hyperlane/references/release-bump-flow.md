@@ -21,12 +21,18 @@ Every version must be identical. There is no second workspace and no second
 `Cargo.lock`: the harness crate `hyperlane-performance` is an ordinary member
 and its version is part of this invariant.
 
+The current workspace version at `origin/master` (`63dd9f8`) is **`22.6.0`**,
+and all eleven packages resolve to it. The `22.6.0` release commit
+(`172fa18`) bumped only the root `Cargo.toml`; the follow-up commit
+(`63dd9f8`) synced the member path-dependency pins and applied the crate
+format.
+
 ## Manual flow (what a developer does)
 
 ```bash
 cd /path/to/hyperlane
-NEW_VER="22.2.1"
-OLD_VER="22.2.0"
+NEW_VER="22.6.1"
+OLD_VER="22.6.0"
 
 # 1. edit ONLY the root Cargo.toml
 sed -i "s/^version = \"$OLD_VER\"$/version = \"$NEW_VER\"/" Cargo.toml
@@ -90,7 +96,7 @@ the CI uses rather than a hand-written `sed` loop:
 cd /path/to/hyperlane
 
 # 1. the root version is the single source of truth
-sed -i "s/^version = \"22.2.0\"$/version = \"22.2.1\"/" Cargo.toml
+sed -i "s/^version = \"22.6.0\"$/version = \"22.6.1\"/" Cargo.toml
 
 # 2. let crate-cli propagate it to every member and path-dep pin
 crate sync
@@ -111,16 +117,16 @@ produces a diff the sync step would immediately rewrite. Use `crate sync`.
 
 ## Patch vs minor/major bump
 
-The path-dep pins are caret requirements (`version = "22.2.0"` means
-`^22.2.0`), and a caret requirement for a `1.x`-or-higher crate allows every
+The path-dep pins are caret requirements (`version = "22.6.0"` means
+`^22.6.0`), and a caret requirement for a `1.x`-or-higher crate allows every
 `22.x` version. So the deciding factor is **which side of the caret's upper
 bound the new version falls on**, not the bump label.
 
 | Bump type | `Cargo.toml` version field | CI behavior |
 | --- | --- | --- |
-| patch | e.g. `22.2.0` → `22.2.1` | inside the range; `crate sync` propagates cleanly |
-| minor | e.g. `22.2.0` → `22.3.0` | still inside the range for a `22.x` workspace — **resolves, the checks run**. It only breaks in a `0.x` workspace, where `^0.32.6` stops at `0.33.0`. |
-| major | e.g. `22.2.0` → `23.0.0` | outside the range: `failed to select a version for the requirement `http-compress = "^22.2.0"`` |
+| patch | e.g. `22.6.0` → `22.6.1` | inside the range; `crate sync` propagates cleanly |
+| minor | e.g. `22.6.0` → `22.7.0` | still inside the range for a `22.x` workspace — **resolves, the checks run** (verified against the `22.6.0` pins). It only breaks in a `0.x` workspace, where `^0.32.6` stops at `0.33.0`. |
+| major | e.g. `22.6.0` → `23.0.0` | outside the range: `failed to select a version for the requirement `http-compress = "^22.6.0"`` |
 
 Measured on 2026-11-07 with `cargo metadata` (full resolution) on a scratch
 copy of each repository — see

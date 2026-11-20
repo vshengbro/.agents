@@ -77,7 +77,7 @@ impl ServerHook for ResponseMiddleware {
             .expect("attribute static_file_data not found");
         ctx.get_mut_response()
             .set_body(static_file_data_opt.unwrap_or_default());
-        let data: Vec<u8> = ctx.get_mut_response().build();
+        let data: Vec<u8> = ctx.build_response();
         if stream.try_send(data).await.is_err() {
             stream.set_closed(true);
             return Status::Reject;
@@ -160,7 +160,7 @@ impl ServerHook for ResponseMiddleware {
         let static_file_data: String =
             static_file_data_opt.expect("attribute static_file_data not found");
         ctx.get_mut_response().set_body(static_file_data);
-        let data: Vec<u8> = ctx.get_mut_response().build();
+        let data: Vec<u8> = ctx.build_response();
         if stream.try_send(data).await.is_err() {
             stream.set_closed(true);
             return Status::Reject;

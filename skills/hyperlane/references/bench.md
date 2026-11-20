@@ -1,7 +1,12 @@
 # The hyperlane performance harness
 
 Source: `performance/` in the hyperlane workspace. Verified against the tree at
-`4f842a6` (workspace version `22.2.0`).
+`origin/master` (`63dd9f8`, workspace version `22.6.0`).
+
+**Name the binary.** The package publishes four binaries, so `cargo run -p
+hyperlane-performance` cannot pick one and fails with an ambiguity error. Every
+invocation needs `--bin hyperlane-performance`. The CI workflow
+(`.github/workflows/perf.yml`) was fixed for exactly this reason.
 
 ## What it is, and what it is not
 
@@ -41,12 +46,12 @@ The orchestrator drives Docker, not cargo directly. The usage string in
 `usage: hyperlane-performance <instrument|build|bench|report|certificates> ...`.
 
 ```sh
-cargo run --locked -q -p hyperlane-performance -- instrument .
-cargo run --locked -q -p hyperlane-performance -- build candidate .
-cargo run --locked -q -p hyperlane-performance -- build baseline /path/to/baseline
-cargo run --locked -q -p hyperlane-performance -- bench candidate baseline
-cargo run --locked -q -p hyperlane-performance -- report
-cargo run --locked -q -p hyperlane-performance -- certificates performance/certs
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- instrument .
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- build candidate .
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- build baseline /path/to/baseline
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- bench candidate baseline
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- report
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- certificates performance/certs
 ```
 
 - `instrument <context>` — builds the load generator and control images and
@@ -73,7 +78,7 @@ two images differ only in the library under test:
 ```sh
 mkdir -p /tmp/hyperlane-perf-baseline
 git archive "$(git merge-base origin/master HEAD)" | tar -x -C /tmp/hyperlane-perf-baseline
-cargo run --locked -q -p hyperlane-performance -- build baseline /tmp/hyperlane-perf-baseline
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- build baseline /tmp/hyperlane-perf-baseline
 ```
 
 The build is `--locked`: the lock is authoritative, and the runner rewrites the
@@ -102,7 +107,7 @@ private key in a repository is a private key in every clone of that
 repository.
 
 ```sh
-cargo run --locked -q -p hyperlane-performance -- certificates performance/certs
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- certificates performance/certs
 ```
 
 The generator makes a certificate authority and one leaf certificate
@@ -228,11 +233,11 @@ consistently negative, the bias is in the harness and not in the code.
 the baseline context with `git archive`, then:
 
 ```sh
-cargo run --locked -q -p hyperlane-performance -- instrument .
-cargo run --locked -q -p hyperlane-performance -- build candidate .
-cargo run --locked -q -p hyperlane-performance -- build baseline "${{ runner.temp }}/baseline"
-cargo run --locked -q -p hyperlane-performance -- bench candidate baseline
-cargo run --locked -q -p hyperlane-performance -- report | tee "${{ github.workspace }}/performance/results/report.txt"
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- instrument .
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- build candidate .
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- build baseline "${{ runner.temp }}/baseline"
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- bench candidate baseline
+cargo run --locked -q -p hyperlane-performance --bin hyperlane-performance -- report | tee "${{ github.workspace }}/performance/results/report.txt"
 ```
 
 It uploads `performance/results` as an artifact. The job has a 90 minute

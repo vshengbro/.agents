@@ -587,6 +587,26 @@ under `docs/docs/en/components/` (65 component pages plus the section
 - `fn` **`scheme_class_name`** — `pub fn scheme_class_name() -> &'static str {...}`
 - `fn` **`scheme_name`** — `pub fn scheme_name() -> &'static str {...}`
 
+### `style::var::theme::fn` — new theme tokens
+
+Five tokens were added to both the light and the dark scheme blocks, so a card or a navigation row has one shared owner for its spacing:
+
+| Token | Value |
+|---|---|
+| `card-padding` | `var(--space-md)` |
+| `card-content-gap` | `var(--gap-component)` |
+| `nav-row-height` | `calc(var(--control-height) + var(--space-lg))` |
+| `nav-row-padding` | `var(--space-md)` |
+| `nav-item-inset` | `var(--space-xs)` |
+
+### `style::class::display::fn` (new class)
+
+- `class` **`c_card_stack`** — `pub c_card_stack { ... }` — a flex column that owns the spacing of a card stack: `gap: var(--page-block-gap)` (mobile: `var(--page-block-gap-mobile)`), zeroes the block margins of its children and gives the first card a `margin-top`, including through transparent dynamic (`slot`, `[data-euv-dynamic-id]`) boundaries.
+
+### `style::css::const` (global reset)
+
+- `static` **`APP_GLOBAL_CSS_ROOT`** — `pub(crate) const APP_GLOBAL_CSS_ROOT: &str = ...` — now includes `-webkit-tap-highlight-color: transparent` on `:where(html)`, so the inherited tap highlight is gone without suppressing control feedback, text selection or keyboard focus.
+
 ### `component::accordion::view::enum`
 
 - `enum` **`EuvAccordionType`** — `pub enum EuvAccordionType {`

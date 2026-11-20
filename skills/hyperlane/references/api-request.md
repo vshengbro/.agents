@@ -4,6 +4,12 @@ Source: `request/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-request` (the directory is still called `request/`).
 
+Verified against `origin/master` (`63dd9f8`, workspace version `22.6.0`). The
+`22.6.0` release reworked the client's response framing: `ResponseFraming`
+replaces the loose `content_length` / `is_chunked` out-parameters, interim
+responses are skipped, and `HEAD` is supported as a request method. See
+[Wire behaviour](wire-behaviour.md).
+
 
 
 - `struct` **`Body`** — `pub struct Body {`
@@ -58,6 +64,8 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `fn` **`send`** — `pub fn send(&mut self) -> RequestResult {...}`
 - `fn` **`send_async`** — `pub async fn send_async(&mut self) -> RequestResult {...}`
 - `fn` **`parse_url`** — `pub(crate) fn parse_url(&self) -> Result<HttpUrlComponents, RequestError> {...}`
+- `fn` **`send_bodyless_request_sync`** — `fn send_bodyless_request_sync( &mut self, stream: &mut BoxReadWrite, is_head: bool, ) -> Result<HttpResponse, RequestError> {...}`
+- `fn` **`send_bodyless_request_async`** — `async fn send_bodyless_request_async( &mut self, stream: &mut BoxAsyncReadWrite, is_head: bool, ) -> Result<HttpResponse, RequestError> {...}`
 - `fn` **`full_path`** — `pub(crate) fn full_path(&self) -> Result<String, RequestError> {...}`
 - `fn` **`protocol_lower`** — `pub(crate) fn protocol_lower(config: &RequestConfig) -> String {...}`
 - `fn` **`header_bytes`** — `pub(crate) fn header_bytes(&self, body_length: usize) -> Result<Vec<u8>, RequestError> {...}`
@@ -118,12 +126,15 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `fn` **`find_double_crlf`** — `pub(crate) fn find_double_crlf(data: &[u8], start: usize) -> Option<usize> {...}`
 - `fn` **`find_pattern_case_insensitive`** — `pub(crate) fn find_pattern_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {...}`
 - `fn` **`find_crlf`** — `pub(crate) fn find_crlf(data: &[u8], start: usize) -> Option<usize> {...}`
-- `fn` **`get_content_length`** — `pub(crate) fn get_content_length(response_bytes: &[u8]) -> Result<usize, RequestError> {...}`
+- `fn` **`get_content_length`** — `pub(crate) fn get_content_length(response_bytes: &[u8]) -> Result<Option<usize>, RequestError> {...}`
 - `fn` **`is_chunked_encoding`** — `pub(crate) fn is_chunked_encoding(headers_bytes: &[u8]) -> Result<bool, RequestError> {...}`
 - `fn` **`parse_decimal_bytes`** — `pub(crate) fn parse_decimal_bytes(bytes: &[u8]) -> Result<usize, RequestError> {...}`
 - `fn` **`parse_status_code`** — `pub(crate) fn parse_status_code(status_bytes: &[u8]) -> usize {...}`
 - `fn` **`calculate_buffer_capacity`** — `pub(crate) fn calculate_buffer_capacity( response_bytes: &[u8], n: usize, current_capacity: usize, ) -> usize {...}`
-- `fn` **`parse_response_headers`** — `pub(crate) fn parse_response_headers( headers_bytes: &[u8], http_version_bytes: &[u8], location_sign_key: &[u8], content_length: &mut usize, redirect_url: &mut Option<Vec<u8>>, is_chunked: &mut bool, ) -> Result<(), RequestError> {...}`
+- `fn` **`parse_response_headers`** — `pub(crate) fn parse_response_headers( headers_bytes: &[u8], is_head: bool, ) -> Result<Option<ResponseHeadFields>, RequestError> {...}`
+- `fn` **`find_final_response_head`** — `pub(crate) fn find_final_response_head( bytes: &mut Vec<u8>, search_start: usize, is_head: bool, ) -> Result<Option<FinalResponseHead>, RequestError> {...}`
+- `fn` **`response_body_is_complete`** — `pub(crate) fn response_body_is_complete( framing: ResponseFraming, bytes: &[u8], ) -> Result<bool, RequestError> {...}`
+- `fn` **`finish_framed_response`** — `pub(crate) fn finish_framed_response( bytes: &[u8], head_end: usize, framing: ResponseFraming, ) -> Result<HttpResponse, RequestError> {...}`
 
 - `fn` **`parse_chunk_size`** — `pub(crate) fn parse_chunk_size(line: &[u8]) -> Result<usize, RequestError> {...}`
 - `fn` **`chunked_body_end`** — `pub(crate) fn chunked_body_end(body_bytes: &[u8]) -> Result<Option<usize>, RequestError> {...}`
@@ -131,6 +142,15 @@ Crate name: `http-request` (the directory is still called `request/`).
 - `fn` **`is_valid_header_value`** — `pub(crate) fn is_valid_header_value(value: &[u8]) -> bool {...}`
 - `fn` **`validate_request_headers`** — `pub(crate) fn validate_request_headers( headers: &HashMap<String, String>, ) -> Result<(), RequestError> {...}`
 - `fn` **`response_header_value`** — `pub(crate) fn response_header_value<'a>( headers_bytes: &'a [u8], field_name: &[u8], ) -> Result<Option<&'a [u8]>, RequestError> {...}`
+
+### `request::parser::enum`
+
+- `enum` **`ResponseFraming`** — `pub(crate) enum ResponseFraming {`
+
+### `request::parser::type`
+
+- `type` **`FinalResponseHead`** — `pub(crate) type FinalResponseHead = (usize, ResponseFraming, Option<Vec<u8>>);`
+- `type` **`ResponseHeadFields`** — `pub(crate) type ResponseHeadFields = (ResponseFraming, Option<Vec<u8>>);`
 
 ### `request::proxy::impl`
 

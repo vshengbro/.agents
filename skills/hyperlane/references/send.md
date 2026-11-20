@@ -14,6 +14,17 @@ script will leave it alone.
 
 <Share colorful />
 
+> [!warning]
+>
+> **Since `22.6.0`, prefer `ctx.build_response()` over `ctx.get_mut_response().build()`.**
+> `build_response()` is the HEAD-aware serializer: on a wire `HEAD` request it
+> writes the status line and headers only, with no body and no generated
+> `Content-Length`. `build()` always serializes the body.
+> The argument-less `#[send]` / `#[try_send]` macros already call
+> `build_response()`; only the explicit-argument form shown below sends
+> `get_mut_response().build()` verbatim.
+> See [Wire behaviour](wire-behaviour.md).
+
 > [!tip]
 >
 > `hyperlane` 框架提供了多种响应发送方法，支持完整 HTTP 响应发送、仅响应体发送，以及连接管理。

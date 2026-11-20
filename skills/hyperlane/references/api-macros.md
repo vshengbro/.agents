@@ -1,6 +1,15 @@
 # hyperlane-macros complete proc_macro signatures (78)
 
-Source: `macros/src/lib.rs`。
+Source: `macros/src/lib.rs`。 Verified against `origin/master` (`63dd9f8`,
+workspace version `22.6.0`).
+
+**`#[send]` and `#[try_send]` changed in `22.6.0`.** Without an attribute
+argument they now expand to `ctx.build_response()` instead of
+`ctx.get_mut_response().build()`, so a wire `HEAD` request gets the status
+line and headers only, with no body. With an attribute argument the
+expression is sent unchanged — an explicit raw write is not affected. The
+`Response::build_head` counterpart is public on `http-type`; see
+[Wire behaviour](wire-behaviour.md).
 
 ## Full list
 

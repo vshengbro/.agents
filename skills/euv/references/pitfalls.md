@@ -33,6 +33,15 @@ carries no links to documents that don't exist.
 | The docs locale dropdown stops responding after a route change | Its trigger must be the shared `euv_dropdown_trigger` inside `euv_dropdown`, rendered in its **own** `VirtualNode::create_dynamic` hook lifecycle (`docs/src/component/layout/view/fn.rs`); a document-level listener registered in the shell root loses its callbacks when the route re-renders |
 | A docs page is served with the wrong `<html lang>` | The language is bound to the **locale label**, not to the frontmatter `lang:` key: `document_language_for_label` writes `.deploy/document-lang.txt`, and `localize_document_output` rewrites `index.html` and copies it to `404.html` (`docs/src/document_html/`) |
 | An absolute `https://` badge is rewritten to a broken `../https://…` URL in a non-default locale bundle | `rebase_asset_url` skips `https://` as well as `http://`; a relative asset is the only thing it rebases |
+| A cargo feature named `theme-custom` no longer resolves | It was deleted from `euv-ui`, `euv-example` and `euv-docs`; `git grep theme-custom origin/master` is empty. Use `theme-shadcn` when a test needs one concrete theme — the generic custom-attribute API is unrelated and still exists |
+| A removed theme reappears in a release build | `build_theme_variants.sh` prunes retired themes from `example/www/themes/` and `native/tauri/.cache/themes/*.sha256` and asserts the output set equals the current features; if a stale variant survives, the cache was restored from outside the script |
+| The release output contains the `__euv_reload` bootstrap | A development build leaked into the release tree; the theme script and the publication validator both refuse such an output |
+| The docs mobile drawer keeps focus in the page behind it | The drawer is a modal: `use_docs_drawer_modal` installs the `focusin`/`keydown` listeners and `sync_docs_drawer_focus` sets `inert` on `.c_mobile_header, .c_mobile_main` (`docs/src/component/layout/drawer/`) |
+| Closing the docs drawer does not return focus to the menu button | Focus is restored only when the saved opener is still `docs-mobile-drawer-trigger` **and** still available (not hidden, inert, disabled or `visibility: hidden`) |
+| `Escape` closes the docs drawer while the locale menu is open | `Escape` dismisses the innermost surface: the nested locale menu first, the drawer only when nothing else is open |
+| The docs shell leaks listeners when the viewport crosses the mobile breakpoint | `use_docs_responsive_scope` must unsubscribe and call `HookContext::switch_arm(1)` when the responsive mode stops matching the owner |
+| The docs search placeholder or status text is still English | The hardcoded `HEADER_SEARCH_*` and `THEME_TOGGLE_TITLE` constants were deleted; the strings come from `locale_text(route, DOCS_KEY_SEARCH_*)` in `docs/src/locale/const.rs` |
+| The website release is published twice, or an old release replaces a newer one | Publication is manual (`pages.yml` `workflow_dispatch` with `source_run_id`); `publish_release.py` refuses to replace a newer live release and verifies every published byte |
 
 ## euv-chart Deep Dive
 
@@ -72,3 +81,6 @@ root crate; when verifying, look directly at `chart/src/`:
 - **state misaligned** → unmount-without-cleanup row / `use_node_ref` cross-root row
 - **style fallback** → dependency-drift row / `inject_app_global_css` specificity row
 - **build / publish failure** → `euv fmt` row / bump sync row / publish order row
+- **theme feature missing** → `theme-custom` removal row
+- **focus lost in the docs drawer** → drawer focus containment / restoration rows
+- **stale release bytes** → retired-theme pruning row / `__euv_reload` row

@@ -58,7 +58,7 @@ impl ServerHook for TimeoutMiddleware {
                     .get_mut_response()
                     .set_status_code(504)
                     .set_body("timeout");
-                let data: Vec<u8> = new_ctx.get_mut_response().build();
+                let data: Vec<u8> = new_ctx.build_response();
                 // Note: stream is not available in spawned task in the new API
             })
             .await
@@ -91,7 +91,7 @@ impl ServerHook for ResponseMiddleware {
         if ctx.get_request().is_ws_upgrade_type() {
             return Status::Continue;
         }
-        let data: Vec<u8> = ctx.get_mut_response().build();
+        let data: Vec<u8> = ctx.build_response();
         if stream.try_send(data).await.is_err() {
             stream.set_closed(true);
             return Status::Reject;

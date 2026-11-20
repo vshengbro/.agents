@@ -24,13 +24,13 @@
 | 12 | A dynamic segment must be wrapped in `{name}`; `/users/:id` **does not work** | `references/hyperlane-macros-route-params.md` |
 | 13 | A regex segment is written `{name:pattern}`; **note the doubled backslash** in the Rust string literal: `/users/{id:\\d+}` | `references/hyperlane-macros-route-params.md` |
 | 14 | The response body's `set_body` takes `Into<Vec<u8>>` — a `&str` works too, it is converted internally | `references/response.md` |
-| 15 | `build()` returns `Vec<u8>`, and **that is the response bytes to send** — dropping it means no response was sent (see `try_send(ctx.get_mut_response().build())` in `performance/src/bin/server/main.rs`) | `references/send.md` |
+| 15 | `build()` returns `Vec<u8>`, and **that is the response bytes to send** — dropping it means no response was sent. Prefer `ctx.build_response()`: it is the HEAD-aware serializer and it is what the `#[send]` / `#[try_send]` macros call | `references/send.md` |
 | 16 | `server_config()` / `request_config()` are **sync**: do not `.await` | `references/run.md` |
 | 17 | `config_from_json` is sync and takes `impl AsRef<str>` | `references/run.md` |
 | 18 | Start the Tokio runtime yourself: `#[tokio::main] async fn main() { ... }` — the framework does not start one | `references/run.md` |
 | 19 | A hook's `new()` runs **on every request**: **do not** put expensive IO there, put it in `handle` | `references/hyperlane-macros-method-filter.md` |
 | 20 | A panic in `handle` is caught by the `TaskPanic` hook; **do not** `catch_unwind` inside `handle` yourself | `references/hyperlane-macros-send-flush.md` |
-| 21 | A 404 / 405 goes to the `RequestError` hook by default; with no hook registered the framework uses its built-in default (an empty 404 body) | `references/hyperlane-macros-request.md` |
+| 21 | **A request that fails to parse or exceeds a limit is answered by the server itself** since `22.6.0`: an empty response with the error's status, `Content-Length: 0` and `Connection: close` on HTTP/1.x; the connection stays usable on HTTP/2 and HTTP/3. A registered `RequestError` hook still owns the body | `references/wire-behaviour.md` |
 | 22 | `panic = "unwind"`: only then can the `TaskPanic` hook see the panic; `panic = "abort"` aborts without triggering it | `references/hyperlane-macros-attributes.md` |
 
 ## Monorepo and toolchain
@@ -53,13 +53,16 @@
 | 31 | **Hook priority runs the smaller value first**: the framework sorts with `sort_by_key(try_get_order())` over an `Option<isize>` (in `macros/src/hyperlane/fn.rs`), so `None` comes before every `Some`. The 21.14.0 docs said higher values execute first; **22.0.2 corrected that to the smaller value running earlier**, and 22.2.0 still does it that way | `references/plugins.md` |
 | 32 | **A negative integer literal is swallowed**: `#[response_middleware(-110)]` compiles to `None`, not `Some(-110)` — `expr_to_isize` accepts integer and string literals only, and `-110` is a unary expression. A negative priority has to be written as the string `"-110"`. The `hyperlane-plugin-logger` request hook still writes `#[hyperlane::request_middleware(-120)]`, so **it registers with no order at all** and runs before every ordered hook | `references/plugins.md` |
 | 33 | `assert_unique_order` panics only for the **same hook type with the same order** (it compares the factory function pointer); two **different** hook types sharing a number do not panic | `references/plugins.md` |
-| 34 | Only **two** plugin crates are in the tree, and both are published: `hyperlane-plugin-logger` and `hyperlane-plugin-websocket` carry `publish = true` and are on crates.io at `22.4.0`. The other four (`-compression`, `-cors`, `-shutdown`, `-static-files`) left the tree and stay on crates.io at their last version, `22.0.6` | `references/plugins.md` |
+| 34 | Only **two** plugin crates are in the tree, and both are published: `hyperlane-plugin-logger` and `hyperlane-plugin-websocket` carry `publish = true` and are on crates.io at `22.6.0`. The other four (`-compression`, `-cors`, `-shutdown`, `-static-files`) left the tree and stay on crates.io at their last version, `22.0.6` | `references/plugins.md` |
 | 35 | An unconfigured plugin **must** pass the request through: the hook reads its own `OnceLock` first and returns `Status::Continue` when it is `None`, otherwise every application that does not use the plugin changes behaviour | `references/plugins.md` |
 | 36 | The harness is the crate `hyperlane-performance`, a **member of the root workspace**, not a separate one: a root `cargo test --workspace` builds and tests it, and there is no second `Cargo.lock` | `references/bench.md` |
 | 37 | The harness crate is `publish = true` and is published as `hyperlane-performance`; it produces four binaries (`hyperlane-performance`, `-server`, `-loadgen`, `-control`) from one package | `references/bench.md` |
 | 38 | A perf verdict **never blocks the build**: the Rust report renderer exits non-zero only when the measurement itself is broken (no measurements, the two variants were not measured together, or no repeat produced a usable pair) | `references/bench.md` |
 | 39 | `hyperlane-macros` has **two version lines** on crates.io: `21.x`/`22.x` is the current monorepo line, while `23.0.21` is the old single-crate line (it needs `hyperlane ^21.3.6` + `syn ^2.0.119`, while the current workspace uses `syn 3.0.6`, so the two are **incompatible**). `23.0.21` is the highest number on the registry, so a plain `cargo add hyperlane-macros` resolves to it | `references/api-macros.md` |
 | 40 | The multipart parsing of `http-type` (`MultipartFormData` / `BodyPart`) **shipped with 21.14.0**; it is not local-tree only — `http-type` 21.14.0, 22.0.6, 22.1.0, 22.2.0 and 22.4.0 on crates.io all contain `src/body/` (verified by unpacking the `.crate` files) | `references/api-type.md` |
+| 42 | **A request for a route that does not exist gets no response at all** — not a 404, and not the `RequestError` hook. The route matcher finds no hook and the pipeline finishes without writing bytes. Verified on `origin/master` (`22.6.0`) by driving a real socket: `GET /missing` returned zero bytes with and without a registered `RequestError` hook | `references/wire-behaviour.md` |
+| 43 | **`Transfer-Encoding: chunked` is accepted on HTTP/1.1 request bodies since `22.6.0`**, and the handler receives the **decoded** bytes plus a `Content-Length`. It is refused on HTTP/1.0, refused together with `Content-Length`, and a coding the server does not implement is `501` | `references/wire-behaviour.md` |
+| 44 | **A `205` response declares `Content-Length: 0`; `1xx`, `204` and `304` declare no length at all** and carry no `Transfer-Encoding`. A `304` keeps its representation metadata (`ETag`) | `references/wire-behaviour.md` |
 | 41 | The `Transport` trait is public, but the framework's `Stream` **does not implement it** — `tokio::net::TcpStream` does | `references/api-type.md` |
 
 ## Tool conflict quick map
@@ -74,7 +77,8 @@
 
 - **a hook does not fire** → pitfall #5 (a duplicate `inventory::collect!`), pitfall #6 (wrong `use` path)
 - **a panic is not caught** → pitfall #20 (a duplicate `catch_unwind`), pitfall #22 (`panic = "abort"`)
-- **the 404 default** → pitfall #21 (no `RequestError` hook registered)
+- **a malformed request gets no answer** → pitfall #21 (the default request-error response)
+- **a missing route gets no answer** → pitfall #42 (the route matcher finds no hook)
 - **build / publish fails** → pitfall #24 (the wrong tool), pitfall #25 (sed on the wrong file), pitfall #27 (the publish order)
 - **a route does not match** → pitfall #11 (RouteParams ownership), pitfall #12 (a wrong `/users/:id`), pitfall #13 (a doubled backslash in a regex)
 - **the hook order is wrong** → pitfall #31 (the smaller value runs first), pitfall #32 (a negative literal is swallowed), pitfall #33 (uniqueness is only checked per hook type)

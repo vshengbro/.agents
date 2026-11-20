@@ -2,6 +2,10 @@
 
 Source: `core/src/` — auto-extracted from `pub` declarations.
 
+Verified against `origin/master` (`63dd9f8`, workspace version `22.6.0`). The
+`22.6.0` release added `Context::build_response()` and the three request-error
+helpers in `protocol::response::fn`. See [Wire behaviour](wire-behaviour.md).
+
 Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 
 `Context::get_request_target()` returns the wire target (path plus query) as
@@ -46,6 +50,7 @@ item stay unreachable.
 
 ### `context::impl`
 
+- `fn` **`build_response`** — `pub fn build_response(&mut self) -> ResponseData {...}`
 - `fn` **`reset_request_attributes`** — `pub(crate) fn reset_request_attributes(&mut self) -> &mut Self {...}`
 - `fn` **`clear_route_params`** — `pub(crate) fn clear_route_params(&mut self) -> &mut Self {...}`
 - `fn` **`try_get_route_param`** — `pub fn try_get_route_param<T>(&self, name: T) -> Option<String> where T: AsRef<str>, {...}`
@@ -68,6 +73,12 @@ item stay unreachable.
 ### `context::struct`
 
 - `struct` **`Context`** — `pub struct Context {`
+
+`Context` carries `original_head: Option<bool>` — whether the **wire** method
+was HEAD, independent of any route rewrite. The accessors are `pub(crate)`
+(`try_get_original_head` / `set_original_head`), so they are not reachable
+from outside the crate; use `Context::build_response()`, which reads the flag
+and picks `build_head()` or `build()` for you.
 
 ### `error::enum`
 
@@ -224,7 +235,7 @@ item stay unreachable.
 - `fn` **`serve_h2_connection`** — `pub(crate) async fn serve_h2_connection<T>( env: ConnectionEnv, peers: StreamPeers, connection: Result<ConnectionH2<T>, String>, ) where T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static, {...}`
 - `fn` **`h2_request_task`** — `pub(crate) async fn h2_request_task( env: H2RequestEnv, request: ProtocolRequest<H2RecvStream>, send_response: h2::server::SendResponse<Bytes>, ) {...}`
 - `fn` **`h2_fail_request`** — `pub(crate) async fn h2_fail_request( env: &H2RequestEnv, framer: &mut H2Framer, version: HttpVersion, error: RequestError, ) {...}`
-- `fn` **`collect_h2_body`** — `pub(crate) async fn collect_h2_body( recv_stream: &mut H2RecvStream, request_config: &RequestConfig, headers: &ProtocolHeaders, body: &mut Vec<u8>, ) -> Result<(), RequestError> {...}`
+- `fn` **`collect_h2_body`** — `async fn collect_h2_body( framer: &mut H2Framer, recv_stream: &mut H2RecvStream, request_config: &RequestConfig, headers: &ProtocolHeaders, body: &mut Vec<u8>, ) -> Result<(), RequestError> {...}`
 
 ### `protocol::http2::impl`
 
@@ -240,7 +251,7 @@ item stay unreachable.
 
 - `fn` **`serve_h3_connection`** — `pub(crate) async fn serve_h3_connection( env: ConnectionEnv, peers: StreamPeers, mut connection: h3::server::Connection<h3_quinn::Connection, Bytes>, ) {...}`
 - `fn` **`h3_request_task`** — `pub(crate) async fn h3_request_task(env: H3RequestEnv, resolver: RequestResolverH3) {...}`
-- `fn` **`collect_h3_body`** — `pub(crate) async fn collect_h3_body( framer: &mut H3Framer, request_config: &RequestConfig, headers: &ProtocolHeaders, body: &mut Vec<u8>, ) -> Result<(), RequestError> {...}`
+- `fn` **`collect_h3_body`** — `async fn collect_h3_body( framer: &mut H3Framer, request_config: &RequestConfig, headers: &ProtocolHeaders, body: &mut Vec<u8>, ) -> Result<(), RequestError> {...}`
 - `fn` **`h3_fail_request`** — `pub(crate) async fn h3_fail_request( env: &H3RequestEnv, framer: &mut H3Framer, version: HttpVersion, error: RequestError, ) {...}`
 
 ### `protocol::http3::impl`
@@ -292,6 +303,7 @@ item stay unreachable.
 - `fn` **`fill_request_headers`** — `pub fn fill_request_headers( headers: &ProtocolHeaders, config: &RequestConfig, request: &mut Request, ) -> Result<(), RequestError> {...}`
 - `fn` **`is_hop_by_hop`** — `pub fn is_hop_by_hop(name: &str) -> bool {...}`
 - `fn` **`declared_content_length`** — `pub fn declared_content_length( headers: &ProtocolHeaders, max_body_size: usize, ) -> Result<Option<usize>, RequestError> {...}`
+- `fn` **`has_continue_expectation`** — `pub(crate) fn has_continue_expectation(headers: &ProtocolHeaders) -> bool {...}`
 - `fn` **`parse_ascii_length`** — `pub(crate) fn parse_ascii_length(value: &str) -> Result<usize, RequestError> {...}`
 - `fn` **`is_bodyless_status`** — `pub fn is_bodyless_status(status_code: usize, is_head: bool) -> bool {...}`
 - `fn` **`push_bounded_body`** — `pub fn push_bounded_body( limit: usize, body: &mut Vec<u8>, chunk: Bytes, ) -> Result<(), RequestError> {...}`
@@ -303,6 +315,9 @@ item stay unreachable.
 
 ### `protocol::response::fn`
 
+- `fn` **`h1_error_response_version`** — `pub(crate) fn h1_error_response_version( stream: &Stream, error: &RequestError, ) -> Option<HttpVersion> {...}`
+- `fn` **`reply_to_request_error`** — `pub(crate) async fn reply_to_request_error( server: &Server, stream: &mut Stream, ctx: &mut Context, error: &RequestError, version: Option<HttpVersion>, ) {...}`
+- `fn` **`continue_response`** — `pub(crate) fn continue_response() -> ProtocolResponse<()> {...}`
 - `fn` **`find_head_end`** — `pub fn find_head_end(buffer: &[u8]) -> Option<usize> {...}`
 - `fn` **`find_line_end`** — `pub fn find_line_end(bytes: &[u8]) -> Option<usize> {...}`
 - `fn` **`parse_response_head`** — `pub fn parse_response_head(head: &[u8]) -> Result<(usize, ProtocolHeaders), ResponseError> {...}`

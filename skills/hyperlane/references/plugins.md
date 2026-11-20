@@ -5,8 +5,8 @@ tree. Four others were in it until 2026-10-24 and are not any more.
 
 | crate | directory | published |
 |---|---|---|
-| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.4.0` |
-| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.4.0` |
+| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.6.0` |
+| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.6.0` |
 
 Both are workspace members and both depend on the `hyperlane` facade crate, so
 they compile against the workspace source, not against a released version.
@@ -27,7 +27,7 @@ stay as they are: a yanked dependency would break the resolution of the
 packages that depend on it.
 
 The two plugin crates that remain are published with the rest of the workspace:
-both carry `publish = true` and are on crates.io at `22.4.0`.
+both carry `publish = true` and are on crates.io at `22.6.0`.
 
 ## How a plugin attaches to the server
 
@@ -116,6 +116,17 @@ The published plugin that carries the most state. It provides `WebSocket`,
 integrates with `hyperlane-broadcast` for message dissemination. It is a
 trait-and-config surface rather than a middleware: the application supplies the
 connected, request, sended and closed hooks through the config setters.
+
+`WebSocketConfig::new` takes **both** the stream and the context:
+`WebSocketConfig::new(&mut stream, &mut ctx)`. The hooks it holds are then
+`ServerHookHandler` values, so a hook implements the current
+`ServerHook` signature — `async fn new(&mut Stream, &mut Context) -> Self` and
+`async fn handle(self, &mut Stream, &mut Context) -> Status`.
+
+The `22.6.0` release replaced the ignored doc examples with runnable ones, so
+the examples in `plugin/websocket/src/impl.rs` now show the real signature
+rather than an older one. Read them there instead of trusting an older
+snippet.
 
 ## The rules that left the tree
 

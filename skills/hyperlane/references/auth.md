@@ -84,7 +84,7 @@ impl ServerHook for ResponseMiddleware {
         if ctx.get_request().is_ws_upgrade_type() {
             return Status::Continue;
         }
-        let data: Vec<u8> = ctx.get_mut_response().build();
+        let data: Vec<u8> = ctx.build_response();
         if stream.try_send(data).await.is_err() {
             stream.set_closed(true);
             return Status::Reject;
