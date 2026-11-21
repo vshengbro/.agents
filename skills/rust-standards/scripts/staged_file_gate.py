@@ -208,6 +208,7 @@ def entries(repo: Path, tree: str) -> list:
 
 def materialise(repo: Path, tree: str, destination: Path) -> None:
     """Copy every tracked blob, including verifier configuration and context."""
+    destination = destination.resolve()
     destination.mkdir()
     # Keep metadata and the index private; share only immutable object reads.
     # An empty index changes ls-files/check-ignore and silently drops context.
@@ -259,7 +260,7 @@ def materialise(repo: Path, tree: str, destination: Path) -> None:
             lexical = Path(os.path.abspath(target.parent / link))
             if (not link or Path(link).is_absolute() or
                     any(part.casefold() == ".git" for part in Path(link).parts) or
-                    not lexical.is_relative_to(destination.resolve())):
+                    not lexical.is_relative_to(destination)):
                 raise RuntimeError(f"unsafe symlink target: {relative!r}")
             links.append((target, link))
             continue
@@ -272,10 +273,10 @@ def materialise(repo: Path, tree: str, destination: Path) -> None:
             (destination / relative).mkdir(parents=True, exist_ok=True)
     for target, link in links:
         target.symlink_to(link)
-    root = destination.resolve()
+    root = destination
     for target, link in links:
         try:
-            resolved = target.resolve(strict=True)
+            resolved = target.resolve(strict=False)
         except (OSError, RuntimeError) as error:
             raise RuntimeError(f"broken or cyclic symlink: {target.relative_to(root)!s}") from error
         if (not resolved.is_relative_to(root) or
