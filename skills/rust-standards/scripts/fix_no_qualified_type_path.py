@@ -98,12 +98,13 @@ def collect_candidates(path: Path, external: set[str],
         if is_associated_item(type_path):
             continue
         leaf = leaf_of(type_path)
-        if leaf in bindings:
-            # The root binds this leaf already, either to the same item or
-            # to another one. Either way the bare name is not available.
+        bound = bindings.get(leaf)
+        if bound and type_path not in bound:
+            # The owner binds the leaf to a DIFFERENT item: the bare name
+            # would be ambiguous, so the path has to stay.
             continue
         if root in bindings:
-            # The root binds the path's own root as a module.
+            # The owner binds the path's own root as a module.
             continue
         if leaf in own:
             # The crate's own public API binds the leaf, so the bare name

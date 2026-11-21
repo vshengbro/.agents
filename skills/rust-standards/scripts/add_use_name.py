@@ -100,6 +100,82 @@ def render(root: str, names: list[str], indent: str) -> list[str]:
     return [f"{indent}use {root}::{{"] + [f"{inner}{name}," for name in names] + [f"{indent}}};"]
 
 
+def _covers(existing: list[str], name: str) -> bool:
+    """Whether the block's names already reach `name`.
+
+    `error::{Code, StreamError}` already reaches `error::StreamError`,
+    so adding the latter would define `StreamError` twice.
+    """
+    leaf = name.rsplit("::", 1)[-1]
+    for entry in existing:
+        if entry == name:
+            return True
+        # A nested group `error::{Code, StreamError}` reaches the names
+        # inside it.
+        if entry.startswith(name + "::"):
+            return True
+        if entry.endswith("::" + name):
+            return True
+        if "{" in entry:
+            inner = entry[entry.index("{") + 1:entry.rindex("}")]
+            prefix = entry[:entry.index("{")].rstrip(":")
+            for part in inner.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                full = f"{prefix}::{part}" if prefix else part
+                if full == name or full.rsplit("::", 1)[-1] == leaf:
+                    return True
+    return False
+
+
+def _covered_by(existing: list[str], name: str) -> set[str]:
+    """The block's entries the new group already names."""
+    if "{" not in name:
+        return set()
+    inner = name[name.index("{") + 1:name.rindex("}")]
+    prefix = name[:name.index("{")].rstrip(":")
+    new_names = set()
+    for part in inner.split(","):
+        part = part.strip()
+        if part:
+            new_names.add(f"{prefix}::{part}" if prefix else part)
+    covered = set()
+    for entry in existing:
+        if "{" in entry:
+            continue
+        leaf = entry.rsplit("::", 1)[-1]
+        if any(new.rsplit("::", 1)[-1] == leaf for new in new_names):
+            covered.add(entry)
+    return covered
+
+
+def _covers_each(existing: list[str], name: str) -> bool:
+    """Whether the new name collides with an entry the block already has.
+
+    Adding `error::{Code, StreamError}` when the block already has
+    `error::StreamError` would define `StreamError` twice. The new group
+    only has to cover the entries it COLLIDES with; the entries it does
+    not mention stay where they are.
+    """
+    if "{" not in name:
+        return False
+    inner = name[name.index("{") + 1:name.rindex("}")]
+    prefix = name[:name.index("{")].rstrip(":")
+    new_leaves = set()
+    for part in inner.split(","):
+        part = part.strip()
+        if part:
+            new_leaves.add(part.rsplit("::", 1)[-1])
+    for entry in existing:
+        if "{" in entry:
+            continue
+        leaf = entry.rsplit("::", 1)[-1]
+        if leaf in new_leaves:
+            return True
+    return False
+
+
 def add_to_file(path: Path, root: str, names: list[str]) -> bool:
     """Add `names` to the block that imports `root`, or create that block.
 
@@ -115,8 +191,9 @@ def add_to_file(path: Path, root: str, names: list[str]) -> bool:
         single = _single_item_statement(lines, root)
         if single is not None:
             index, name = single
+            extra = [item for item in names if not _covers([name], item)]
             indent = " " * (len(lines[index]) - len(lines[index].lstrip()))
-            lines[index:index + 1] = render(root, [name] + list(names), indent)
+            lines[index:index + 1] = render(root, [name] + extra, indent)
             path.write_text("\n".join(lines))
             return True
         insert_at = _last_private_use(lines)
@@ -129,8 +206,16 @@ def add_to_file(path: Path, root: str, names: list[str]) -> bool:
         start, end, existing = found[0]
         merged = list(existing)
         for name in names:
-            if name not in merged:
+            if _covers(merged, name):
+                continue
+            if _covers_each(merged, name):
+                # The new group covers what the block already has, so the
+                # covered entries are replaced by it.
+                merged = [entry for entry in merged
+                          if entry not in _covered_by(merged, name)]
                 merged.append(name)
+                continue
+            merged.append(name)
         indent = " " * (len(lines[start]) - len(lines[start].lstrip()))
         lines[start:end + 1] = render(root, merged, indent)
         path.write_text("\n".join(lines))
@@ -142,8 +227,14 @@ def add_to_file(path: Path, root: str, names: list[str]) -> bool:
             if name not in merged:
                 merged.append(name)
     for name in names:
-        if name not in merged:
+        if _covers(merged, name):
+            continue
+        if _covers_each(merged, name):
+            merged = [entry for entry in merged
+                      if entry not in _covered_by(merged, name)]
             merged.append(name)
+            continue
+        merged.append(name)
     start = found[0][0]
     end = found[-1][1]
     indent = " " * (len(lines[start]) - len(lines[start].lstrip()))

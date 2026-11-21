@@ -24,7 +24,7 @@ spec.loader.exec_module(module)
 COMPLIANT_BOUND = """
 use h2::Error;
 
-pub fn make() -> Error {
+pub fn make() -> h2::Error {
     unimplemented!()
 }
 """
@@ -84,8 +84,11 @@ def main() -> int:
     failures: list[str] = []
 
     cases = [
-        ("compliant: the root already binds the item",
-         COMPLIANT_BOUND, "use h2::Error;\n", {"h2"}, 0),
+        # The owner binds `h2::Error` as `Error`, so the bare name is in
+        # scope: a type annotation that spells `h2::Error` is the
+        # violation the rule targets.
+        ("violating: the owner already binds the item, the path is still qualified",
+         COMPLIANT_BOUND, "use h2::Error;\n", {"h2"}, 1),
         ("violating: the annotation spells the full path",
          VIOLATING, "", {"h2"}, 1),
         ("compliant: the root binds the leaf to another item",

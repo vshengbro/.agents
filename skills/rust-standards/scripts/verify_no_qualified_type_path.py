@@ -259,14 +259,18 @@ def check_file(path: Path, root_file: Path, external: set[str],
         if len(type_path) >= 3 and type_path[-2][0].isupper() and type_path[-1][0].isupper():
             continue
         leaf = leaf_of(type_path)
-        # The root already binds this exact item: the bare name is in scope.
-        if leaf in bindings and type_path in bindings[leaf]:
-            continue
-        # The root binds the leaf to a DIFFERENT item: the bare name would
-        # be ambiguous, so the path has to stay.
-        if leaf in bindings:
-            continue
-        # The root binds the path's OWN root as a module (`use std::io;`),
+        bound = bindings.get(leaf)
+        if bound:
+            if type_path in bound:
+                # The owner binds exactly THIS item, so the bare name is in
+                # scope and the qualified path at the use site is redundant:
+                # that is the violation the rule targets.
+                pass
+            else:
+                # The owner binds the leaf to a DIFFERENT item: the bare
+                # name would be ambiguous, so the path has to stay.
+                continue
+        # The owner binds the path's OWN root as a module (`use std::io;`),
         # so the path already spells a name that is in scope, and it is
         # shorter than the bare leaf would be at every use site.
         if type_path[0] in bindings:
