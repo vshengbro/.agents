@@ -4,10 +4,12 @@ Source: `request/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-request` (the directory is still called `request/`).
 
-Verified against `origin/master` (`63dd9f8`, workspace version `22.6.0`). The
+Verified against `origin/master` (`4d22b46`, workspace version `22.8.0`). The
 `22.6.0` release reworked the client's response framing: `ResponseFraming`
 replaces the loose `content_length` / `is_chunked` out-parameters, interim
-responses are skipped, and `HEAD` is supported as a request method. See
+responses are skipped, and `HEAD` is supported as a request method. The
+`22.8.0` release narrowed `RequestConfig`'s fields to `pub(crate)` — the
+generated `get_*` / `set_*` accessors are unchanged and stay public. See
 [Wire behaviour](wire-behaviour.md).
 
 
@@ -53,7 +55,7 @@ responses are skipped, and `HEAD` is supported as a request method. See
 - `fn` **`set_decode`** — `pub fn set_decode(&mut self, v: bool) -> &mut Self {...}`
 - `fn` **`get_decode`** — `pub fn get_decode(&self) -> bool {...}`
 - `fn` **`set_proxy`** — `pub fn set_proxy(&mut self, v: Option<Proxy>) -> &mut Self {...}`
-- `fn` **`get_proxy`** — `pub fn get_proxy(&self) -> &Option<Proxy> {...}`
+- `fn` **`get_proxy`** — `pub fn get_proxy(&self) -> Option<Proxy> {...}`
 
 ### `request::http_request::impl`
 

@@ -3544,7 +3544,7 @@ if "{rs_files}" in template and not rs_scope:
 
 **实测验证**:在 hyperlane 的克隆上跑 `--no-scope`,
 4 个 fixer 全部执行,整仓扫描改写了 **16 个文件 / +33 行**(全是历史遗留的缺失 doc 注释),
-与交付 PR `01cd18d` 的改动文件**零重叠**;audit 仍 54/54 PASS。
+与交付 PR `01cd18d` 的改动文件**零重叠**;audit 仍全部通过。
 回归测试见 `scripts/self_test_pre_commit_scope.py`,含
 "真违规 fixture → 必须 FAIL"的 11 项断言,以及两个 mutation:
 把守卫改回无条件 / 把裸 `--files` 放回去,**两个都会被抓住**。
@@ -3559,6 +3559,44 @@ if "{rs_files}" in template and not rs_scope:
    配一个 Phase 1 一行不打的输出,是最典型的自欺。
 4. 修完 gate 之后**先在克隆仓上跑一遍看真实 blast radius**,再去动真仓;
    顺带能发现"整仓扫描到底会改多少"这个之前没人知道的事实。
+
+## §107 新增的三条 check(54/55/56)先在 `hyperlane` 落地,`ctares` 还没跟上 —— 规则要跟着仓库一起走
+
+三条新 check 在同一天加入 `audit_rust_standards.py`:
+
+| check | 规则 | verifier |
+|---|---|---|
+| 54 | 宏体必须写完整命名空间、禁止 `use`(§16.5) | `verify_no_macro_use.py` |
+| 55 | 类型注解不得写外部 crate 的完整路径(§6.7) | `verify_no_qualified_type_path.py` |
+| 56 | 对外结构体的字段禁止 `pub`(§17.18) | `verify_no_pub_field_in_pub_struct.py` |
+
+**`hyperlane` 自己先做了**:`3495f37` 把 23 个文件里的 105 个字段从 `pub` 收成
+`pub(crate)`,accessor 保持 `pub`;`ca5fa8e` 顺手清掉 `quote!` 宏体里的裸
+`std::fmt::Display` 和类型注解里的 `proc_macro2::TokenTree`。
+
+**`ctares` 还没跟上**,当前 `origin/master`(`1fc04d9`)上这三条是真违规:
+
+- check 54:19 hits,全在 `lombok-macros/src/generate/fn.rs` —— 宏体里写
+  `std::fmt::Display` / `std::fmt::Formatter` / `std::fmt::Result` /
+  `std::clone`,少了开头的 `::`,这些 token 在**使用宏的 crate** 里解析。
+- check 55:5 hits,分别在 `crate-cli/src/bump/fn.rs`(闭包注解里的
+  `&toml_edit::Array`)、`lombok-macros/src/generate/fn.rs`
+  (`proc_macro2::LexError`)、`lombok-macros/src/parse/fn.rs`
+  (`proc_macro2::TokenTree`)、`udp/tests/server/fn.rs`
+  (`tokio::net::UdpSocket`)。
+- check 56:122 hits,`color-log/src/struct.rs` 的 `FileLogger` 一族为主。
+
+**教训**:规则写进 skill 不等于仓库已经合规。审计输出里的每个 FAIL 都要
+分开看 —— 规则错(改规则)、verifier 误报(改检测器)、仓库真违规(改源码)。
+三种都用同一种"忽略"处理,就会把真违规一起放过。判据是**用真实仓库跑一遍
+审计**,不是看 skill 里写的基线数字;基线数字会过期,而审计输出不会。
+
+**另一条**:check 编号会随规则增删漂移。SKILL.md 里
+`verify_no_macro_use.py` 曾写成 check 55、`verify_no_qualified_type_path.py`
+写成 56、`verify_no_pub_field_in_pub_struct.py` 写成 57,而审计实际编号是
+54/55/56(三条插在末尾,前面的编号没动)。**编号以 `audit_rust_standards.py`
+的 `CHECKS` 列表顺序为准**,不要靠数行;写文档时用
+`re.findall(r"^\s*\(\s*'([^']+)'", CHECKS 段)` 取出来对。
 
 ## §106 §14.4 的另一半 —— production 里的裸 `#[test]` 在 commit 时无人拦截(实测)
 
@@ -3612,7 +3650,7 @@ verifier 的判定要点:
 |---|---|
 | verifier self-test | 24 项断言全过(6 个违规形状各报 1 条;8 个合规形状全不报) |
 | 三仓 blast radius | hyperlane / euv / ctares **0 false positive**(全是 0 violation) |
-| audit check 4 | 干净树 54/54 PASS;违规树 `FAIL: 4. #[test] in production: 1 hits`;`#[path]` include 形状 54/54 PASS |
+| audit check 4 | 干净树全部通过;违规树 `FAIL: 4. #[test] in production: 1 hits`;`#[path]` include 形状全部通过 |
 | 真实 pre-commit hook | 违规 fixture 被 **BLOCKED**,输出点名 `verify_no_test_in_production`;`#[path]` include fixture **ALLOWED** |
 | mutation | 把 check 4 的 wrapper 指向不存在的 verifier → `self_test_audit_verdict.py` 报 "failed but printed no detail",**抓到** |
 

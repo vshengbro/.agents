@@ -345,7 +345,7 @@ let b: h3::client::SendRequest = ...;
 
 **import 归属**:crate root(`src/lib.rs`);tests 树归树根(`tests/mod.rs`,因为 tests 树是独立 crate);bin 目标归该 bin 的入口(`src/bin/<name>/main.rs`,因为 bin 没有 lib.rs)。
 
-**验证脚本** `scripts/verify_no_qualified_type_path.py`(audit check 56 + `staged_file_gate.py` 已注册):
+**验证脚本** `scripts/verify_no_qualified_type_path.py`(audit check 55 + `staged_file_gate.py` 已注册):
 
 ```bash
 python3 <path>/verify_no_qualified_type_path.py <repo_root>

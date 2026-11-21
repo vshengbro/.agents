@@ -11,12 +11,12 @@ a claim matters.
 |---|---|---|
 | Workspace members | 24 packages | `cargo metadata --no-deps --format-version 1` |
 | Root manifest | virtual workspace — **no `[package]`** at the root | `grep -c '^\[package\]' Cargo.toml` → `0` |
-| `[workspace.package].version` | `10.4.0` (snapshot; bumped often — re-read, don't hard-code) | `grep -A4 '^\[workspace.package\]' Cargo.toml` |
+| `[workspace.package].version` | `10.5.0` (snapshot; bumped often — re-read, don't hard-code) | `grep -A4 '^\[workspace.package\]' Cargo.toml` |
 | `edition` | `2024` | same |
 | `resolver` | `"2"` | `grep -n resolver Cargo.toml` |
 | `Cargo.lock` | **not committed** (`.gitignore` has `/Cargo.lock`) | `git ls-files Cargo.lock` → empty |
 | `rustfmt.toml` | none in the repo | `find . -name rustfmt.toml` |
-| `rust-standards.toml` | **absent** (removed 2026-11-21 with the const-visibility rule) | `ls rust-standards.toml` |
+| `rust-standards.toml` | **absent** — the file and the `pub_const_exempt` field it held were deleted together with the const-visibility rule; no repository carries a rust-standards configuration file any more | `ls rust-standards.toml` |
 | `crate-cli/tmp/` | 26 generated scratch crates, git-ignored | `ls crate-cli/tmp \| wc -l` |
 
 Member list `bin-encode-decode`, `chinese-identification-card`,
@@ -32,7 +32,7 @@ the workspace, and `china_identification_card` was renamed to
 `chinese-identification-card`. **The published crates are not gone** — the
 first three stay on crates.io at `10.3.0`, and so does the old
 `china_identification_card` name; the renamed `chinese-identification-card`
-crate **is** published now, at `10.4.0`. So a consumer can still depend on
+crate **is** published now, at `10.5.0`. So a consumer can still depend on
 `server-manager = "10.3.0"` from the registry while the workspace no longer
 builds it. Verify with
 `curl -s -H 'User-Agent: skill-sync-audit/1.0' https://crates.io/api/v1/crates/<name> | python3 -c 'import json,sys;print(json.load(sys.stdin)["crate"]["max_stable_version"])'`.
@@ -44,18 +44,37 @@ reaches every member (see the `crate fmt` scope note in SKILL.md §13).
 
 ## Audit baseline
 
-`ctares` passes the full audit:
+The audit grew from 54 to **56 checks** (the macro-body namespace rule and the
+qualified-type-path rule joined it). The current result on `origin/master`
+(`1fc04d9`) is:
 
 ```
 python3 ~/.agents/skills/rust-standards/scripts/audit_rust_standards.py ~/code/ctares
-→ === SUMMARY: 54/54 PASS ===
+→ === SUMMARY: 53/56 PASS ===
 ```
 
-Re-measured . The older hit counts recorded in SKILL.md for this repo
-(allow-lints 4, keyword-file-purity 16, lombok accessor contract 99, pub-group
-order 7-in-2, no-pub-in-tests 6) are **2026-09/10 baselines that have since been
-cleared** — do not expect them to reproduce. Two specific file:line citations
-from those baselines (`udp/src/attribute/type.rs:13`,
+**Three checks fail on this repository right now**, and they are not stale
+baselines:
+
+| Check | Hits | Where |
+|---|---|---|
+| 54 — macro body must spell full namespace paths, no `use` (§16.5) | 19 | `lombok-macros/src/generate/fn.rs` — the `quote!` bodies write `std::fmt::Display` / `std::fmt::Formatter` / `std::fmt::Result` / `std::clone` without the leading `::`, so they resolve in the **consumer's** scope |
+| 55 — qualified type path in a type annotation (§6.7) | 5 | `crate-cli/src/bump/fn.rs` (`&toml_edit::Array` in a closure annotation, twice), `lombok-macros/src/generate/fn.rs` (`proc_macro2::LexError`), `lombok-macros/src/parse/fn.rs` (`proc_macro2::TokenTree`), `udp/tests/server/fn.rs` (`tokio::net::UdpSocket`) |
+| 56 — public field of a public struct (§17.18) | 122 | `color-log/src/struct.rs` (`FileLogger` and its siblings) and others — a `pub` field on a `pub` struct freezes the layout into the published API |
+
+Check 56 is the same rule the `hyperlane` workspace just applied to itself
+(105 fields across 23 files narrowed to `pub(crate)`, accessors left public).
+The fix is identical: narrow the field, keep the accessor public.
+
+Checks 54 and 55 are also the rules `hyperlane` applied in the same window, so
+`ctares` is the repository that has not caught up. Do not treat the failing
+audit as a broken audit — run it, read the hits, and fix the source.
+
+The **older** hit counts recorded in SKILL.md for this repo (allow-lints 4,
+keyword-file-purity 16, lombok accessor contract 99, pub-group order 7-in-2,
+no-pub-in-tests 6) are 2026-09/10 baselines that have since been cleared — do
+not expect them to reproduce. Two specific file:line citations from those
+baselines (`udp/src/attribute/type.rs:13`,
 `tcplane/src/handler/trait.rs:58`) were fixed upstream and no longer exist.
 
 ## Version bumping and dependency sync
@@ -66,7 +85,7 @@ Two different mechanisms, and the split matters:
   decision, always made in a commit, never in CI.
 - **`crate sync`** rewrites the `version = "..."` requirement inside each
   `[workspace.dependencies]` path-dependency entry so it matches the root
-  version. It does **not** choose a version. As of `crate-cli` 10.4.0 it also
+  version. It does **not** choose a version. As of `crate-cli` 10.5.0 it also
   **renames the dependency alias** when the alias does not match the member's
   `[package].name`, so a sync can change the *name* a member is depended on by,
   not only its version requirement. Read the diff after a sync.
@@ -92,7 +111,7 @@ and the workflow never redirects into `Cargo.toml` directly.
 - The top-level `name:` and `on:` blocks are separated by a blank line
   (changed , `style(ci): separate workflow name from trigger block`).
 
-## `crate fmt` behaviour (verified against crate-cli 10.4.0 source)
+## `crate fmt` behaviour (verified against crate-cli 10.5.0 source)
 
 The `crate-cli` crate in this workspace is the implementation of the `crate fmt`
 command the skill tells you to run. Its real behaviour differs from the old
@@ -147,7 +166,7 @@ generation, and `Visibility` still defaults to `Public`.
 
 The member is now a **path dependency on the in-tree source**, not a registry
 release: the root manifest pins `lombok-macros = { path = "lombok-macros",
-version = "10.4.0" }`. The published `lombok-macros` on crates.io is also at
-`10.4.0`, so the two agree today — but a claim about "the version ctares uses"
+version = "10.5.0" }`. The published `lombok-macros` on crates.io is also at
+`10.5.0`, so the two agree today — but a claim about "the version ctares uses"
 must name the path dependency, because that is what the build actually
 resolves.

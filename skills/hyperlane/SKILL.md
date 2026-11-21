@@ -13,17 +13,17 @@ metadata:
 
 Shortest path · Source contracts · Published versus local · The wire follows
 RFC 9110/9112 · Request parsing · The request path owns less · The original
-request target · The protocol layer is internal · Load by task
+request target · Fields are crate-internal · Load by task
 
 ## Shortest path
 
-1. Resolve the actual dependency version and workspace with `cargo metadata --no-deps --format-version 1`. Local uncommitted APIs are not necessarily available in the published `hyperlane` / `http-type` package, and only the root `Cargo.toml` version is bumped for a publishable change.
+1. Resolve the actual dependency version and workspace with `cargo metadata --no-deps --format-version 1`. Local uncommitted APIs are not necessarily in the published `hyperlane` / `http-type` package, and only the root `Cargo.toml` version is bumped for a publishable change.
 2. Load `rust-standards` and the one relevant reference below. Inspect the actual route/hook implementation in the selected version before copying a tutorial. Keep route paths and configuration values in the project's named constants; implement against public contracts and do not widen visibility merely for tests.
 3. Format, compile, lint and test through the project's real gates. Exercise the exact request and response bytes for wire changes; a registered route alone is not proof a response was sent.
 
 ## Source contracts to verify
 
-These are checked at `core/src/server/impl.rs`, `core/src/hook/trait.rs` and
+Checked at `core/src/server/impl.rs`, `core/src/hook/trait.rs` and
 `type/src/response/impl.rs`; recheck for another version.
 
 | Contract | What it is |
@@ -38,7 +38,7 @@ These are checked at `core/src/server/impl.rs`, `core/src/hook/trait.rs` and
 
 The registration/start sequence inside an existing async startup function is
 `server.route::<Index>(ROOT_PATH);` then `server.run().await?` then
-`control.wait().await;` — it assumes the application's existing `Index` and
+`control.wait().await;` — it assumes the application's own `Index` and
 `ROOT_PATH`, so it is not a standalone template.
 
 ### Hook order and priority
@@ -49,7 +49,7 @@ a hook with no order runs before every ordered hook and among ordered hooks the
 **smaller** number runs earlier. `HookType::assert_unique_order` panics when
 one hook type is registered twice with the same order; two *different* hook
 types may share a number without tripping it. The attribute macro accepts only
-an integer or a **string** literal — a negative integer literal is parsed as a
+an integer or a **string** literal — a negative integer literal parses as a
 unary expression and degrades to no order, so write it as a string.
 
 ### Published versus local
@@ -57,25 +57,25 @@ unary expression and degrades to no order, so write it as a string.
 `http-constant`, `http-compress`, `http-type`, `http-request`, `hyperlane-core`,
 `hyperlane-macros`, `hyperlane-cli`, `hyperlane`, `hyperlane-plugin-logger`,
 `hyperlane-plugin-websocket` and `hyperlane-performance` are published to
-crates.io; the framework crates are at `22.6.0`, and the committed tree and the
-registry agree on that number. The four plugin crates that left the tree stay on
-crates.io at `22.0.6`. Three version numbers must stay apart — the committed
-HEAD, the local working tree and the published registry — and only the last is
-what a consumer can install.
+crates.io; the framework crates are at `22.8.0`, and the committed tree and the
+registry agree on that number (every crate checked against the crates.io API).
+The four plugin crates that left the tree stay on crates.io at `22.0.6`. Three
+version numbers must stay apart — committed HEAD, local working tree, published
+registry — and only the last is what a consumer can install.
 
 `hyperlane-performance` is the harness crate and a **workspace member**, not a
 separate workspace: `cargo metadata --no-deps --format-version 1` lists it among
 the eleven packages — see [Benchmark](references/bench.md). `hyperlane-macros`
 has a second, older release line on crates.io: `23.0.21` depends on `hyperlane
-^21.3.6` and `syn ^2.0.119`, which does not match the current workspace's `syn
-^3.0.6`, and it is the highest number on the registry — a plain `cargo add
-hyperlane-macros` resolves to that stale line, so pin the workspace version.
+^21.3.6` and `syn ^2.0.119`, while the workspace uses `syn ^3.0.6` — and
+`23.0.21` is the highest number on the registry, so a plain `cargo add
+hyperlane-macros` resolves to that stale line. Pin the workspace version.
 ## The wire follows RFC 9110 and 9112
 
 The `22.6.0` release aligns the HTTP/1.x wire behaviour with RFC 9110 and
-RFC 9112. These are behaviour changes, not polish, and each has a wire-level
-test — see [Wire behaviour](references/wire-behaviour.md) for the byte-level
-detail.
+RFC 9112 — behaviour changes, not polish, each with a wire-level test. See
+[Wire behaviour](references/wire-behaviour.md) for the byte-level detail.
+`22.7.0` and `22.8.0` add performance work on top and change no wire contract.
 
 | Rule | Behaviour |
 |---|---|
@@ -88,51 +88,54 @@ detail.
 
 ### Request parsing refuses what it cannot frame
 
-The server parser does not accept a request it cannot frame unambiguously: a
-repeated `Content-Length`, a comma separated length list, a non decimal or
+A repeated `Content-Length`, a comma separated length list, a non decimal or
 overflowing length, a folded header, whitespace before the field colon, a
 control byte in a field value, a malformed field name, a repeated `Host`, or a
-request line that does not hold exactly three fields are all refused with a
-`RequestError`; HTTP/1.0 without `Host` is still accepted. The client refuses a
-request whose name, value or target carries a control byte, whose scheme is not
-http or https, or whose host is empty, and for HTTP/2 and HTTP/3 a request
-whose authority disagrees with the `Host` header. Each bug class has a test in
-`type/tests/stream/fn.rs` and `request/tests/`.
+request line that does not hold exactly three fields — all refused with a
+`RequestError`; HTTP/1.0 without `Host` is still accepted. The client refuses
+a control byte in a name, value or target, a scheme that is not http or https,
+an empty host, and — for HTTP/2 and HTTP/3 — an authority that disagrees with
+the `Host` header. `Request::matches_if_none_match(current_etag)` is a
+**public helper on `http-type`** that checks `If-None-Match` against an
+existing representation's entity-tag and returns `false` for a missing field,
+an empty list, an invalid tag or a malformed suffix. The full list and the
+tests that lock it: [Wire behaviour](references/wire-behaviour.md).
 
-`Request::matches_if_none_match(current_etag)` is a **public helper on
-`http-type`**: it checks `If-None-Match` against the entity-tag of a
-representation that already exists, compares the opaque tag values
-case-sensitively with weak comparison, and returns `false` for a missing field,
-an empty list, an invalid tag or any malformed suffix — a matching predicate
-only, so it sends nothing and does not implement `If-Match`.
-
-## The request path owns less
+## The request path owns less, and the original target is preserved
 
 The request path stopped allocating for work it can do in place; the bytes on
 the wire are unchanged. The hash secret stays on the stack, the response is
 built into a `ResponseData`, and buffers and header entries are recycled — see
 [Request path ownership](references/request-path-ownership.md) before changing
 the hot path.
-## The original request target
 
 `Context::get_request_target() -> Option<String>` returns the wire target (path
-plus query) exactly as the client spelled it, captured before routing and before
-the query map is built. The protocol layer stores it before any user middleware
-runs, so a middleware sees the original target even after a handler rewrote the
-request path; it is refreshed per request, so a keep-alive connection never
-carries the previous target, and it is `None` for a manually constructed
-`Context`. The joining helper is crate-internal and the attribute key is
-`hyperlane.request.target`, so a client cannot spoof it with a header.
+plus query) exactly as the client spelled it, captured before routing and
+before the query map is built. The protocol layer stores it before any user
+middleware runs, so a middleware sees the original target even after a handler
+rewrote the request path; it is refreshed per request, so a keep-alive
+connection never carries the previous target, and it is `None` for a manually
+constructed `Context`. The joining helper is crate-internal and the attribute
+key is `hyperlane.request.target`, so a client cannot spoof it with a header.
 
-## The protocol layer is internal
+## Fields are crate-internal, and the protocol layer is internal
 
-`hyperlane-core` splits into a public half and an internal half. The public half
-is what it re-exports — `config`, `context`, `error`, `hook`, `route` and
-`server`. The internal half is `listener`, `protocol` and `tls`, which are
-`pub(crate)`. A fix to request framing, the HTTP/2 or HTTP/3 framer, the
-connection pump or the transport belongs in `protocol/`, never in `server` and
-never in a route handler. `references/api-core.md` indexes the internal half
-too, which does **not** mean those items are callable outside the crate.
+A `pub` field on a `pub` struct is published API, so a public struct's fields
+are `pub(crate)` and consumers read them through the generated `get_*` /
+`set_*` accessors — the accessor stays `pub`. The narrowing moved **105 fields
+across 23 files**; the published API did not change (rustdoc JSON: 0 removed,
+0 added).
+
+`hyperlane-core` splits into a public half — `config`, `context`, `error`,
+`hook`, `route`, `server` — and an internal half — `listener`, `protocol`,
+`tls` — that is `pub(crate)`. A fix to request framing, the HTTP/2 or HTTP/3
+framer, the connection pump or the transport belongs in `protocol/`, never in
+`server` and never in a route handler. `references/api-core.md` indexes the
+internal half too, which does **not** mean those items are callable outside.
+
+**A gated path is not covered by a macOS test run** — `core/src/protocol/uring/`
+is `#[cfg(target_os = "linux")]`. Details, exemptions and the current
+`protocol/` layout: [Field visibility](references/field-visibility.md).
 ## Load by task
 
 | Task | Reference |
@@ -144,9 +147,9 @@ too, which does **not** mean those items are callable outside the crate.
 | Compression · HTTP constants | [Compression](references/api-compress.md) · [Constants](references/api-constant.md) |
 | Plugin crates, priorities and configuration | [Plugins](references/plugins.md) |
 | Performance harness and throughput verdicts | [Benchmark](references/bench.md) |
-| Wire bytes, statuses, chunking, 100-continue | [Wire behaviour](references/wire-behaviour.md) |
-| WebSocket · SSE | [WS](references/hyperlane-plugin-websocket.md) · [SSE](references/sse.md) |
+| Wire bytes, statuses, chunking, 100-continue · WebSocket · SSE | [Wire behaviour](references/wire-behaviour.md) · [WS](references/hyperlane-plugin-websocket.md) · [SSE](references/sse.md) |
 | Release delivery · request-path ownership | [Release flow](references/release-bump-flow.md) · [Ownership](references/request-path-ownership.md) |
+| Public-field narrowing and the `protocol/` layout | [Field visibility](references/field-visibility.md) |
 
 Cached reference pages can lag current source. Reject a claimed path or
 signature when the actual selected package disagrees; do not force code to match
@@ -154,4 +157,4 @@ the cache. For service validation, reclaim task-owned listeners, processes,
 browser tabs and containers on success and failure, and verify exact IDs/ports
 against the baseline. Normal euv UI work, generic Cargo/Git tasks and ltpp.vip
 publication are not this entry point — see
-[hyperlane-upload](../hyperlane-upload/SKILL.md) for that destination.
+[hyperlane-upload](../hyperlane-upload/SKILL.md).

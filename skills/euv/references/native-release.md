@@ -43,7 +43,7 @@ independent example build:
 — the website-owned inventory the native client trusts:
 
 ```json
-{ "format": 1, "version": "0.36.4", "files": [ { "path": "...", "sha256": "...", "size": 0 } ] }
+{ "format": 1, "version": "0.37.1", "files": [ { "path": "...", "sha256": "...", "size": 0 } ] }
 ```
 
 - The version comes from the `euv-example` manifest (or `--version`), and must
@@ -67,14 +67,27 @@ its regression suite.
   segment that is empty, `.` or `..`, or a path containing `\ : ? #` or control
   characters, is rejected before any upload.
 - Uploads are chunked: the archive is POSTed, each chunk is PUT with an
-  `X-Chunk-SHA256` header, then the upload is committed. Redirects are
-  rejected (a `NoRedirect` opener) and the live catalog and every published
-  file are re-read and re-verified afterwards.
+  `X-Chunk-SHA256` header, then the upload is committed. The live catalog and
+  every published file are re-read and re-verified afterwards.
+- The transport is **`http.client`**, not `urllib.request`. A redirect is
+  never followed, a 4xx answer is not retried, a 404 counts as missing only
+  when the caller asked for the resource, and a 5xx answer is retried the
+  full number of times (9 attempts) before it is reported. Every failed
+  attempt prints the underlying exception, and the final error names the
+  method, the path and the last observed status or transport error — a bearer
+  token never appears in the rendered detail. The old `urllib` retry loop
+  collapsed every transport failure into one generic `RuntimeError`, which is
+  how a chunk upload died for 1885 seconds with no diagnosable cause.
 - A **newer live release is never replaced**; the candidate's semver is
   compared against the live manifest first.
 - The receipt records `version`, `archive_sha256`, `archive_bytes`,
   `manifest_sha256`, the per-file inventory, the public base and the
   `publication_route` (`page-artifacts API only; no GitHub Pages sync`).
+- The publisher's protocol regressions run in the CI **`check`** job
+  (`python3 example/scripts/test_publish_release.py`), on every pull request
+  and every master push — the publisher is the only path that writes the
+  public release, so its contract is gated on every change, not only when the
+  manual Pages deployment is dispatched.
 - `.github/workflows/pages.yml` drives this and is **manual**: `workflow_dispatch`
   with a required `source_run_id` naming a successful `build-clients.yml` master
   run. It downloads that run's `euv-native-web-<sha>` artifact instead of

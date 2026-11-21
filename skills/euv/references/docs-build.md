@@ -69,19 +69,22 @@ components.
 
 - `docs/src/locale/const.rs` holds four tables (`PW_GATE_MESSAGES_ZH`,
   `PW_GATE_MESSAGES_EN`, `PW_GATE_MESSAGES_JA`, `PW_GATE_MESSAGES_KO`), each
-  now `[(&str, &str); 15]` — they were password-gate-only tables of 6 entries
-  before, and now also carry the drawer, theme-toggle and search strings.
+  now `[(&str, &str); 16]` — they were password-gate-only tables of 6 entries
+  before, and now also carry the drawer, theme-toggle, locale-title and search
+  strings.
 - The keys are `docs.drawer.open`, `docs.drawer.close`, `docs.drawer.title`,
-  `docs.theme.toggle`, `docs.search.label`, `docs.search.empty`,
-  `docs.search.none`, `docs.search.placeholder` and `docs.search.count`
-  (the last one carries the `{count}` token `DOCS_SEARCH_COUNT_TOKEN`).
+  `docs.theme.toggle`, `docs.locale.title`, `docs.search.label`,
+  `docs.search.empty`, `docs.search.none`, `docs.search.placeholder` and
+  `docs.search.count` (the last one carries the `{count}` token
+  `DOCS_SEARCH_COUNT_TOKEN`).
 - `locale_text(route, key)` (`docs/src/locale/fn.rs`) resolves the active
   locale's table, then the English table, then falls back to the key itself.
 - The hardcoded English constants `HEADER_SEARCH_LABEL`,
   `HEADER_SEARCH_EMPTY`, `HEADER_SEARCH_NONE`,
-  `HEADER_SEARCH_PLACEHOLDER` and `THEME_TOGGLE_TITLE` were **deleted**; the
-  search field's `aria-label`, `placeholder`, status announcement, the drawer's
-  `aria-label`/`title` and the theme toggle's label now all come from
+  `HEADER_SEARCH_PLACEHOLDER`, `THEME_TOGGLE_TITLE` and
+  `LOCALE_TRIGGER_TITLE` were **deleted**; the search field's `aria-label`,
+  `placeholder`, status announcement, the drawer's `aria-label`/`title`, the
+  theme toggle's label and the language control's title now all come from
   `locale_text`.
 
 ## The locale dropdown
@@ -168,3 +171,16 @@ and **trusted** keyboard events (`isTrusted` must be true for every keydown).
   `docs/scripts/validation/accessibility.py`. The CI-wired runtime harness is
   `example/scripts/validation/runtime.py` (the example app, not the docs
   site), which the `automation` job runs at `.github/workflows/rust.yml`.
+
+`docs/scripts/validation/control_titles.py` (new) asserts that every shell
+control's accessible title matches the locale it renders in: the language
+dropdown's title must be the `docs.locale.title` value of the route's own
+locale, not one hardcoded string.
+
+`docs/scripts/validation/focus_ring.py` (new) asserts the search field's
+focus ring: the computed `box-shadow` carries the ring, the focused box and
+the text position are identical to the unfocused state, and the colour is the
+scheme's own `--ring`. The field used to swap its transparent 1px border for
+the ring colour, which is a layout change — the box grew by a pixel and the
+text moved with it — and the `--ring-width` / `--ring-offset` tokens were
+never consulted.

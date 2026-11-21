@@ -4,3 +4,4 @@
 skills/minimax-skills/** -whitespace -text
 skills/mcode-stack/** -whitespace -text
 skills/blender-skills/** -whitespace -text
+skills/google-agents-cli-*/** -whitespace -text

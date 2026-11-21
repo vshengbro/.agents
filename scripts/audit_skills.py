@@ -75,6 +75,17 @@ DEFAULT_PROTECTED_PREFIXES = ("skills/rust-standards/",)
 # relative-link and anchor checks (upstream links may be broken upstream).
 DEFAULT_VENDORED_PREFIXES = (
     "skills/mcode-stack/", "skills/minimax-skills/", "skills/blender-skills/",
+    # Installed by `agents-cli setup` from google/agents-cli, byte-identical to
+    # upstream (verified file by file). The installer writes each skill flat at
+    # `skills/<name>/`, so they cannot be grouped under one vendored folder
+    # without breaking the registered skill paths in `.skill-lock.json`.
+    "skills/google-agents-cli-adk-code/",
+    "skills/google-agents-cli-deploy/",
+    "skills/google-agents-cli-eval/",
+    "skills/google-agents-cli-observability/",
+    "skills/google-agents-cli-publish/",
+    "skills/google-agents-cli-scaffold/",
+    "skills/google-agents-cli-workflow/",
 )
 
 # Relative links carrying any of these are documentation placeholders, not

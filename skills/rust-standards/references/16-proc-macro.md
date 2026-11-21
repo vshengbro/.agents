@@ -52,7 +52,7 @@ quote! { ::hyperlane::Status::Continue }
 - `crate::` / `self::` / `super::` 路径 —— 它们指名定义 crate 自己的模块树,永远正确;
 - 插值(`#input_struct`)—— 那是宏自己的局部绑定,不是 crate 路径。
 
-**验证脚本** `scripts/verify_no_macro_use.py`(audit check 55 + `staged_file_gate.py` 已注册):
+**验证脚本** `scripts/verify_no_macro_use.py`(audit check 54 + `staged_file_gate.py` 已注册):
 
 ```bash
 python3 <path>/verify_no_macro_use.py <repo_root>

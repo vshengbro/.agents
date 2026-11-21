@@ -4,14 +4,19 @@ Source: `compress/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-compress`. Provides Brotli / Deflate / Gzip codecs.
 
-### `xx_hash3_64::impl`
+### `xx_hash3_64::const`
 
-- `fn` **`get_inner`** — `pub(crate) fn get_inner(&self) -> &RawHasher<&'static [u8; DEFAULT_SECRET_LENGTH]> {...}`
-- `fn` **`get_mut_inner`** — `pub(crate) fn get_mut_inner(&mut self) -> &mut RawHasher<&'static [u8; DEFAULT_SECRET_LENGTH]> {...}`
+- `const` **`HASH_PREFIX_CAPACITY`** — `pub(crate) const HASH_PREFIX_CAPACITY: usize = 128;`
 
 ### `xx_hash3_64::struct`
 
 - `struct` **`XxHash3_64`** — `pub struct XxHash3_64 {`
+
+`XxHash3_64` keeps the hash secret on the stack. Since the hot-path work it
+now holds an `Option<RawHasher<...>>` streaming state (initialized only when
+an input outgrows the short prefix) plus a `HASH_PREFIX_CAPACITY` (128 byte)
+`MaybeUninit` prefix buffer and its initialized length. The struct is
+`Clone`; the clone copies only the initialized prefix bytes.
 
 ### `brotli::fn`
 

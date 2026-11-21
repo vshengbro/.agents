@@ -25,7 +25,7 @@ Shortest path · Load by task · Workspace shape · Docs-site build · Native bu
    Confirm both in `core/src/app/impl.rs`.
 4. Follow an existing neighboring macro shape. Check `macros/src/lib.rs` and the
    specific implementation when syntax is uncertain; never invent JSX props,
-   inheritance syntax or handler signatures from another UI framework.
+   inheritance syntax or handler signatures from another framework.
 5. Run the project's real formatting, compiler, lint and tests. For UI changes,
    verify the rendered path and the bytes/build it loaded, not only a unit test
    or a cache-busted URL. Preserve user work; reclaim temporary resources.
@@ -46,8 +46,7 @@ Shortest path · Load by task · Workspace shape · Docs-site build · Native bu
 | euv UI layout, class registry and visual verification | [UI standards](../euv-ui-standards/SKILL.md) |
 | Symptom-first diagnosis | [Pitfalls](references/pitfalls.md) |
 
-Reference pages are cached documentation, **not authority over the source or compiler**:
-verify uncertain signatures; lombok accessors may not appear in `.rs` text.
+Reference pages are cached documentation, **not authority over the source or compiler**.
 
 ## Workspace shape
 
@@ -69,14 +68,13 @@ Resolve what a consumer can actually install from the registry, not from
 `Cargo.toml`: `cargo add euv-chart@<version>`, or
 `curl -s -H 'User-Agent: skill-sync-audit/1.0' https://crates.io/api/v1/crates/euv-chart`
 (the registry answers **403** without a `User-Agent`). The committed tree and
-the registry agree right now: `origin/master` is at `0.36.4` and every workspace
-member above is published at `0.36.4`.
+the registry agree right now: `origin/master` is at `0.37.1` and all eleven
+members are published at `0.37.1` (crates.io API, checked one by one).
 
 **There is no `theme-custom` feature.** It was deleted from `euv-ui`,
 `euv-example` and `euv-docs`; `git grep theme-custom origin/master` returns
 nothing. `euv-ui` now ships 17 `theme-*` features plus `default` — use
-`theme-shadcn` when a test needs one concrete theme. The generic
-custom-attribute API is unrelated and still exists.
+`theme-shadcn` when a test needs one concrete theme.
 
 ## Docs-site build
 
@@ -95,7 +93,9 @@ frontmatter (`site:` plus a `locales:` sequence of `prefix`/`dir`/`label`).
   owns focus containment and restoration, the `inert` boundary, and `Escape`
   handling that closes a nested locale menu before the drawer.
 - Shell strings come from the locale tables in `docs/src/locale/const.rs`
-  (15 keys × 4 locales), not from hardcoded English.
+  (16 keys × 4 locales), not from hardcoded English: every control title is a
+  key there, and the search field paints its focus ring as a `box-shadow` over
+  `--ring-width` / `--ring-offset` / `--ring`, so focusing it moves no text.
 
 Details: [references/docs-build.md](references/docs-build.md).
 
@@ -111,8 +111,8 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to `eu
   resolved plan without building; `--native-path` points at another native
   project directory and requires `--all` or `--platforms`. The CLI refuses
   `--all` combined with `--platforms`.
-- The native flags are **refused in `run` mode**: it serves pages in a browser
-  and has no native deliverable.
+- The native flags are **refused in `run` mode**: it serves pages in a browser,
+  with no native deliverable.
 - The web build runs **once**; its output directory and the build mode reach every
   native builder through `EUV_WEB_DIST` and `EUV_NATIVE_MODE`. Builds are
   sequential and a failing target stops the pipeline; `--dev`/`--profiling` stay
@@ -125,11 +125,11 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to `eu
 **Release themes and the update channel.** `build_theme_variants.sh` builds all 18
 release variants (17 `theme-*` features plus `default`) and writes
 `example/www/euv-release.json`; the native client verifies that manifest before
-it flips the `active` pointer. The script now **prunes retired themes** from
-the output tree and the theme cache, and refuses a release output that still
-contains the `__euv_reload` development bootstrap. The website copy is
-published through the page-artifact API by `example/scripts/publish_release.py`
-— see [references/native-release.md](references/native-release.md).
+it flips the `active` pointer. The script **prunes retired themes** from the
+output tree and the theme cache, and refuses a release output that still
+contains the `__euv_reload` development bootstrap. The website copy is published
+through the page-artifact API by `example/scripts/publish_release.py` — see
+[references/native-release.md](references/native-release.md).
 
 ## What CI runs
 
@@ -138,7 +138,7 @@ failed local guess. Every job runs `crate sync` first.
 
 | Job | What it runs |
 |---|---|
-| **check** | `cargo fmt --all -- --check`; `example/scripts/validation/source.py` (live route/theme inventory, removed-feature wiring); `node --test native/tauri/scripts/tests/theme-build.test.js` (retired-theme cache removal) |
+| **check** | `cargo fmt --all -- --check`; `example/scripts/validation/source.py` (live route/theme inventory, removed-feature wiring); `python3 example/scripts/test_publish_release.py` (publication protocol regressions — the publisher is the only path that writes the public release, so its contract is gated on every change); `node --test native/tauri/scripts/tests/theme-build.test.js` (retired-theme cache) |
 | **tests** | `cargo test -p euv-ui` (plus `--no-default-features` and `--features theme-shadcn`), `cargo test --all-features --workspace`, then the performance crate separately. The wasm tests are `wasm-pack test --node` run **from the `ui/` directory only**, so the engine's wasm-gated suites (`engine/tests/webgpu_regressions/`) are **not** executed by CI — a WebGPU fix needs a local `wasm-pack` run in `engine/` or a real browser check |
 | **clippy** | `cargo clippy --all-features --workspace --all-targets -- -D warnings`, plus a `--no-default-features` `euv-ui` pass and the performance crate |
 | **build** | `cargo check --release --all-features --target wasm32-unknown-unknown --workspace` (excluding `euv-cli`/`euv-performance`), plus `cargo test --all-features -p euv-cli` |

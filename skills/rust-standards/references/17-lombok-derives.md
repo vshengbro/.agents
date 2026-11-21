@@ -768,7 +768,7 @@ pub struct User {
 
 ### 执行脚本
 
-`scripts/verify_no_manual_new_fn.py`,audit **check 54** 调用,**同时**注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则 —— 见 §17.13 / §17.16 同款教训)。
+`scripts/verify_no_manual_new_fn.py`,audit **check 52** 调用,**同时**注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则 —— 见 §17.13 / §17.16 同款教训)。
 
 判定逻辑(比 §17.16 严格,因为它要匹配 impl 归属):
 

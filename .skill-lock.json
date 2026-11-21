@@ -1217,8 +1217,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-20T14:48:10.580Z",
-      "skillFolderHash": "98d11200ad5eb1d01983f1a50e40705363a747e4"
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "50a58a2706c23f55ef646e40b1118a42aa1dce64"
     },
     "euv-engine-renderer-api": {
       "source": "local",
@@ -1292,13 +1292,76 @@
       "updatedAt": "2026-10-23T03:29:33.126Z",
       "skillFolderHash": "433405454c897a31e419ddefd741253db280af05"
     },
+    "google-agents-cli-adk-code": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-adk-code/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.203Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "cd626288013168506b6fdb4020be589e2ae14cf4",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
+    "google-agents-cli-deploy": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-deploy/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.204Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "a451d822f5dae30bdf47a5aaa8cbdbedbafd3402",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
+    "google-agents-cli-eval": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-eval/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.205Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "3d900f140109b176094b6a32b3687b359f2340a0",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
+    "google-agents-cli-observability": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-observability/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.205Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "7ea61088e95804ed21fe240679db8fdb31a09eaa",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
+    "google-agents-cli-publish": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-publish/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.205Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "5d393ca321e53b6188bd6762b0c5598a2f3c6316",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
+    "google-agents-cli-scaffold": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-scaffold/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.206Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "cd193024a9fbdbd686e146a6aae2304fc83c4653",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
+    "google-agents-cli-workflow": {
+      "source": "google/agents-cli",
+      "sourceType": "github",
+      "skillPath": "skills/google-agents-cli-workflow/SKILL.md",
+      "installedAt": "2026-11-20T15:10:15.206Z",
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "4ac1f97e683f05396396776f4d3c9d26e679cd5b",
+      "sourceUrl": "https://github.com/google/agents-cli.git"
+    },
     "hyperlane": {
       "source": "local",
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-20T14:48:10.580Z",
-      "skillFolderHash": "0bac7678c6c33e60a6cbc0a5f515e65f02f7a30b"
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "2b72643f362df1d780393eabd337b7f716e75132"
     },
     "hyperlane-upload": {
       "source": "local",
@@ -1673,8 +1736,8 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-17T15:12:52.530Z",
-      "skillFolderHash": "68f7b5f77d7930dfc3b4da472e19714d1877efe4"
+      "updatedAt": "2026-11-21T14:50:31.266Z",
+      "skillFolderHash": "7fc62192d989d2e359da71cf4d83108b5d7e77f7"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",

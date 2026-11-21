@@ -5,8 +5,8 @@ tree. Four others were in it until 2026-10-24 and are not any more.
 
 | crate | directory | published |
 |---|---|---|
-| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.6.0` |
-| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.6.0` |
+| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.8.0` |
+| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.8.0` |
 
 Both are workspace members and both depend on the `hyperlane` facade crate, so
 they compile against the workspace source, not against a released version.
@@ -27,7 +27,7 @@ stay as they are: a yanked dependency would break the resolution of the
 packages that depend on it.
 
 The two plugin crates that remain are published with the rest of the workspace:
-both carry `publish = true` and are on crates.io at `22.6.0`.
+both carry `publish = true` and are on crates.io at `22.8.0`.
 
 ## How a plugin attaches to the server
 

@@ -2,11 +2,12 @@
 
 Source: `type/src/response/impl.rs`, `type/src/chunked/`, `type/src/stream/`,
 `core/src/protocol/`, `request/src/request/parser/` at `origin/master`
-(workspace version `22.6.0`).
+(workspace version `22.8.0`).
 
 This page records the wire behaviour that the `22.6.0` release aligned with
 RFC 9110 and RFC 9112. Everything here was read in the source at that ref;
-the named test is the one that locks the behaviour.
+the named test is the one that locks the behaviour. `22.7.0` and `22.8.0`
+changed no wire contract.
 
 ## Bodyless statuses
 
@@ -323,6 +324,34 @@ refused when there is no extension, because RFC 9112 does not permit it there.
 (`send_bodyless_request_sync` / `send_bodyless_request_async` in
 `request/src/request/http_request/impl.rs`). A HEAD response is not decoded,
 even when the client is configured to decode.
+
+## Request parsing refuses what it cannot frame
+
+The server parser refuses a request it cannot frame unambiguously. Each of
+these is a `RequestError`, and HTTP/1.0 without `Host` is still accepted:
+
+- a repeated `Content-Length`;
+- a comma separated length list;
+- a non decimal or overflowing length;
+- a folded header;
+- whitespace before the field colon;
+- a control byte in a field value;
+- a malformed field name;
+- a repeated `Host`;
+- a request line that does not hold exactly three fields.
+
+The client refuses a request whose name, value or target carries a control
+byte, whose scheme is not http or https, or whose host is empty — and for
+HTTP/2 and HTTP/3 a request whose authority disagrees with the `Host` header.
+
+Each bug class has a test in `type/tests/stream/fn.rs` and `request/tests/`.
+
+`Request::matches_if_none_match(current_etag)` is a **public helper on
+`http-type`**: it checks `If-None-Match` against the entity-tag of a
+representation that already exists, compares the opaque tag values
+case-sensitively with weak comparison, and returns `false` for a missing field,
+an empty list, an invalid tag or any malformed suffix — a matching predicate
+only, so it sends nothing and does not implement `If-Match`.
 
 ## What did not change
 
