@@ -29,6 +29,14 @@ VERIFIERS = {
     "verify_hardcoded_strings": "hardcoded strings §1.3c",
     "verify_no_import_rename": "import rename §6.5",
     "verify_use_aggregation": "use aggregation §6.6",
+    # §16.5 (2026-11-21 user 钦定). The tokens a macro body holds are
+    # EXPANDED into the crate that USES the macro, so an import emitted by
+    # the body lands in the consumer's scope and a bare path resolves
+    # against the consumer's scope. A `quote!` body must therefore spell
+    # every crate absolutely and must not emit a `use`. `audit_one` reads
+    # only the path it is handed, so the gate's before/after baselines
+    # compare.
+    "verify_no_macro_use": "macro body full namespace paths, no `use` §16.5",
     "verify_no_self_field_access": "self.field access §17.3/§17.12",
     "verify_lib_rs_doc_comment": "lib.rs //! block §2.4",
     "verify_no_redundant_accessor_attr": "bare accessor attr §L",

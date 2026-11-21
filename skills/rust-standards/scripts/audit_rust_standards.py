@@ -1282,6 +1282,44 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
+    # check 55 — §16.5 (2026-11-21 user 钦定): the tokens a macro body holds
+    # are EXPANDED into the crate that USES the macro, not into the crate
+    # that defines it. Two consequences:
+    #
+    #   * an import emitted by the body lands in the consumer's scope, where
+    #     it can collide with the consumer's own imports and where it
+    #     silently depends on the consumer's dependency set;
+    #   * a path spelled with a bare name resolves against the consumer's
+    #     scope, so it names whatever the consumer happens to have in
+    #     scope — which the macro author cannot know.
+    #
+    # So a `quote!` body must spell every crate absolutely (`::hyperlane::Status`)
+    # and must not emit a `use` at all. A `macro_rules!` body expands inside
+    # the defining crate and is exempt.
+    #
+    # Real-repo baseline at registration: hyperlane 0 / euv 0, so this gates
+    # forward without demanding a backlog sweep.
+    ('macro body must spell full namespace paths, no `use` (§16.5)', '''
+# A macro body is emitted into the consumer's crate:
+#
+#     quote! { use hyperlane::Status; }        -> violation, the import lands
+#                                                 in the consumer's scope
+#     quote! { hyperlane::Status::Continue }    -> violation, resolves against
+#                                                 the consumer's scope
+#     quote! { ::hyperlane::Status::Continue } -> correct, absolute
+#
+# What is KEPT — a `macro_rules!` body, which expands inside the defining
+# crate, and `crate::` / `self::` / `super::` paths, which name the defining
+# crate's own tree.
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_macro_use.py" "{{target}}" 2>/dev/null \\
+    | grep -v -E '^=== macro-body-paths \(§16\.5\): [0-9]+ violation\(s\) in [0-9]+ file\(s\) ===$'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_macro_use.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
 ]
 
 
