@@ -3167,20 +3167,21 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 ---
 
-## §91 verify_const_visibility.py(§18 常量条款,check 49)— lib+bin 包的 src/main.rs 是外部消费者,声明点不算读者
+## §91 WITHDRAWN — verify_const_visibility.py(原 §18 常量条款,check 49):常量允许 `pub`
 
-**事故链**:ctares 首跑 fix_const_visibility 后 `cargo check` 炸 `E0425: cannot find value CARGO_TOML`。`CARGO_TOML` 声明在 crate-cli/src/manifest/const.rs,全 crate 内部使用 —— 但 crate-cli 是 lib+bin 包,`src/main.rs` 经 `use crate_cli::*` glob 消费它。lib 里收窄成 pub(crate) 后,bin 的 glob 里符号消失,bin 报 E0425(**不是** E0603 —— glob 消失 vs 显式 import 被拒,两个错误码不同)。
+**Withdrawn**:这条规则不再是 §18 的一部分。`pub const` / `pub static` **允许保持 `pub`**,与其它 `pub` item 一样按 default-reduce 判据处理(有确凿外部消费者则保持 `pub`,否则收窄)。常量的可见性判断交给 §18 的 default-reduce 流程 + 编译器坐标驱动回退(E0603 / E0624 点名),不再有常量专属的绝对禁令。
 
-**两条分析器规则由此而来**:
+随之删除的实现:`scripts/verify_const_visibility.py`、`scripts/fix_const_visibility.py`、`scripts/self_test_const_visibility.py`、`scripts/depub_consts.py`,audit 的常量可见性 check,以及 `staged_file_gate.py` 的 `verify_const_visibility` 注册。
 
-1. **内部语料 ≠ 包内全部源码**。内部 = crate 的 src/** 减去一切独立 target:`tests/`、`examples/`、`benches/`、`src/bin/**`、以及**存在 `src/lib.rs` 时的 `src/main.rs`**(lib+bin 包)。没有 lib.rs 的纯 bin 包,main.rs 就是本体,保持内部。
-2. **声明点自身永远不算读者**。常量声明所在行会把名字送进内部 ident 集,用「名字 ∈ 内部集」判内部读者会让每个声明自证消费,零任何读者的常量被误判为「有内部读者」而降成违规(实测:COMMENT_ONLY fixture 只出现在注释里,剥离注释后任何文件都没有它,却因声明点被当成内部读者)。正确判据:名字出现在**另一个**内部文件的 ident 集里。
+**保留下来的教训**(这些是 Rust 可见性的一般事实,与「常量该不该 pub」无关,换成别的收窄任务同样适用):
 
-**set-subtraction 版本还有第三个坑(已废)**:第一版用 `external = global_idents - internal[crate]`,任何常量的声明都把名字放进 internal[crate],差集恒空,全部常量被报违规(6/6 fixture 全中)。per-file 并集是唯一正确形态。
-
-**配套事实**:unwired 桶(零任何读者)走 stderr 不走 stdout —— stdout 只承载违规,audit wrapper 按行计数时不会被 report-only 类污染(常量表 crate 如 hyperlane-constant 天然产出 6831 条 unwired,进 stdout 会淹没真实违规)。自测脚本 `scripts/self_test_const_visibility.py` 覆盖七常量分类 + lib+bin fixture;该 fixture 是**事故驱动**补的(ctares CARGO_TOML),不是先验设计 —— 跨 target 可见性规则必须带 lib+bin 与 tests/ 双 fixture。
+1. **lib+bin 包的 `src/main.rs` 是外部消费者**。crate-cli 是 lib+bin 包,`src/main.rs` 经 `use crate_cli::*` glob 消费 lib 的 pub 面。lib 里收窄成 `pub(crate)` 后,bin 的 glob 里符号消失,bin 报 `E0425`(**不是** E0603 —— glob 消失 vs 显式 import 被拒,两个错误码不同)。任何按「crate 外读者」判断可见性的分析器,内部语料必须 = crate 的 src/** 减去一切独立 target:`tests/`、`examples/`、`benches/`、`src/bin/**`、以及**存在 `src/lib.rs` 时的 `src/main.rs`**。没有 lib.rs 的纯 bin 包,main.rs 就是本体,保持内部。
+2. **声明点自身永远不算读者**。常量声明所在行会把名字送进内部 ident 集,用「名字 ∈ 内部集」判内部读者会让每个声明自证消费。正确判据:名字出现在**另一个**文件里。
+3. **set-subtraction 是错的**(第一版用 `external = global_idents - internal[crate]`,差集恒空,全部常量被报违规)。per-file 并集是唯一正确形态。
+4. **unwired 桶(零任何读者)应走 stderr 不走 stdout** —— stdout 只承载违规,audit wrapper 按行计数时不会被 report-only 类污染。这个「报告类与违规类分流」的做法与规则本身无关,任何需要「只报告不拦截」的分类都适用。
 
 ---
+
 
 ## §92 verify_no_pub_in_tests.py(§18 单测条款,check 50)— tests/ 里两种 pub 是承重的,只有单文件读者才可去
 
@@ -3197,21 +3198,11 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 **配套事实**:lib+bin 包(euv-cli)的 112 个 pub const 全部收窄后,编译器一轮点名回退 112/112 —— cli 的常量 pub 面被 tests/ + main.rs 完全消费,机械规则 0 可收。这类「测试驱动 pub 面」要收窄只能改测试(断言行为而非 const 表)或挪成 src 内 #[cfg(test)] 单测,是 user 级决策,不是脚本决策。
 
-## §93 常量绝对禁令的落地陷阱(depub 内联污染 + rustc 坐标驱动修复法)
+## §93 WITHDRAWN — 常量绝对禁令的落地陷阱(depub 内联污染 + rustc 坐标驱动修复法)
 
-**背景**:user 两轮裁决「常量是肯定不需要pub的」+「单测里常量不需要验证」。euv 全量落地:157 个常量去 pub(131 小值内联进 tests、24 大值逐字内联、2 零读者删除)+ 常量验证类测试整套删除(global_css/css_consts/fmt_consts 目录、cli_api 常量表 4 测试)。过程炸出 435+ 编译错误,教训如下。
+**Withdrawn**:随 §91 一并撤销 —— 「常量绝对禁令」本身不再是规则,`depub_consts.py` 已删除。本节记录的是**一次大规模机械改写的方法论**,在别的收窄任务里依然适用,故保留教训、去掉规则背景。
 
-**教训 1:对 tests 做常量值内联,禁用裸正则/逐行 blank 的字符串扫描。** 多行字符串字面量必须**整文件**计算 span(逐行 blank 会把多行串中间的代码行当代码),且替换必须用**词边界**(`\bNAME\b`)—— 否则 `web` 之类的短值名会把 `web_sys`、assert 消息文本、JS fixture 内容全部污染(9366 处误伤的教训)。正确做法:整文件读入 → STRING_RE/CHAR_RE 对全文本 blank 出 span → span 外才做 `\bNAME\b` 替换。
-
-**教训 2:修复轮同样必须 span-aware,且最可靠的定位器是 rustc 自己。** 加引号/解引号的批量修复若不带字符串 span,会在串内制造新的嵌套引号破坏(`"{ a, b }"` → `"{ "a", "b" }"`)。收敛最快的闭环:**跑 `cargo check --message-format=short`,按错误码分类,用 rustc 给的 file:line:col 逐点修那一个词**:E0425(裸值名)→ 该坐标加引号;E0423(expected value found struct/macro X)→ 该坐标的裸 X 加引号;E0308/E0277 found `&str` → 该坐标解引号;expected `&str` found integer → 该坐标加引号。每轮修完重跑,直至清零。**禁止无坐标的全局正则修复**(一次 `"(\w+)" =>` 模式替换把合法字符串字面量 match 臂改成绑定模式 = 静默语义损坏,编译抓不到,只有 cargo test 能抓)。
-
-**教训 3:cargo test 是语义修复的必须门禁,编译绿 ≠ 修复完。** 静默损坏类别:被引号化的变量绑定(`assert_eq!("value", 42)`)、被解引号的字符串字面量(`Some("value") => "value"` 震荡)、`"lit" =>` 变绑定臂。它们的共同特征:编译全过,测试才红。修复流程固定为 check 0 → clippy 0 → test 全绿才算完。
-
-**教训 4:depub 后必须扫 glob reexport 断裂。** 常量降 `pub(crate)` 后,各 mod.rs 里 `pub use {r#const::*, ...}` 报 "glob import doesn't reexport anything with visibility pub"(warning 级)。修法:拆成 `pub use {r#fn::*, ...};` + 空行 + `pub(crate) use r#const::*;` 两组(**必须空行分隔,否则 cargo fmt 把 pub(crate) 行排到 pub 行前面,又触发 §6.1 组序 FAIL**)。
-
-**教训 5:跨 crate 同名 const 是 depub 扫描器的固定假阳性。** macros/core/docs 各自有 `pub(crate) const STR_HYPHEN` 等本地副本,名字 token 匹配会把它们记成 cli 常量的"跨 crate 读者"。manual-cross-src 清单落地前必须先 grep 消费方是否已有同名本地 decl —— euv 实测 20 项里大半是假阳性,真跨 crate 的只有 engine 数学常量/example、THEME_DARK/docs+example、EUV_MD_CSS/docs、ENV_OUT_DIR/docs build.rs 四项。
-
-**教训 6:example 等下游消费数学常量,迁移目标是 std 不是本地副本。** engine 的 PI/TWO_PI/HALF_PI 本就是 std 重导出(facade),按反 facade 原则直接删,下游 mod.rs 根部 `use std::f64::consts::{FRAC_PI_2, PI};` 沿 glob 链下放(§92);EPSILON=1e-6 是 engine 语义值不是 std 值,消费方各持 mirror const(写注释 `// Mirrors the engine's math EPSILON`)。同名 const 别放进会被祖先 glob 聚合的位置(page/mod.rs `pub(crate) use {game_3d::*, raytrace::*}` 会让两个同名 HALF_PI 对 fn.rs 歧义 E0659)—— 消歧优先改用 std 名(FRAC_PI_2)而不是加本地别名。
+**背景(历史)**:user 曾两轮裁决「常量是肯定不需要pub的」+「单测里常量不需要验证」。euv 按此全量落地:157 个常量去 pub(131 小值内联进 tests、24 大值逐字内联、2 零读者删除)+ 常量验证类测试整套删除(global_css/css_consts/fmt_consts 目录、cli_api 常量表 4 测试)。过程炸出 435+ 编译错误,教训如下 —— **这些是「机械收窄 public API」的通用教训,与收窄对象是不是常量无关**。
 
 
 ## §94 verify_no_toml_mod_comments.py(§2.5 绝对化,check 51)— TOML 进 gate 的四个落地坑
@@ -3235,7 +3226,7 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 
 ## §97 verify_no_qualified_std_path.py / fix_no_qualified_std_path.py(R6.3 std 收编,check 47)— 203-hit 清扫的八个落地坑
 
-1. **字符字面量正则必须恰好一个字符**:`'(?:\\.|[^'\\])'`。写成 `*` 时,lifetime `'a`/`'_` 的撇号会和同一行(或跨行)下一个引号误配成"字符串",把中间的真代码吞进 blanking —— ctares 实测 27/203 hits 因此静默消失(verifier 逐行扫、fixer 整文件扫,两套行为还会互相不一致)。established scripts(depub_consts / verify_no_impl_trait_params / verify_no_pub_in_tests / verify_no_redundant_accessor_attr)一直都是恰好一字符,新脚本抄它们,别自己造。
+1. **字符字面量正则必须恰好一个字符**:`'(?:\\.|[^'\\])'`。写成 `*` 时,lifetime `'a`/`'_` 的撇号会和同一行(或跨行)下一个引号误配成"字符串",把中间的真代码吞进 blanking —— ctares 实测 27/203 hits 因此静默消失(verifier 逐行扫、fixer 整文件扫,两套行为还会互相不一致)。established scripts(verify_no_impl_trait_params / verify_no_pub_in_tests / verify_no_redundant_accessor_attr)一直都是恰好一字符,新脚本抄它们,别自己造。
 2. **raw string 必须 backreference 配对**:`b?r(#*)".*?"\1`。写成 `r?#*"..."#*` 时 `r#"{"a":1}"#` 在第一个内嵌 `"` 处提前闭合,后续引号连锁误配,跨行吞掉真实代码(crate-cli/tests/bump/fn.rs 的 JSON fixture 后方 3 个 hit 就是这么丢的)。
 3. **blanking 必须保换行**:`re.sub(r"[^\n]", " ", m.group(0))`。直接 `" " * len(...)` 会把多行字符串里的 `\n` 压平,之后 `zip(text.splitlines(), blanked.splitlines())` 行对齐整个漂移,替换 offset 前移 N 字符 —— 产出 `Errortent` 这类把前一行代码吃掉的**静默语义破坏**(cargo check 只能抓住语法层面的,语义层面要靠「HEAD 副本跑修正版 fixer 再与工作树 diff -rq」对拍兜底)。
 4. **`macro_rules!` / `quote!` / `quote_spanned!` body 是豁免类**:宏体内 token 在**下游 crate** 展开时求值,定义仓 root 的 import 永远到不了展开点 —— 把 `std::sync::Arc::new($val)` 改成 bare `Arc` 会直接破坏宏 API(std-macro-extensions 20 个 macro.rs、lombok-macros 的 quote! 全是这类,改写后全部回退)。与字符串字面量同属"emitted, not consumed"。注意 `macro_rules!` 和分隔符之间有名字:正则要 `macro_rules!\s*\w+\s*[({\[]`。
@@ -3252,9 +3243,19 @@ user 原话:「很多 pub 还是可以优化成 pub crate,而且尤其是常量�
 4. **修复方向(未做)**: `doc_comment_audit.py` 应在文件发现阶段就排除 `**/tests/**`,与 `verify_doc_comment_format.py` 的 tests/ 豁免对齐。修之前任何触及 tests/ 的改动都走上面的绕行路径。
 5. **关联发现(版本 bump 触发 §13.7 重排)**: dep entry 的排序键含 entry 全文字符数,所以 `hyperlane = "21.7.8"` → `"21.12.0"` 这种纯版本号改动会改变排序键,要求 entry 在 dep 块内移位(hyperlane-quick-start playground 实测 2 处)。**修法不是手排,是跑 `fix_dep_order.py --write`** —— 它按 verifier 同一套 parser 重排,跑完 verify_dep_order 归零。
 
-## §98 verify_const_visibility.py 常量表 crate 配置豁免(rust-standards.toml,check 49 首个配置字段)
+## §98 WITHDRAWN — 常量表 crate 配置豁免(rust-standards.toml,check 49 首个配置字段)
 
-**裁决**:http-constant 这类「整个 crate 的公开 API 就是常量本身」的常量表 crate 不适用 §18 绝对禁令 —— 但豁免**不写死在 verifier 里**,走仓根 `rust-standards.toml` 的 `pub_const_exempt = ["constant"]`(字符串数组,**元素是仓根相对的目录/文件 glob 模式,不是包名** —— 同日二次裁决:首版用 `[package].name`,user 改为路径写法并要求支持 `**`)。匹配语义是 gitignore-lite 自己实现(`*`/`?` 不跨段、`**` 跨任意段含零段,裸目录前缀自动等价 `dir/**`),不用 pathlib.PurePath.match(它的 `**` 行为随版本漂移)也不引 pathspec 依赖。这是 rust-standards 工具链的第一个仓级配置文件,立下的先例: 字段级配置用平铺 key = string-array,不加注释(§2.5 对一切 TOML 生效,包括自己的配置文件); 本机 python3 无 tomllib(Xcode 自带 < 3.11),平铺字段用定向 regex 解析即可,别为这一个字段引依赖; 豁免只影响 **owning 侧**(命中文件不报,violation/unwired 双桶都跳),reader 侧保留 —— 别的 crate 的常量读者语料照算; main 把豁免名单打 stderr,audit 只数 stdout 行不受影响,且豁免不静默; `audit_one`(staged_file_gate)与 fixer 共用 `analyze()`,豁免自动覆盖 gate 与 depub 工具,不需要第二处注册。**连带效果**:大池子(2114 hits)豁免后露出 3 条真违规(compress 的 CONTENT_ENCODING/EMPTY_STR、request 的 APP_NAME),其"外部读者"全是与 http_constant 同名的保守计数,depub 后 cargo check 全绿;depub 若让一个 `pub use r#const::*` glob 不再转出任何 pub 项,clippy `unused_imports` 会报 —— 改 `pub(crate) use`(§6.2 的 crate 内部分发形式),不要删 glob 让链断掉。
+**Withdrawn**:随 §91 一并撤销。`rust-standards.toml` 的 `pub_const_exempt` 字段、它引入的仓级配置文件机制、以及配套的 glob 匹配实现全部删除。**现在不再有任何仓级 rust-standards 配置文件** —— `ctares/rust-standards.toml` 与 `hyperlane/rust-standards.toml` 已随之删除。常量表 crate(http-constant 这类「公开 API 就是常量本身」的 crate)不再需要豁免:常量允许 `pub`,它的 `pub const` 本来就是合规的。
+
+**保留下来的教训**(与规则无关,适用于任何「让某个形状豁免」的机制设计):
+
+1. **豁免不写死在 verifier 里,而是走配置** —— 这个方向是对的(可审计、可按仓调整),错的是**为一个已撤销的规则专门建了一套仓级配置机制**。rust-standards 工具链的绝大多数规则都是「无配置、按形态判定」;引入 `rust-standards.toml` 意味着每个仓都要决定要不要维护这个文件,而它的唯一消费者是常量禁令。
+2. **字段级配置用平铺 key = string-array,不加注释**(§2.5 对一切 TOML 生效,包括自己的配置文件);本机 python3 无 tomllib(Xcode 自带 < 3.11),平铺字段用定向 regex 解析即可,别为一个字段引依赖。
+3. **glob 匹配语义自己实现 gitignore-lite**(`*`/`?` 不跨段、`**` 跨任意段含零段,裸目录前缀自动等价 `dir/**`),不用 pathlib.PurePath.match(它的 `**` 行为随版本漂移)也不引 pathspec 依赖。
+4. **豁免只影响 owning 侧,reader 侧保留** —— 别的 crate 的读者语料照算。
+5. **豁免不能静默**:main 把豁免名单打到 stderr,audit 只数 stdout 行不受影响。
+6. **depub 若让一个 `pub use r#const::*` glob 不再转出任何 pub 项,clippy `unused_imports` 会报** —— 改 `pub(crate) use`(§6.2 的 crate 内部分发形式),不要删 glob 让链断掉。这条与规则无关,是 glob re-export 的通用事实。
+
 
 ## §99 check 26 扩到 tests 树(§6.1 outermost, user 裁决)— 三种现存形态与各自收法
 

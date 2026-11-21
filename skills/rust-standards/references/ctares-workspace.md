@@ -16,7 +16,7 @@ a claim matters.
 | `resolver` | `"2"` | `grep -n resolver Cargo.toml` |
 | `Cargo.lock` | **not committed** (`.gitignore` has `/Cargo.lock`) | `git ls-files Cargo.lock` → empty |
 | `rustfmt.toml` | none in the repo | `find . -name rustfmt.toml` |
-| `rust-standards.toml` | present at the root | `cat rust-standards.toml` |
+| `rust-standards.toml` | **absent** (removed 2026-11-21 with the const-visibility rule) | `ls rust-standards.toml` |
 | `crate-cli/tmp/` | 26 generated scratch crates, git-ignored | `ls crate-cli/tmp \| wc -l` |
 
 Member list `bin-encode-decode`, `chinese-identification-card`,

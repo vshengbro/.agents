@@ -1064,24 +1064,6 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
-    # Companion script: verify_const_visibility.py (+ fix_const_visibility.py).
-    # §18 constants clause (2026-10-07 user, three rounds: "很多 pub 还是可以
-    # 优化成 pub(crate),而且尤其是常量"): a `pub const`/`pub static` with zero
-    # readers outside its owning crate is not public API - reduce it.
-    # Consumers counted: other workspace crates' src, every tests/ dir,
-    # examples/, benches/, src/bin/**, and src/main.rs of a lib+bin package
-    # (the bin is a separate crate - see the CARGO_TOML incident, pitfalls §91).
-    ('constant visibility: pub const/static is forbidden outright (§18, pitfalls §93)', '''
-# Companion script: verify_const_visibility.py
-cd {{target}}
-python3 "{{audit_script_dir}}/verify_const_visibility.py" "{{target}}" \\
-    | grep -v -E '^=== const-visibility:'
-exit_code=${PIPESTATUS[0]}
-if [ "$exit_code" -ne 0 ]; then
-    echo "FAIL: verify_const_visibility.py exited $exit_code" >&2
-fi
-exit "$exit_code"
-'''),
     # Companion script: verify_no_pub_in_tests.py (+ fix_no_pub_in_tests.py).
     # §18 tests clause (2026-10-07 user: "所有的单测都不需要 pub"), NARROWED by
     # compile evidence (pitfalls §92): only single-reader items are flagged -

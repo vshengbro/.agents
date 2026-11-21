@@ -123,7 +123,6 @@ VERIFIERS = {
     # staged const.rs / static.rs can trip it; the self-test proves the
     # adapter returns findings on a violating file and [] on fn.rs.
     "verify_pub_group_order": "pub items grouped before pub(crate)/private in const.rs/static.rs §18",
-    "verify_const_visibility": "pub const/static needs an external reader §18",
     "verify_no_pub_in_tests": "single-reader tests/ items never need pub §18",
     # §2.5 (2026-10-09, absolute): zero comments in every *.toml and every
     # mod.rs. The only verifier that accepts `.toml` files, which is why
