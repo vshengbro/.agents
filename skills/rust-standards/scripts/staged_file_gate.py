@@ -45,6 +45,14 @@ VERIFIERS = {
     # `audit_one` reads only the path it is handed, so the gate's
     # before/after baselines compare.
     "verify_no_qualified_type_path": "qualified type path in a type annotation §6.7",
+    # §17.18 (2026-11-21 user 钦定). A `pub` field on a `pub` struct is
+    # part of the crate's published API: it lets a consumer bypass the
+    # accessor the struct was designed around and freezes the field layout
+    # into the API. A `pub` struct keeps its fields crate-internal and the
+    # consumer reaches them through the generated `get_*` / `set_*`.
+    # `audit_one` reads only the path it is handed, so the gate's
+    # before/after baselines compare.
+    "verify_no_pub_field_in_pub_struct": "public field of a public struct §17.18",
     "verify_no_self_field_access": "self.field access §17.3/§17.12",
     "verify_lib_rs_doc_comment": "lib.rs //! block §2.4",
     "verify_no_redundant_accessor_attr": "bare accessor attr §L",

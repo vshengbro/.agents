@@ -784,3 +784,48 @@ Fixture `scripts/fixtures/manual-new-fn/{compliant,violating,tricky}`:compliant 
 **真仓基线(注册时实测)**:euv 0 / hyperlane 0 / ctares 0 / vice-city-web 0 —— 四仓零违规,所以这条是「向前拦截」而不是「补历史欠账」。(euv `engine/src/cell/impl.rs:148` 的 `EngineCell::new` 是手写的,但它的 struct 在 `struct.rs:56` **没有** derive `New` —— 文档里明写是因为 `?Sized` 与 lombok bound 冲突,正属于上表「放行」那一行。)
 
 **已知限制**:`impl<T> Foo<T> { fn new(..) }` 的 impl 头能匹配 `Foo`;但 `impl<T: Trait> Foo<T>` 之外的形态(如 trait 的 `default fn new`、`#[cfg(test)] mod tests` 里的构造 helper)不在本规则范围 —— test 块的 `Self { .. }` 构造不属于生产 API。**
+
+## §17.18 对外结构体的字段禁止 `pub`,外部只能通过 get/set 访问(user 钦定)
+
+user 原话:「hyperlane仓库里结构体对外暴露的字段禁止是pub,外部只能通过get set等api访问」。
+
+`pub` 结构体上的 `pub` 字段是**已发布 API**的一部分:消费者可以写 `response.status_code` 而不是 `response.get_status_code()`。这绕过了结构体赖以设计的 accessor,也把字段布局冻结进 API —— 之后改字段名或改字段类型就成了破坏性变更,而不是私有重构。
+
+所以 `pub` 结构体的字段保持 crate 内部可见,消费者通过生成的 `get_*` / `set_*` 访问:
+
+```rust
+// ❌ 违规:字段进了公开 API,消费者可以绕过 accessor
+#[derive(Clone, Data, Debug)]
+pub struct Response {
+    pub status_code: usize,
+}
+
+// ✅ 规范:字段是 crate 内部的,消费者走 accessor
+#[derive(Clone, Data, Debug)]
+pub struct Response {
+    pub(crate) status_code: usize,
+}
+```
+
+**豁免**:
+
+- **结构体本身不是 `pub`**(`pub(crate)` / `pub(super)` / private)—— 它的字段本来就在 crate 外不可达,规则对它无话可说;
+- **字段已经收窄**(`pub(crate)` / `pub(super)` / private);
+- **tuple struct 的位置字段** —— 它们按 `.0` / `.1` 读,没有 accessor 名字可言;
+- **unit struct** —— 没有字段。
+
+**与 §17.14 的关系**:§17.14 讲 accessor 的**可见性**(该 `pub` 还是该 `pub(crate)`);本节讲字段本身的可见性。两者独立:一个 `pub(crate)` 字段配 `#[get(pub(crate))]` 是本节合规 + §17.14 合规的最常见形态。
+
+**与 §17.3 的关系**:§17.3 禁止业务代码直接读写 `self.field`;本节把同一件事推到 API 边界 —— 外部消费者连字段名都拿不到。
+
+**执行脚本** `scripts/verify_no_pub_field_in_pub_struct.py`,audit **check 56** 调用,**同时**注册进 `staged_file_gate.py` commit hook(两者都注册,否则又是一条「只在一处强制」的规则 —— 见 §17.13 / §17.16 同款教训)。
+
+**与 §17.14 Rule B 的关系(必须一起读)**:§17.14 Rule B 要求「非 pub 字段必须收窄它的 accessor」,因为默认 accessor 是 `pub`,会把字段**静默放大**成公开 API。§17.18 落地后,`pub(crate)` 字段配一个 public accessor 正是设计意图 —— 字段藏起来,accessor 就是入口 —— 所以 **Rule B 不再适用于 `pub(crate)` 字段**。`pub(super)` 与 private 字段仍然受 Rule B 约束:那里的 public accessor 伸得比字段本来的范围更远,那正是 Rule B 要拦的泄漏。
+
+**auto-fixer** `scripts/fix_no_pub_field_in_pub_struct.py`(默认 dry run,`--write` 落盘):把 `pub` 字段收窄成 `pub(crate)`,**accessor 保持 public**。已有的 lombok 属性若带可见性槽位,收窄并进那个属性而不是新增一条同名属性(§17.14.2 禁止裸 `#[get]`);属性只带可见性时整条删掉(默认 accessor 已是 `pub`)。
+
+共享 parser 新增 `pub_struct_fields` 键(结构体名、字段名、字段可见性、行号),**不改动 `paths` / `items` 的形状**以免影响既有消费者。字段可见性靠渲染 visibility 的 token 流判定 —— syn 各版本的 `Visibility` 枚举变体集合不同,渲染 token 流是版本无关的做法。
+
+自测 `scripts/self_test_no_pub_field_in_pub_struct.py` 双向断言(违规结构体精确命中 / 已收窄、crate 内部结构体、tuple struct、unit struct 各自放行)+ 变异验证(关掉规则后违规用例必须不再被报出)。
+
+**真仓基线(注册时实测)**:hyperlane 0(改写前 113 处 / 23 文件)。改写只动字段的可见性标注与因此编译不过的调用点,公共 API 条目集合不变(rustdoc JSON 对比:8 个 crate 全部 0 removed / 0 added)。

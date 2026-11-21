@@ -27,6 +27,7 @@ version = "0.0.0"
 edition = "2021"
 [dependencies]
 syn = { version = "2", features = ["full", "visit"] }
+quote = "1"
 proc-macro2 = { version = "1", features = ["span-locations"] }
 rustc_lexer = "0.1"
 serde_json = "1"
@@ -38,6 +39,7 @@ PARSER_SOURCE = r'''
 use std::{io::{self, Read}, process};
 use proc_macro2::Span;
 use serde_json::{json, Value};
+use quote::ToTokens;
 use syn::{spanned::Spanned, visit::{self, Visit}, Item, UseTree};
 
 #[derive(Default)]
@@ -47,7 +49,71 @@ struct Scan {
     imports: Vec<Value>,
     type_spans: Vec<Value>,
     items: Vec<Value>,
+    pub_struct_fields: Vec<Value>,
+    struct_derives: Vec<Value>,
 }
+fn derives_of(item: &Item) -> Vec<String> {
+    // The derive macros an item carries.
+    let mut names: Vec<String> = Vec::new();
+    let attributes: &[syn::Attribute] = match item {
+        Item::Struct(i) => &i.attrs,
+        Item::Enum(i) => &i.attrs,
+        Item::Union(i) => &i.attrs,
+        Item::Trait(i) => &i.attrs,
+        Item::Type(i) => &i.attrs,
+        Item::Fn(i) => &i.attrs,
+        Item::Mod(i) => &i.attrs,
+        _ => &[],
+    };
+    for attribute in attributes {
+        if !attribute.path().is_ident("derive") {
+            continue;
+        }
+        if let syn::Meta::List(list) = &attribute.meta {
+            let parsed = list.parse_args_with(
+                syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated,
+            );
+            if let Ok(paths) = parsed {
+                for path in paths {
+                    if let Some(last) = path.segments.last() {
+                        names.push(last.ident.to_string());
+                    }
+                }
+            }
+        }
+    }
+    names
+}
+
+
+fn visibility_of(vis: &syn::Visibility) -> String {
+    // The visibility of an item or a field, as a short token: `pub` is
+    // public, `pub(crate)` is crate-internal, `pub(super)` is visible to the
+    // parent module, and everything else is reported as a restricted form so
+    // a caller can tell them apart.
+    //
+    // The token stream is rendered rather than the enum matched, because the
+    // set of restricted forms differs between syn versions.
+    match vis {
+        syn::Visibility::Public(_) => "pub".to_string(),
+        syn::Visibility::Inherited => "private".to_string(),
+        other => {
+            let rendered = other.to_token_stream().to_string();
+            let normalised = rendered.split_whitespace().collect::<Vec<_>>().join(" ");
+            if normalised == "pub(crate)" {
+                "pub(crate)".to_string()
+            } else if normalised == "pub(super)" {
+                "pub(super)".to_string()
+            } else if normalised == "pub(self)" {
+                "pub(self)".to_string()
+            } else {
+                "pub(restricted)".to_string()
+            }
+        }
+    }
+}
+
+
 fn segments(path: &syn::Path) -> Vec<String> {
     path.segments.iter().map(|s| s.ident.to_string().trim_start_matches("r#").to_owned()).collect()
 }
@@ -117,6 +183,31 @@ impl<'ast> Visit<'ast> for Scan {
         if let Some(name) = named {
             self.items.push(json!([name]));
         }
+        // The derives a struct carries, so a caller can tell which
+        // accessor kinds the derive actually generates.
+        if let syn::Item::Struct(item) = node {
+            self.struct_derives.push(json!([
+                item.ident.to_string(),
+                derives_of(node),
+            ]));
+        }
+        // The fields a PUBLIC struct exposes, so a caller can tell whether
+        // the crate's published API lets a consumer touch a field directly.
+        if let syn::Item::Struct(item) = node {
+            let struct_visibility = visibility_of(&item.vis);
+            if struct_visibility == "pub" {
+                if let syn::Fields::Named(fields) = &item.fields {
+                    for field in &fields.named {
+                        self.pub_struct_fields.push(json!([
+                            item.ident.to_string(),
+                            field.ident.as_ref().map(|i| i.to_string()).unwrap_or_default(),
+                            visibility_of(&field.vis),
+                            field.ident.as_ref().map(|i| i.span().start().line).unwrap_or(0),
+                        ]));
+                    }
+                }
+            }
+        }
         visit::visit_item(self, node);
     }
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
@@ -182,6 +273,8 @@ fn main() {
                          "paths": scan.paths, "imports": scan.imports,
                          "type_spans": scan.type_spans,
                          "items": scan.items,
+                         "pub_struct_fields": scan.pub_struct_fields,
+                         "struct_derives": scan.struct_derives,
                          "root_imports": root_imports}));
 }
 '''

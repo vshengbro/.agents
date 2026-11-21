@@ -1337,6 +1337,38 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
+    # check 57 — §17.18 (2026-11-21 user 钦定): a `pub` field on a `pub`
+    # struct is part of the crate's published API. It lets a consumer
+    # write `response.status_code` instead of `response.get_status_code()`,
+    # which bypasses the accessor the struct was designed around and
+    # freezes the field layout into the API.
+    #
+    # So a `pub` struct keeps its fields crate-internal, and the consumer
+    # reaches them through the generated `get_*` / `set_*` accessors.
+    #
+    # Real-repo baseline at registration: hyperlane 0 (113 before the
+    # sweep).
+    ('public field of a public struct (§17.18)', '''
+# A public struct must not expose its fields as `pub`:
+#
+#     pub struct Response {
+#         pub status_code: usize,   -> violation, the consumer reaches it
+#                                      through `get_status_code()`
+#         pub(crate) status_code: usize,   -> correct
+#     }
+#
+# What is KEPT — a struct that is not `pub` (its fields are not reachable
+# from outside the crate anyway), a field that is already narrowed, a tuple
+# struct's positional fields, and a unit struct.
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_pub_field_in_pub_struct.py" "{{target}}" 2>/dev/null \\
+    | grep -v -E '^=== pub-field-in-pub-struct \(§17\.18\): [0-9]+ violation\(s\) in [0-9]+ file\(s\) ===$'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_pub_field_in_pub_struct.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
 ]
 
 

@@ -202,8 +202,20 @@ def check_file(path: Path) -> list[str]:
                     # unreachable from outside, so a `pub` fn there
                     # widens nothing. Flagging those would report the
                     # whole tree for a leak that cannot happen.
+                    #
+                    # §17.18 makes the public accessor the POINT: the
+                    # field is crate-internal and the consumer reaches it
+                    # through the generated `get_*` / `set_*`. The accessor
+                    # being public there is the intended API, not a silent
+                    # widening, so a `pub(crate)` field is exempt.
+                    #
+                    # A `pub(super)` or private field is NOT exempt: a
+                    # public accessor there reaches further than the field
+                    # was ever meant to, and that is the leak Rule B is
+                    # there to catch.
                     if (
                         field_vis != "pub"
+                        and field_vis != "pub(crate)"
                         and struct_is_pub
                         and not VIS_ARG_RE.search(combined)
                     ):
