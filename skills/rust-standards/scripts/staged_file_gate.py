@@ -37,6 +37,14 @@ VERIFIERS = {
     # only the path it is handed, so the gate's before/after baselines
     # compare.
     "verify_no_macro_use": "macro body full namespace paths, no `use` §16.5",
+    # §6.7 (2026-11-21 user 钦定). A type annotation names the TYPE, not
+    # the crate's module layout: the import belongs at the crate root and
+    # the annotation spells the bare name. When two crates offer a type of
+    # the same name the nearest different level of each path is imported
+    # instead, because §6.5 forbids renaming an import with `as`.
+    # `audit_one` reads only the path it is handed, so the gate's
+    # before/after baselines compare.
+    "verify_no_qualified_type_path": "qualified type path in a type annotation §6.7",
     "verify_no_self_field_access": "self.field access §17.3/§17.12",
     "verify_lib_rs_doc_comment": "lib.rs //! block §2.4",
     "verify_no_redundant_accessor_attr": "bare accessor attr §L",

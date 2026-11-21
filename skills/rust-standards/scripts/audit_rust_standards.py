@@ -1320,6 +1320,41 @@ if [ "$exit_code" -ne 0 ]; then
 fi
 exit "$exit_code"
 '''),
+    # check 56 — §6.7 (2026-11-21 user 钦定): a type annotation names the
+    # TYPE, not the crate's module layout. The import belongs at the crate
+    # root and the annotation then spells the bare name:
+    #
+    #     let x: h2::Error = ...;   ->   let x: Error = ...;
+    #
+    # When two crates offer a type of the SAME name the bare name cannot
+    # serve both and §6.5 forbids renaming an import with `as`, so the
+    # nearest DIFFERENT level of each path is imported instead:
+    #
+    #     use {h2::client, h3::client};
+    #     let a: h2::client::SendRequest = ...;
+    #     let b: h3::client::SendRequest = ...;
+    #
+    # Real-repo baseline at registration: hyperlane 0, so this gates forward
+    # without demanding a backlog sweep.
+    ('qualified type path in a type annotation (§6.7)', '''
+# A type annotation names the type:
+#
+#     let x: h2::Error = ...;   -> violation, the import belongs at the
+#                                   crate root and the annotation says
+#                                   `Error`
+#
+# What is KEPT — a path whose bare name the owner already binds (to the
+# same item or to another one), a path the owner binds as a module, an
+# associated variant (`io::ErrorKind::NotFound`), and a `std::` path.
+cd {{target}}
+python3 "{{audit_script_dir}}/verify_no_qualified_type_path.py" "{{target}}" 2>/dev/null \\
+    | grep -v -E '^=== qualified-type-path \(§6\.7\): [0-9]+ violation\(s\) in [0-9]+ file\(s\) ===$'
+exit_code=${PIPESTATUS[0]}
+if [ "$exit_code" -ne 0 ]; then
+    echo "FAIL: verify_no_qualified_type_path.py exited $exit_code" >&2
+fi
+exit "$exit_code"
+'''),
 ]
 
 

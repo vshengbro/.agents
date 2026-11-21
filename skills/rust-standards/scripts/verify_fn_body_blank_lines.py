@@ -45,6 +45,8 @@ struct Scan {
     bodies: Vec<(usize, usize)>,
     paths: Vec<Value>,
     imports: Vec<Value>,
+    type_spans: Vec<Value>,
+    items: Vec<Value>,
 }
 fn segments(path: &syn::Path) -> Vec<String> {
     path.segments.iter().map(|s| s.ident.to_string().trim_start_matches("r#").to_owned()).collect()
@@ -86,8 +88,37 @@ impl Scan {
             self.paths.push(json!([span.start().line, span.end().line, segments(path)]));
         }
     }
+    fn type_span(&mut self, path: &syn::Path, span: Span) {
+        // The column-precise span of a TYPE path, so a fixer can rewrite
+        // the path without touching the rest of the line. It is reported
+        // under its own key so the existing `paths` consumers keep working.
+        if path.segments.len() > 1 {
+            self.type_spans.push(json!([
+                span.start().line, span.start().column,
+                span.end().line, span.end().column,
+                segments(path),
+            ]));
+        }
+    }
 }
 impl<'ast> Visit<'ast> for Scan {
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        // The NAME a module declares, so a caller can tell what a glob
+        // re-export of that module actually brings into scope.
+        let named = match node {
+            syn::Item::Struct(i) => Some(i.ident.to_string()),
+            syn::Item::Enum(i) => Some(i.ident.to_string()),
+            syn::Item::Union(i) => Some(i.ident.to_string()),
+            syn::Item::Trait(i) => Some(i.ident.to_string()),
+            syn::Item::Type(i) => Some(i.ident.to_string()),
+            syn::Item::Mod(i) => Some(i.ident.to_string()),
+            _ => None,
+        };
+        if let Some(name) = named {
+            self.items.push(json!([name]));
+        }
+        visit::visit_item(self, node);
+    }
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
         self.body(&node.block);
         visit::visit_item_fn(self, node);
@@ -102,6 +133,7 @@ impl<'ast> Visit<'ast> for Scan {
     }
     fn visit_type_path(&mut self, node: &'ast syn::TypePath) {
         self.path(&node.path, node.path.span());
+        self.type_span(&node.path, node.path.span());
         visit::visit_type_path(self, node);
     }
     fn visit_trait_bound(&mut self, node: &'ast syn::TraitBound) {
@@ -148,6 +180,8 @@ fn main() {
     }
     println!("{}", json!({"bodies": scan.bodies, "protected": protected,
                          "paths": scan.paths, "imports": scan.imports,
+                         "type_spans": scan.type_spans,
+                         "items": scan.items,
                          "root_imports": root_imports}));
 }
 '''

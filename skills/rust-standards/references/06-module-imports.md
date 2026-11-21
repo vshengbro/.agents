@@ -306,3 +306,59 @@ verifier 用"连续段"(run)切分实现这一点:两个 `use` 之间若存在�
 - fixture:`~/.hermes/cache/scratch/verifier-fixtures/use-agg-{compliant,violating}`:compliant 0 hits / exit 0(8 个豁免文件),violating 4 hits / exit 1(4 个违规文件)。audit 端到端双向通过(check 41 在 violating 侧 FAIL 4 hits,在 compliant 侧 PASS)。
 - 三仓实测**euv 1 违规文件 / 1 hit**(`macros/tests/mod.rs:12`)/ **ctares 0** / **hyperlane 0**。
   - **注意**:`grep` 粗扫出的"多条 `use std::`"绝大多数**本来就已经是 brace 形式**(如 euv `core/src/lib.rs:15` + `:28` 分别是 `pub use std::{` / `use std::{`),不是违规;粗扫数字远高于 verifier 数字属正常。verifier 会解析出每条语句的**真实 root**再分组,无 root 的 `use { ... }` re-export 块不参与分组。
+
+## 6.7 类型注解不得写外部 crate 的完整路径(user 钦定)
+
+类型注解说的是**类型**,不是 crate 的模块布局。`let x: h2::Error = ...;` 把类型绑在了 crate 的模块结构上,读者必须自己解析整条路径才知道那是什么类型。
+
+导入属于 crate root,注解写裸名:
+
+```rust
+// lib.rs
+use h2::Error;
+
+// 使用处
+let x: Error = ...;
+```
+
+**同名冲突时取最近的不同命名层级**(§6.5 禁止 `use ... as ...` 重命名,所以不能靠改名解决)。两个 crate 提供同名类型时,裸名无法同时服务两者,于是导入各自路径上**最近的不同那一层**,使用处保留足以区分的路径:
+
+```rust
+// lib.rs
+use {h2::client, h3::client};
+
+// 使用处
+let a: h2::client::SendRequest = ...;
+let b: h3::client::SendRequest = ...;
+```
+
+前缀必须从 crate 那一层起算 —— 那才是两条路径真正分叉的地方。`h2::client` 与 `h3::client` 的 `client` 层是同名的,只导入 `client` 仍然歧义。
+
+**豁免**(路径必须保持限定):
+
+- **owner 已绑定该名字**:crate root 绑定了同名项(同一个 item 或另一个 item)—— 裸名会歧义,或已经在作用域里;
+- **owner 已把路径的根绑成模块**:`use std::io;` 之后 `io::Error` 写的就是在作用域里的名字,比裸名还短;
+- **关联项**:`io::ErrorKind::NotFound` 是 `ErrorKind` 的变体,不是类型;
+- **`std::` / `core::` 路径**:归 §6.3 管(crate root 的 std 导入);
+- **crate 自己的公开 API 占用该名字**:crate root 的 `pub use {module::*}` 把自己的 `ServerConfig` 引进作用域,再导入外部 crate 的同名项就撞了;
+- **owner 自己声明了该名字**:owner 里的 `pub(crate) type QuicClientConfig` 同样占着这个名字。
+
+**import 归属**:crate root(`src/lib.rs`);tests 树归树根(`tests/mod.rs`,因为 tests 树是独立 crate);bin 目标归该 bin 的入口(`src/bin/<name>/main.rs`,因为 bin 没有 lib.rs)。
+
+**验证脚本** `scripts/verify_no_qualified_type_path.py`(audit check 56 + `staged_file_gate.py` 已注册):
+
+```bash
+python3 <path>/verify_no_qualified_type_path.py <repo_root>
+```
+
+**auto-fixer** `scripts/fix_no_qualified_type_path.py`(默认 dry run,`--write` 落盘):
+
+```bash
+python3 <path>/fix_no_qualified_type_path.py <repo_root> --write
+```
+
+fixer 的冲突分组是按 **owner**(整个 import 归属地)算的,不是按文件 —— 两个 crate 的同名类型可能出现在两个不同文件里,裸名依然不能同时服务两者。fixer 只发出独立的 `use <path>;` 语句,§6.6 的聚合 fixer 与 `cargo fmt` 再把它们并进已有的 brace 块。
+
+自测 `python3 <path>/self_test_no_qualified_type_path.py` 双向断言 + 变异验证(关掉规则后违规用例必须不再被报出)。真仓实测:hyperlane 0(改写前 245 处)。
+
+**实现要点(踩过的坑)**:共享 parser 原本只报 `paths`(没有列号),fixer 需要**列精确**的 type path,故新增 `type_spans` 键(行、列、路径),不改动既有 `paths` 的形状以免影响其它消费者;`items` 键报告模块**声明**的名字(`pub struct` / `pub(crate) type`),因为 parser 的 `root_imports` 只捕获 `use` 语句,捕获不到声明 —— 而冲突判定需要的恰恰是声明。
