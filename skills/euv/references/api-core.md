@@ -4,6 +4,10 @@ Source: `core/src/` — auto-extracted from `pub` declarations.
 
 Re-exported at the crate root as `euv::*` via `core/src/lib.rs`.
 
+The `fetch::*` items are `#[cfg(target_arch = "wasm32")]`: they exist only in a
+wasm build, so a host-only `cargo check` never compiles them and their test
+module needs `wasm-pack test --node` in `core/`.
+
 ### `app::impl`
 
 - `fn` **`use_signal`** — `pub fn use_signal<T, F>(init: F) -> Signal<T> where T: Clone + PartialEq + 'static, F: FnOnce() -> T, {...}`
@@ -18,6 +22,40 @@ Re-exported at the crate root as `euv::*` via `core/src/lib.rs`.
 ### `app::struct`
 
 - `struct` **`App`** — `pub struct App;`
+
+### `fetch::const`
+
+- `const` **`METHOD_GET`** — `pub(crate) const METHOD_GET: &str = "GET"`
+- `const` **`METHOD_POST`** — `pub(crate) const METHOD_POST: &str = "POST"`
+- `const` **`METHOD_PUT`** — `pub(crate) const METHOD_PUT: &str = "PUT"`
+- `const` **`METHOD_DELETE`** — `pub(crate) const METHOD_DELETE: &str = "DELETE"`
+- `const` **`ERROR_NAME`** — `pub(crate) const ERROR_NAME: &str = "name"`
+- `const` **`UNKNOWN_ERROR`** — `pub(crate) const UNKNOWN_ERROR: &str = "unknown"`
+- `const` **`NOWINDOW`** — `pub(crate) const NOWINDOW: &str = "no window"`
+- `const` **`STATUS_OK_LOW`** — `pub(crate) const STATUS_OK_LOW: u16 = 200`
+- `const` **`STATUS_OK_HIGH`** — `pub(crate) const STATUS_OK_HIGH: u16 = 299`
+
+### `fetch::enum`
+
+- `enum` **`FetchMethod`** — `pub enum FetchMethod {`
+- `enum` **`FetchError`** — `pub enum FetchError {`
+
+### `fetch::fn`
+
+- `fn` **`fetch`** — `pub async fn fetch(url: &str) -> Result<FetchResponse, FetchError> {...}`
+- `fn` **`fetch_with`** — `pub async fn fetch_with( url: &str, method: FetchMethod, body: Option<Vec<u8>>, headers: &[(&str, &str)], ) -> Result<FetchResponse, FetchError> {...}`
+
+### `fetch::impl`
+
+- `fn` **`as_str`** — `pub fn as_str(&self) -> &'static str {...}`
+- `fn` **`status`** — `pub fn status(&self) -> u16 {...}`
+- `fn` **`is_ok`** — `pub fn is_ok(&self) -> bool {...}`
+- `fn` **`bytes`** — `pub fn bytes(&self) -> Vec<u8> {...}`
+- `fn` **`text`** — `pub fn text(&self) -> Option<String> {...}`
+
+### `fetch::struct`
+
+- `struct` **`FetchResponse`** — `pub struct FetchResponse {`
 
 ### `noderef::impl`
 

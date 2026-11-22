@@ -9,12 +9,6 @@ metadata:
 
 # Hyperlane framework entry
 
-## Index
-
-Shortest path · Source contracts · Published versus local · The wire follows
-RFC 9110/9112 · Request parsing · The request path owns less · The original
-request target · Fields are crate-internal · Load by task
-
 ## Shortest path
 
 1. Resolve the actual dependency version and workspace with `cargo metadata --no-deps --format-version 1`. Local uncommitted APIs are not necessarily in the published `hyperlane` / `http-type` package, and only the root `Cargo.toml` version is bumped for a publishable change.
@@ -57,7 +51,7 @@ unary expression and degrades to no order, so write it as a string.
 `http-constant`, `http-compress`, `http-type`, `http-request`, `hyperlane-core`,
 `hyperlane-macros`, `hyperlane-cli`, `hyperlane`, `hyperlane-plugin-logger`,
 `hyperlane-plugin-websocket` and `hyperlane-performance` are published to
-crates.io; the framework crates are at `22.8.0`, and the committed tree and the
+crates.io; the framework crates are at `22.8.1`, and the committed tree and the
 registry agree on that number (every crate checked against the crates.io API).
 The four plugin crates that left the tree stay on crates.io at `22.0.6`. Three
 version numbers must stay apart — committed HEAD, local working tree, published
@@ -70,12 +64,14 @@ has a second, older release line on crates.io: `23.0.21` depends on `hyperlane
 ^21.3.6` and `syn ^2.0.119`, while the workspace uses `syn ^3.0.6` — and
 `23.0.21` is the highest number on the registry, so a plain `cargo add
 hyperlane-macros` resolves to that stale line. Pin the workspace version.
+
 ## The wire follows RFC 9110 and 9112
 
 The `22.6.0` release aligns the HTTP/1.x wire behaviour with RFC 9110 and
 RFC 9112 — behaviour changes, not polish, each with a wire-level test. See
 [Wire behaviour](references/wire-behaviour.md) for the byte-level detail.
 `22.7.0` and `22.8.0` add performance work on top and change no wire contract.
+`22.8.1` raises every third-party dependency and changes no source file.
 
 | Rule | Behaviour |
 |---|---|

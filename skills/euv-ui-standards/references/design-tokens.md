@@ -21,7 +21,7 @@ grep -oE '^\s{8}[a-z0-9-]+:' ui/src/style/var/scheme/shadcn/fn.rs | tr -d ' :' |
 ```
 
 The theme file holds two class blocks (`c_theme_light`, `c_theme_dark`), so its
-list is the union of both — **105 unique names**: 103 in each block, plus
+list is the union of both — **111 unique names**: 109 in each block, plus
 `side-indent` (`9px`) and `side-indent-num` (`9`), which exist **only in the
 light block**. The scheme file holds one block, so its list is the scheme's own
 token set.

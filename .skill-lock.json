@@ -1217,8 +1217,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-21T14:50:31.266Z",
-      "skillFolderHash": "50a58a2706c23f55ef646e40b1118a42aa1dce64"
+      "updatedAt": "2026-11-22T14:24:45.397Z",
+      "skillFolderHash": "9a2838740c6ad0f2889028266ad4f95f630a2dc8"
     },
     "euv-engine-renderer-api": {
       "source": "local",
@@ -1297,8 +1297,8 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-21T14:50:31.266Z",
-      "skillFolderHash": "2b72643f362df1d780393eabd337b7f716e75132"
+      "updatedAt": "2026-11-22T14:24:45.397Z",
+      "skillFolderHash": "0132376922fe46125894244e78823b525446a7a7"
     },
     "hyperlane-upload": {
       "source": "local",

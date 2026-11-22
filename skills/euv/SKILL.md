@@ -9,10 +9,6 @@ metadata:
 
 # euv framework entry
 
-## Index
-
-Shortest path · Load by task · Workspace shape · Docs-site build · Native builds · CI · Delivery
-
 ## Shortest path
 
 1. Resolve the target dependency version and actual workspace with `cargo metadata
@@ -29,13 +25,15 @@ Shortest path · Load by task · Workspace shape · Docs-site build · Native bu
 5. Run the project's real formatting, compiler, lint and tests. For UI changes,
    verify the rendered path and the bytes/build it loaded, not only a unit test
    or a cache-busted URL. Preserve user work; reclaim temporary resources.
+6. A `#[cfg(target_arch = "wasm32")]` module compiles on **neither** path of a
+   host-only check (`core/src/fetch/` is wasm-only) — run `wasm-pack test --node` there.
 
 ## Load by task
 
 | Task | Reference |
 |---|---|
 | Components, html/class/vars/watch/computed macros | [Macro API](references/api-macros.md) |
-| Signal, VirtualNode, events, hooks, node references | [Core API](references/api-core.md) |
+| Signal, VirtualNode, events, hooks, node references, fetch | [Core API](references/api-core.md) |
 | UI components, router, theme, i18n | [UI API](references/api-ui.md) |
 | Game/scene/physics and engine abstractions | [Engine API](references/api-engine.md) |
 | Charting: option model, display list, chart backends | [Chart API](references/api-chart.md) |
@@ -61,15 +59,14 @@ behind one API. It does **not** re-export through the `euv` root crate, so
 `use euv::*` misses chart types — see [references/api-chart.md](references/api-chart.md).
 
 **Check the registry before pinning a version.** The repository's version is not
-the published version: CI syncs member and dependency versions and then
-publishes the workspace members one crate at a time, so a crate added to the
-workspace is not installable by version until its own publish step has run.
-Resolve what a consumer can actually install from the registry, not from
-`Cargo.toml`: `cargo add euv-chart@<version>`, or
-`curl -s -H 'User-Agent: skill-sync-audit/1.0' https://crates.io/api/v1/crates/euv-chart`
-(the registry answers **403** without a `User-Agent`). The committed tree and
-the registry agree right now: `origin/master` is at `0.37.1` and all eleven
-members are published at `0.37.1` (crates.io API, checked one by one).
+the published version: CI syncs member and dependency versions, then publishes
+each member separately, so a new member is not installable until its own publish
+step ran. Resolve what a consumer can actually install: `cargo add
+euv-chart@<version>`, or `curl -s -H 'User-Agent: skill-sync-audit/1.0'
+https://crates.io/api/v1/crates/euv-chart` (the registry answers **403** without
+a `User-Agent`). The committed tree and the registry agree right now:
+`origin/master` is at `0.37.6` and all eleven members are published at `0.37.6`
+(crates.io API, checked one by one).
 
 **There is no `theme-custom` feature.** It was deleted from `euv-ui`,
 `euv-example` and `euv-docs`; `git grep theme-custom origin/master` returns
@@ -93,9 +90,13 @@ frontmatter (`site:` plus a `locales:` sequence of `prefix`/`dir`/`label`).
   owns focus containment and restoration, the `inert` boundary, and `Escape`
   handling that closes a nested locale menu before the drawer.
 - Shell strings come from the locale tables in `docs/src/locale/const.rs`
-  (16 keys × 4 locales), not from hardcoded English: every control title is a
+  (21 keys × 4 locales), not from hardcoded English: every control title is a
   key there, and the search field paints its focus ring as a `box-shadow` over
   `--ring-width` / `--ring-offset` / `--ring`, so focusing it moves no text.
+- The public catalog is **rendered in Rust**: `docs/src/component/catalog/`
+  fetches `/api/page-artifacts` through the framework's own `fetch` primitive
+  and paints one card per stored project — the site ships no catalog script
+  and no catalog stylesheet of its own.
 
 Details: [references/docs-build.md](references/docs-build.md).
 
@@ -118,9 +119,8 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to `eu
   sequential and a failing target stops the pipeline; `--dev`/`--profiling` stay
   web-only.
 - The client lives in `native/tauri/` and keeps an **independent Cargo
-  workspace** (the root `Cargo.toml` excludes `native/tauri/src-tauri`), so
-  Android and desktop dependencies never enter the web workspace. The CLI
-  resolves the script paths from `cli/src/bundle/const.rs`.
+  workspace** (the root `Cargo.toml` excludes `native/tauri/src-tauri`), so its
+  Android and desktop dependencies never enter the web workspace.
 
 **Release themes and the update channel.** `build_theme_variants.sh` builds all 18
 release variants (17 `theme-*` features plus `default`) and writes
@@ -139,13 +139,13 @@ failed local guess. Every job runs `crate sync` first.
 | Job | What it runs |
 |---|---|
 | **check** | `cargo fmt --all -- --check`; `example/scripts/validation/source.py` (live route/theme inventory, removed-feature wiring); `python3 example/scripts/test_publish_release.py` (publication protocol regressions — the publisher is the only path that writes the public release, so its contract is gated on every change); `node --test native/tauri/scripts/tests/theme-build.test.js` (retired-theme cache) |
-| **tests** | `cargo test -p euv-ui` (plus `--no-default-features` and `--features theme-shadcn`), `cargo test --all-features --workspace`, then the performance crate separately. The wasm tests are `wasm-pack test --node` run **from the `ui/` directory only**, so the engine's wasm-gated suites (`engine/tests/webgpu_regressions/`) are **not** executed by CI — a WebGPU fix needs a local `wasm-pack` run in `engine/` or a real browser check |
+| **tests** | `cargo test -p euv-ui` (plus `--no-default-features` and `--features theme-shadcn`), `cargo test --all-features --workspace`, then the performance crate separately. The wasm tests are `wasm-pack test --node` run from the `ui/` **and** `core/` directories — `core/` is a separate step because that crate's test module is `#[cfg(target_arch = "wasm32")]`, so the host run never compiles it. The engine's wasm-gated suites (`engine/tests/webgpu_regressions/`) are still **not** executed by CI — a WebGPU fix needs a local `wasm-pack` run in `engine/` or a real browser check |
 | **clippy** | `cargo clippy --all-features --workspace --all-targets -- -D warnings`, plus a `--no-default-features` `euv-ui` pass and the performance crate |
 | **build** | `cargo check --release --all-features --target wasm32-unknown-unknown --workspace` (excluding `euv-cli`/`euv-performance`), plus `cargo test --all-features -p euv-cli` |
 | **automation** | `cargo run -p euv-automation` against a real Chrome and a matching driver, asserting a failing probe is **not** reported as success; then a **pinned `wasm-pack 0.15.1`**, the release example build and `example/scripts/validation/runtime.py` over every route |
 | **native clients** | `build-apk.yml` and `build-clients.yml` share one entry point: `cargo run -p euv-cli -- build --platforms <platform> --release --crate-path ./example`. `build-clients.yml` builds the shared release web and its theme variants once on Linux; the Apple jobs verify that artifact (root layout, source stamps, manifest hashes) before the native CLI, on `macos-15-intel` with Xcode 16.4 |
 | **publish / release** | a tagged `master` push, after `check`, `tests`, `clippy`, `build` and `automation` pass; they run `crate sync` themselves |
-| **pages** | `pages.yml` is **manual only** (`workflow_dispatch` with a required `source_run_id`). It consumes the shared artifact from a successful `build-clients.yml` master run, rejects a release superseded by a newer master, verifies every release byte and publishes through the page-artifact API. It no longer deploys to GitHub Pages |
+| **pages** | `pages.yml` is **manual only** (`workflow_dispatch` with a required `source_run_id`). It consumes the shared artifact from a successful `build-clients.yml` master run, rejects a release superseded by a newer master, verifies every release byte and publishes through the page-artifact API — it no longer deploys to GitHub Pages |
 
 ## Delivery constraints
 

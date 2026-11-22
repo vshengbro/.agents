@@ -4,7 +4,7 @@ Source: `type/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-type` (the directory is still called `type/`); use as `hyperlane::http_type::*` or `http_type::*`.
 
-Verified against `origin/master` (`4d22b46`, workspace version `22.8.0`). The
+Verified against `origin/master` (`5637ac1`, workspace version `22.8.1`). The
 `22.6.0` release added the `chunked` module, `Response::build_head`,
 `Request::matches_if_none_match` and `Context::build_response()`'s
 counterpart `RequestFraming`. The `22.8.0` release narrowed the public struct

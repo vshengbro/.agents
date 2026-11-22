@@ -43,6 +43,12 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `const` **`DOCS_KEY_SEARCH_PLACEHOLDER`** — `pub(crate) const DOCS_KEY_SEARCH_PLACEHOLDER: &str = "docs.search.placeholder"`
 - `const` **`DOCS_KEY_SEARCH_COUNT`** — `pub(crate) const DOCS_KEY_SEARCH_COUNT: &str = "docs.search.count"`
 - `const` **`DOCS_SEARCH_COUNT_TOKEN`** — `pub(crate) const DOCS_SEARCH_COUNT_TOKEN: &str = "{count}"`
+- `const` **`DOCS_KEY_CATALOADING`** — `pub(crate) const DOCS_KEY_CATALOADING: &str = "docs.catalog.loading"`
+- `const` **`DOCS_KEY_CATALOG_ERROR`** — `pub(crate) const DOCS_KEY_CATALOG_ERROR: &str = "docs.catalog.error"`
+- `const` **`DOCS_KEY_CATALOG_FILES`** — `pub(crate) const DOCS_KEY_CATALOG_FILES: &str = "docs.catalog.files"`
+- `const` **`DOCS_KEY_CATALOG_SIZE`** — `pub(crate) const DOCS_KEY_CATALOG_SIZE: &str = "docs.catalog.size"`
+- `const` **`DOCS_KEY_CATALOG_UPDATED`** — `pub(crate) const DOCS_KEY_CATALOG_UPDATED: &str = "docs.catalog.updated"`
+- `const` **`DOCS_KEY_CATALOG_RETRY`** — `pub(crate) const DOCS_KEY_CATALOG_RETRY: &str = "docs.catalog.retry"`
 - `const` **`LOCALE_TAGS`** — `pub(crate) const LOCALE_TAGS: [(&str, &str); 4] = [...]`
 - `const` **`PW_GATE_LOCALE_TAG_ZH`** — `pub(crate) const PW_GATE_LOCALE_TAG_ZH: &str = "zh-CN"`
 - `const` **`PW_GATE_LOCALE_TAG_EN`** — `pub(crate) const PW_GATE_LOCALE_TAG_EN: &str = "en-US"`
@@ -151,6 +157,29 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 ### `component::doc_page::view::struct`
 
 - `struct` **`DocsPageProps`** — `pub(crate) struct DocsPageProps {`
+
+### `component::catalog::view::const`
+
+- `const` **`ERROR_CATALOG_ENCODING`** — `pub const ERROR_CATALOG_ENCODING: &str = "The catalog response is not UTF-8"`
+- `const` **`ERROR_CATALOG_SHAPE`** — `pub const ERROR_CATALOG_SHAPE: &str = "The catalog response has an unexpected shape"`
+- `const` **`CATALOG_URL`** — `pub const CATALOG_URL: &str = "/api/page-artifacts"`
+- `const` **`CATALOG_CARD_CLASS`** — `pub const CATALOG_CARD_CLASS: &str = "docs-catalog-card"`
+- `const` **`CATALOG_LINK_TEMPLATE`** — `pub const CATALOG_LINK_TEMPLATE: &str = "/pages/{name}/"`
+- `const` **`HYPHEN`** — `pub const HYPHEN: u8 = b'-'`
+- `const` **`HYPHEN_CHAR`** — `pub const HYPHEN_CHAR: char = '-'`
+- `const` **`CATALOG_ROLE_STATUS`** — `pub const CATALOG_ROLE_STATUS: &str = "status"`
+- `const` **`CATALOG_BUTTON_TYPE`** — `pub const CATALOG_BUTTON_TYPE: &str = "button"`
+
+### `component::catalog::view::fn`
+
+- `fn` **`docs_catalog`** — `pub(crate) fn docs_catalog(node: VirtualNode<DocsCatalogProps>) -> VirtualNode {...}`
+- `fn` **`parse_catalog`** — `pub fn parse_catalog(bytes: &[u8]) -> Result<DocsCatalog, String> {...}`
+
+### `component::catalog::view::struct`
+
+- `struct` **`DocsCatalogArtifact`** — `pub struct DocsCatalogArtifact {`
+- `struct` **`DocsCatalog`** — `pub struct DocsCatalog {`
+- `struct` **`DocsCatalogProps`** — `pub(crate) struct DocsCatalogProps {`
 
 ### `component::header::view::fn`
 

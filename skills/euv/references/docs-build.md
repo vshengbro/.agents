@@ -69,14 +69,16 @@ components.
 
 - `docs/src/locale/const.rs` holds four tables (`PW_GATE_MESSAGES_ZH`,
   `PW_GATE_MESSAGES_EN`, `PW_GATE_MESSAGES_JA`, `PW_GATE_MESSAGES_KO`), each
-  now `[(&str, &str); 16]` — they were password-gate-only tables of 6 entries
-  before, and now also carry the drawer, theme-toggle, locale-title and search
-  strings.
+  now `[(&str, &str); 21]` — they were password-gate-only tables of 6 entries
+  before, and now also carry the drawer, theme-toggle, locale-title, search and
+  catalog strings.
 - The keys are `docs.drawer.open`, `docs.drawer.close`, `docs.drawer.title`,
   `docs.theme.toggle`, `docs.locale.title`, `docs.search.label`,
-  `docs.search.empty`, `docs.search.none`, `docs.search.placeholder` and
+  `docs.search.empty`, `docs.search.none`, `docs.search.placeholder`,
   `docs.search.count` (the last one carries the `{count}` token
-  `DOCS_SEARCH_COUNT_TOKEN`).
+  `DOCS_SEARCH_COUNT_TOKEN`), and the six catalog keys
+  `docs.catalog.loading`, `docs.catalog.error`, `docs.catalog.files`,
+  `docs.catalog.size`, `docs.catalog.updated` and `docs.catalog.retry`.
 - `locale_text(route, key)` (`docs/src/locale/fn.rs`) resolves the active
   locale's table, then the English table, then falls back to the key itself.
 - The hardcoded English constants `HEADER_SEARCH_LABEL`,
@@ -132,6 +134,28 @@ a rendering component (no `html!`), it owns the modal contract that
 - An element counts as *available* only if it is connected, not inside
   `[hidden], [inert], [aria-hidden=true], [disabled]`, and neither zero-height
   nor `visibility: hidden|collapse`.
+
+## The public catalog
+
+`docs/src/component/catalog/` renders the public catalog of stored projects in
+Rust. It replaced a hand-written script and a hand-written stylesheet, so the
+site ships no catalog script and no catalog stylesheet of its own.
+
+- `docs_catalog(node)` is the component; `parse_catalog(bytes)` is the public
+  parser, and `docs/src/component/catalog/view/struct.rs` holds
+  `DocsCatalogArtifact` (name, file count, total bytes, SHA-256, update time)
+  and `DocsCatalog`.
+- The request goes through the framework's own `fetch` primitive
+  (`core/src/fetch/`) against `CATALOG_URL` = `/api/page-artifacts`. That
+  primitive is `#[cfg(target_arch = "wasm32")]`, so a host build has no page to
+  fetch from and renders the failure state instead of spawning a browser
+  future.
+- The card carries the framework's own `c_catalog*` classes **and** the
+  `docs-catalog-card` class, which is the contract the documentation runtime
+  validator asserts on.
+- The component owns the request: it renders the localized loading message,
+  the localized failure message and a retry button, and issues the request
+  exactly once on the first render and once per retry.
 
 ## The regression harnesses
 
