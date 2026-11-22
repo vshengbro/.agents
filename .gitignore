@@ -55,6 +55,3 @@ skills/.hub/
 # Bytecode caches (temp files never belong in this repo)
 *.pyc
 
-# agents-cli installer state (local tool timestamps)
-.acli_skills_check
-.acli_update_check
