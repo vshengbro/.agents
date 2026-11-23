@@ -65,13 +65,12 @@ step ran. Resolve what a consumer can actually install: `cargo add
 euv-chart@<version>`, or `curl -s -H 'User-Agent: skill-sync-audit/1.0'
 https://crates.io/api/v1/crates/euv-chart` (the registry answers **403** without
 a `User-Agent`). The committed tree and the registry agree right now:
-`origin/master` is at `0.37.6` and all eleven members are published at `0.37.6`
-(crates.io API, checked one by one).
-
-**There is no `theme-custom` feature.** It was deleted from `euv-ui`,
-`euv-example` and `euv-docs`; `git grep theme-custom origin/master` returns
-nothing. `euv-ui` now ships 17 `theme-*` features plus `default` — use
-`theme-shadcn` when a test needs one concrete theme.
+`origin/master` is at `0.37.13` and all eleven members are published at
+`0.37.13` (crates.io API, checked one by one). There is **no `theme-custom`
+feature** — it was deleted from `euv-ui`, `euv-example` and `euv-docs`
+(`git grep theme-custom origin/master` returns nothing); `euv-ui` ships 17
+`theme-*` features plus `default`, and `theme-shadcn` is the one to use when a
+test needs a concrete theme.
 
 ## Docs-site build
 
@@ -85,10 +84,10 @@ frontmatter (`site:` plus a `locales:` sequence of `prefix`/`dir`/`label`).
   bundle references it through rebased `../` URLs, and `rebase_asset_url` skips
   `http://` and `https://`.
 - The locale dropdown is the shared `euv_dropdown_trigger` inside `euv_dropdown`,
-  in its own dynamic hook lifecycle.
-- The mobile drawer is a **modal dialog**: `docs/src/component/layout/drawer/`
-  owns focus containment and restoration, the `inert` boundary, and `Escape`
-  handling that closes a nested locale menu before the drawer.
+  in its own dynamic hook lifecycle. The mobile drawer is a **modal dialog**:
+  `docs/src/component/layout/drawer/` owns focus containment and restoration,
+  the `inert` boundary, and `Escape` handling that closes a nested locale menu
+  before the drawer.
 - Shell strings come from the locale tables in `docs/src/locale/const.rs`
   (21 keys × 4 locales), not from hardcoded English: every control title is a
   key there, and the search field paints its focus ring as a `box-shadow` over
@@ -97,6 +96,8 @@ frontmatter (`site:` plus a `locales:` sequence of `prefix`/`dir`/`label`).
   fetches `/api/page-artifacts` through the framework's own `fetch` primitive
   and paints one card per stored project — the site ships no catalog script
   and no catalog stylesheet of its own.
+- A ```mermaid fence is **rendered at build time** into inline SVG by `merman`, a
+  `[build-dependencies]` entry of `euv-docs`; the bundle links no diagram engine.
 
 Details: [references/docs-build.md](references/docs-build.md).
 
@@ -125,11 +126,10 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to `eu
 **Release themes and the update channel.** `build_theme_variants.sh` builds all 18
 release variants (17 `theme-*` features plus `default`) and writes
 `example/www/euv-release.json`; the native client verifies that manifest before
-it flips the `active` pointer. The script **prunes retired themes** from the
-output tree and the theme cache, and refuses a release output that still
-contains the `__euv_reload` development bootstrap. The website copy is published
-through the page-artifact API by `example/scripts/publish_release.py` — see
-[references/native-release.md](references/native-release.md).
+it flips the `active` pointer. The script **prunes retired themes** and refuses
+an output still carrying the `__euv_reload` bootstrap. The website copy is
+published by `example/scripts/publish_release.py` — one digest-bound request
+**per file** — see [references/native-release.md](references/native-release.md).
 
 ## What CI runs
 

@@ -43,7 +43,7 @@ independent example build:
 — the website-owned inventory the native client trusts:
 
 ```json
-{ "format": 1, "version": "0.37.6", "files": [ { "path": "...", "sha256": "...", "size": 0 } ] }
+{ "format": 1, "version": "0.37.13", "files": [ { "path": "...", "sha256": "...", "size": 0 } ] }
 ```
 
 - The version comes from the `euv-example` manifest (or `--version`), and must
@@ -55,33 +55,60 @@ independent example build:
 
 ## Publishing the release to the website
 
-`example/scripts/publish_release.py` (new) publishes the built `example/www`
-tree through the page-artifact API. `example/scripts/test_publish_release.py` is
+`example/scripts/publish_release.py` publishes the built `example/www` tree
+through the page-artifact API. `example/scripts/test_publish_release.py` is
 its regression suite.
 
-- CLI: `publish_release.py <directory> --version <X.Y.Z> --receipt <path.json>`.
-  `PAGE_ARTIFACT_API_KEY` must be set in the environment.
+- CLI: `publish_release.py <directory> --version <X.Y.Z> --org <org> --repo
+  <repo> --receipt <path.json>`. `PAGE_ARTIFACT_API_KEY` must be set in the
+  environment. `--org` and `--repo` default to `euv-dev` / `euv` and must match
+  the slug pattern; the artifact is published under `<org>/<repo>` and served
+  from `/pages/<org>/<repo>/`, with the legacy `/pages/<repo>/` alias still
+  resolving.
 - `validate_directory` refuses symlinks anywhere, requires the on-disk file set
   to equal the manifest set exactly, verifies each file's size and sha256, and
   requires every `themes/<t>/` to hold an `index.html` and a `.wasm`. A path
   segment that is empty, `.` or `..`, or a path containing `\ : ? #` or control
   characters, is rejected before any upload.
-- Uploads are chunked: the archive is POSTed, each chunk is PUT with an
-  `X-Chunk-SHA256` header, then the upload is committed. The live catalog and
-  every published file are re-read and re-verified afterwards.
+- **The upload is per file, not one archive.** The server exposes a
+  digest-bound protocol under `/api/page-artifacts/<org>/<repo>/`:
+  1. the publisher announces the release manifest **and every release file** as
+     its own digest-bound entry (`path`, `bytes`, `sha256`);
+  2. the announced manifest is serialized exactly as the server canonicalizes
+     it (`canonical_manifest` — `json.dumps` with `separators=(',', ':')` and
+     `ensure_ascii=False`), so the session digest the client computes is the
+     digest the server recomputes;
+  3. `POST <org>/<repo>/uploads` opens the session; the answer's `fileCount`
+     must equal the announced count and its `manifestSha256` must equal the
+     client's own digest, or the session is refused;
+  4. each file is PUT on its own with an `X-File-SHA256` header carrying that
+     file's digest, after the client re-checks the bytes on disk against the
+     announced size and digest;
+  5. `POST <uploadId>/commit` closes it; the receipt must match the uploaded
+     release on `name`, `org`, `repo`, `fileCount`, `totalBytes` and `sha256`.
+  The **chunked archive protocol is gone** — no `X-Chunk-SHA256`, no single
+  tarball. The old protocol produced one archive whose 8 MiB chunk PUTs the
+  GitHub runner could not push.
+- The limits are enforced before any upload: **8 MiB per file** (`MAX_FILE_BYTES`),
+  **8192 files** (`MAX_FILE_COUNT`) and **512 MiB in total**
+  (`MAX_TOTAL_BYTES`).
 - The transport is **`http.client`**, not `urllib.request`. A redirect is
   never followed, a 4xx answer is not retried, a 404 counts as missing only
-  when the caller asked for the resource, and a 5xx answer is retried the
-  full number of times (9 attempts) before it is reported. Every failed
-  attempt prints the underlying exception, and the final error names the
-  method, the path and the last observed status or transport error — a bearer
-  token never appears in the rendered detail. The old `urllib` retry loop
-  collapsed every transport failure into one generic `RuntimeError`, which is
-  how a chunk upload died for 1885 seconds with no diagnosable cause.
+  when the caller asked for the resource, and a 5xx answer (or a 429) is retried
+  the full number of times (9 attempts, `2**(attempt-1)` backoff) before it is
+  reported. Every failed attempt prints the underlying exception, and the final
+  error names the method, the path and the last observed status or transport
+  error — a bearer token never appears in the rendered detail.
 - A **newer live release is never replaced**; the candidate's semver is
   compared against the live manifest first.
-- The receipt records `version`, `archive_sha256`, `archive_bytes`,
-  `manifest_sha256`, the per-file inventory, the public base and the
+- After the commit the publisher re-reads the public catalog and requires
+  **exactly one** matching artifact whose `sha256`, `fileCount` and
+  `totalBytes` equal the uploaded release, then re-reads and re-verifies every
+  published byte, and finally checks that the legacy alias still serves the same
+  manifest. A stalled upload can therefore never publish a partial site.
+- The receipt records `version`, `org`, `repo`, `qualifier`,
+  `artifact_sha256`, `file_count`, `total_bytes`, `release_manifest_sha256`, the
+  per-file inventory, `public_base`, `legacy_public_base` and the
   `publication_route` (`page-artifacts API only; no GitHub Pages sync`).
 - The publisher's protocol regressions run in the CI **`check`** job
   (`python3 example/scripts/test_publish_release.py`), on every pull request
@@ -93,8 +120,9 @@ its regression suite.
   run. It downloads that run's `euv-native-web-<sha>` artifact instead of
   rebuilding, refuses a release that a newer master has superseded, asserts the
   artifact's theme set equals `{default} ∪ {theme-* features of euv-example}`,
-  and only then publishes. There is no GitHub Pages deployment and no
-  `github/pages/sync` call any more.
+  and only then publishes — passing `RELEASE_ORG=euv-dev` and
+  `RELEASE_REPO=euv` to the publisher. There is no GitHub Pages deployment and
+  no `github/pages/sync` call any more.
 
 ## Client-side verification and activation
 

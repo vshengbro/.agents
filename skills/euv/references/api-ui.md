@@ -599,6 +599,29 @@ Five tokens were added to both the light and the dark scheme blocks, so a card o
 | `nav-row-padding` | `var(--space-md)` |
 | `nav-item-inset` | `var(--space-xs)` |
 
+A sixth token, **`gap-caret`** (`8px`), was added later to both blocks. It is the
+**minimum distance between a caret-bearing trigger's label and its caret**, and
+every caret in the form family reads it — the select trigger, the date-picker,
+the time-picker, the cascader and the tree-select trigger, plus the dropdown
+sub-menu row. Before it, each trigger kept that distance by accident: the
+select trigger happened to carry the same 8px gap as every other flex row,
+while the other four carets had no size at all and were squeezed to the width
+of their glyph.
+
+- Every caret now reserves the same **16px box** (`width`/`height`:
+  `var(--space-lg)`), is `inline-flex` and centred, and refuses to shrink
+  (`flex-shrink: 0`), so a long label can never push into it.
+- Every trigger's **placeholder class** carries the same ellipsis contract as
+  its value class (`flex: 1`, `min-width: 0`, `overflow: hidden`,
+  `text-overflow: ellipsis`, `white-space: nowrap`) — the ellipsis used to
+  disappear the moment the control had no selection.
+- The dropdown sub-menu row's label was a bare text node; it is now wrapped in
+  the existing `c_euv_dropdown_menu_item_label` class so it ellipsizes too.
+- The gap is proved in a **real browser**: the automation fixture mounts all
+  five triggers and the `caret-gap` case measures the rendered boxes against
+  the shared token. The measurement reads whichever of the value/placeholder
+  classes is on screen, so the gap has to hold in both states.
+
 ### `style::class::display::fn` (new class)
 
 - `class` **`c_card_stack`** — `pub c_card_stack { ... }` — a flex column that owns the spacing of a card stack: `gap: var(--page-block-gap)` (mobile: `var(--page-block-gap-mobile)`), zeroes the block margins of its children and gives the first card a `margin-top`, including through transparent dynamic (`slot`, `[data-euv-dynamic-id]`) boundaries.
@@ -1714,7 +1737,7 @@ Five tokens were added to both the light and the dark scheme blocks, so a card o
 
 ### `component::markdown::view::enum`
 
-- `enum` **`EuvMdBlock`** — `pub enum EuvMdBlock {`
+- `enum` **`EuvMdBlock`** — `pub enum EuvMdBlock {` — gained a **`Diagram { svg: &'static str }`** variant. The SVG is produced before the page data is generated — the diagram engine is a build-time dependency of the generator, not a runtime dependency of the browser bundle — so the browser only ever carries the finished markup. `euv_markdown_blocks` renders it as a `div` with `inner_html`.
 - `enum` **`EuvMdInline`** — `pub enum EuvMdInline {`
 
 ### `component::markdown::view::fn`

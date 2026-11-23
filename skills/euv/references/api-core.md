@@ -334,6 +334,7 @@ module needs `wasm-pack test --node` in `core/`.
 
 - `fn` **`class_names`** — `pub fn class_names(&self) -> Vec<String> {...}`
 - `fn` **`text_value`** — `pub fn text_value(&self) -> Option<String> {...}`
+- `fn` **`inner_html_value`** — `pub fn inner_html_value(&self) -> Option<String> {...}` — the markup an `inner_html` attribute carries. `text_value` does not report it: an `inner_html` attribute is a payload the renderer writes into the element, not text a reader sees. Returns `Some(markup)` for `AttributeValue::InnerHtml` and for `AttributeValue::InnerHtmlSignal` (the markup the signal currently holds), `None` for every other variant.
 - `fn` **`is_injected`** — `pub(crate) fn is_injected(class_name: &str) -> bool {...}`
 - `fn` **`mark_injected`** — `pub(crate) fn mark_injected(class_name: &str) {...}`
 - `fn` **`reactive`** — `pub fn reactive<F>(compute: F) -> Self where F: Fn() -> String + 'static, {...}`

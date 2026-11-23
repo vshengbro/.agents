@@ -181,6 +181,14 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `struct` **`DocsCatalog`** — `pub struct DocsCatalog {`
 - `struct` **`DocsCatalogProps`** — `pub(crate) struct DocsCatalogProps {`
 
+### `component::mermaid::view::fn`
+
+- `fn` **`docs_mermaid`** — `pub(crate) fn docs_mermaid(node: VirtualNode<DocsMermaidProps>) -> VirtualNode {...}`
+
+### `component::mermaid::view::struct`
+
+- `struct` **`DocsMermaidProps`** — `pub(crate) struct DocsMermaidProps {` — carries the rendered inline SVG of one diagram.
+
 ### `component::header::view::fn`
 
 - `fn` **`docs_header`** — `pub(crate) fn docs_header( locale: &'static DocsLocale, route_signal: Signal<String>, theme_signal: Signal<String>, search_query: Signal<String>, mobile_signal: Signal<bool>, ) -> VirtualNode {...}`

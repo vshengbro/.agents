@@ -157,6 +157,46 @@ site ships no catalog script and no catalog stylesheet of its own.
   the localized failure message and a retry button, and issues the request
   exactly once on the first render and once per retry.
 
+## The build-time diagram
+
+A ```mermaid fence is rendered **at build time** into inline SVG. The engine is
+`merman`, a pure-Rust mermaid implementation, and it is a
+**`[build-dependencies]`** entry of `euv-docs` — it is **not** a normal
+dependency, so the published browser bundle links no diagram engine, no parser
+and no embedded font stack.
+
+- `docs/diagram/` holds the renderer: `render_diagram(lang, code, ordinal)`
+  returns `None` for any fence that is not a mermaid fence, and
+  `render_mermaid(source, ordinal)` returns `None` when the engine cannot lay
+  the diagram out. A fence that yields `None` stays an **ordinary code block**,
+  so the source remains readable.
+- `docs/build.rs` parses the markdown into `AstBlock::Diagram { svg }` and emits
+  it as `euv_ui::EuvMdBlock::Diagram { svg }`. The `ui` crate's
+  `EuvMdBlock` gained a **`Diagram { svg: &'static str }`** variant for this.
+- A diagram is numbered per page (`docs-mermaid-<ordinal>`), so two diagrams on
+  one page never share a marker id or a scoped CSS selector.
+- The colours come from a **scoped stylesheet** the engine appends to the SVG.
+  Every colour it names is a docs theme token, and CSS custom properties
+  inherit into an inline SVG, so the diagram follows the root theme class.
+- The engine's own default theme is **not** used: it paints the boxes with an
+  inline `style`, and an inline style beats every stylesheet rule, so the
+  diagram would ignore the page's tokens. A **preset** theme
+  (`ThemePreset::EditorLight`) is compiled instead, because a preset paints the
+  same boxes from the stylesheet.
+- `docs/src/component/mermaid/` is the runtime component: `docs_mermaid` renders
+  a `<figure>` with a frame class and a sideways-scrolling inner frame, and
+  writes the finished SVG through an `inner_html` attribute.
+- `core/src/vdom/attribute/impl.rs` gained `AttributeEntry::inner_html_value()`,
+  because `text_value()` does not report an `inner_html` payload — that
+  attribute carries markup the renderer writes into the element, not text a
+  reader sees. `inner_html_value()` returns `Some(markup)` for both
+  `AttributeValue::InnerHtml` and `AttributeValue::InnerHtmlSignal`.
+
+**The size ceiling is why this is a build step.** The artifact service rejects
+any file above 8 MiB, and linking the engine into the browser bundle tripled
+every locale bundle (the 0.37.9 build produced ~15.3 MB per locale against
+that ceiling). Rendering at build time brought each locale back to ~4.5–5.2 MB.
+
 ## The regression harnesses
 
 Both harnesses drive a real headless Chrome through Playwright.
@@ -208,3 +248,30 @@ scheme's own `--ring`. The field used to swap its transparent 1px border for
 the ring colour, which is a layout change — the box grew by a pixel and the
 text moved with it — and the `--ring-width` / `--ring-offset` tokens were
 never consulted.
+
+## The code block palette
+
+The docs code block paints the **editor theme's own palette**, not the site
+chrome tokens: the light palette is the reference editor theme's light face and
+the dark palette is the same theme's dark face. The two are never collapsed
+into one — a colour that reads as a keyword on the light surface is unreadable
+on the dark one, and the editor's answer is a second palette, not a compromise.
+
+- `docs/src/highlight/const.rs` holds `CODE_CSS`: a `:root` block with the
+  light palette and a `.c_theme_dark` block with the dark one. Both are read
+  through `var(--docs-code-…)`, so switching the theme switches the palette
+  without a second stylesheet.
+- **Twelve** custom properties in `:root` (the nine token classes
+  `--docs-code-keyword`, `-string`, `-number`, `-comment`, `-function`, `-type`,
+  `-attribute`, `-tag`, `-variable`, plus `--docs-code-surface`,
+  `--docs-code-foreground` and `--docs-code-font-family`) and **eleven** in
+  `.c_theme_dark` — the dark block repaints the eleven colours and leaves the
+  font stack to `:root`, which is mode-independent.
+- The code surface paints `--docs-code-surface` / `--docs-code-foreground` and
+  the editor's own monospace stack, not `var(--muted)` and
+  `var(--font-family-mono)`. The frame's fill is the editor surface too, so the
+  page and the editor share one background.
+- The keyword and function tokens carry the **bold** face the editor gives them,
+  and only the comment class is italic.
+- `docs/tests/code_palette/` pins the contract per mode and is fail-closed:
+  breaking one part of it turns the suite red.
