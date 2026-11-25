@@ -167,6 +167,7 @@ Source: `docs/src/` — auto-extracted from `pub` declarations.
 - `const` **`CATALOG_LINK_TEMPLATE`** — `pub const CATALOG_LINK_TEMPLATE: &str = "/pages/{name}/"`
 - `const` **`HYPHEN`** — `pub const HYPHEN: u8 = b'-'`
 - `const` **`HYPHEN_CHAR`** — `pub const HYPHEN_CHAR: char = '-'`
+- `const` **`ORG_REPO_SEPARATOR`** — `pub const ORG_REPO_SEPARATOR: char = '/'` (added in 0.37.15: the separator a safe artifact name may carry between its organization and its repository; `is_safe_artifact_name` splits on it and accepts at most two segments)
 - `const` **`CATALOG_ROLE_STATUS`** — `pub const CATALOG_ROLE_STATUS: &str = "status"`
 - `const` **`CATALOG_BUTTON_TYPE`** — `pub const CATALOG_BUTTON_TYPE: &str = "button"`
 

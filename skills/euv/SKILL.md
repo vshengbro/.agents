@@ -17,14 +17,14 @@ metadata:
 2. Load `rust-standards` plus exactly the relevant row below, not the whole API corpus.
 3. Use current public APIs; keep component state in the framework hook lifecycle.
    `App::use_signal(init)` is an **associated method**, not a free `use_signal`;
-   `App::mount(selector, render_fn)` takes a closure returning `VirtualNode`.
-   Confirm both in `core/src/app/impl.rs`.
+   `App::mount(selector, render_fn)` takes a closure returning `VirtualNode`
+   (confirm both in `core/src/app/impl.rs`).
 4. Follow an existing neighboring macro shape. Check `macros/src/lib.rs` and the
    specific implementation when syntax is uncertain; never invent JSX props,
    inheritance syntax or handler signatures from another framework.
 5. Run the project's real formatting, compiler, lint and tests. For UI changes,
-   verify the rendered path and the bytes/build it loaded, not only a unit test
-   or a cache-busted URL. Preserve user work; reclaim temporary resources.
+   verify the rendered path and the bytes/build it loaded, not only a unit test.
+   Preserve user work; reclaim temporary resources.
 6. A `#[cfg(target_arch = "wasm32")]` module compiles on **neither** path of a
    host-only check (`core/src/fetch/` is wasm-only) — run `wasm-pack test --node` there.
 
@@ -50,27 +50,25 @@ Reference pages are cached documentation, **not authority over the source or com
 
 `cargo metadata` is authoritative for membership and paths; the workspace holds
 eleven packages: `euv` (root), `euv-core`, `euv-macros`, `euv-ui`, `euv-engine`,
-`euv-cli`, `euv-docs`, `euv-example`, `euv-chart`, `euv-automation` and
-`euv-performance` (the last two are tool crates).
+`euv-cli`, `euv-docs`, `euv-example`, `euv-chart`, `euv-automation` and `euv-performance` (the last two are tool crates).
 
 `euv-chart` is the ECharts-compatible crate: an option model, a display list
 built from it, and three interchangeable backends (WebGPU, WebGL2, Canvas2D)
-behind one API. It does **not** re-export through the `euv` root crate, so
-`use euv::*` misses chart types — see [references/api-chart.md](references/api-chart.md).
+behind one API. It does **not** re-export through the `euv` root crate, so `use
+euv::*` misses chart types — see [references/api-chart.md](references/api-chart.md).
 
 **Check the registry before pinning a version.** The repository's version is not
 the published version: CI syncs member and dependency versions, then publishes
 each member separately, so a new member is not installable until its own publish
-step ran. Resolve what a consumer can actually install: `cargo add
-euv-chart@<version>`, or `curl -s -H 'User-Agent: skill-sync-audit/1.0'
-https://crates.io/api/v1/crates/euv-chart` (the registry answers **403** without
-a `User-Agent`). The committed tree and the registry agree right now:
-`origin/master` is at `0.37.13` and all eleven members are published at
-`0.37.13` (crates.io API, checked one by one). There is **no `theme-custom`
-feature** — it was deleted from `euv-ui`, `euv-example` and `euv-docs`
-(`git grep theme-custom origin/master` returns nothing); `euv-ui` ships 17
-`theme-*` features plus `default`, and `theme-shadcn` is the one to use when a
-test needs a concrete theme.
+step ran. Resolve what a consumer can install with `cargo add euv-chart@<version>`
+or `curl -s -H 'User-Agent: skill-sync-audit/1.0'
+https://crates.io/api/v1/crates/euv-chart` (the registry answers **403** without a
+`User-Agent`). The committed tree and the registry agree right now: `origin/master`
+is at `0.37.15` and all eleven members are published at `0.37.15` (crates.io API,
+checked one by one). There is **no `theme-custom` feature** — it was deleted from
+`euv-ui`, `euv-example` and `euv-docs` (`git grep theme-custom origin/master`
+returns nothing); `euv-ui` ships 17 `theme-*` features plus `default`, and
+`theme-shadcn` is the one to use when a test needs a concrete theme.
 
 ## Docs-site build
 
@@ -85,19 +83,22 @@ frontmatter (`site:` plus a `locales:` sequence of `prefix`/`dir`/`label`).
   `http://` and `https://`.
 - The locale dropdown is the shared `euv_dropdown_trigger` inside `euv_dropdown`,
   in its own dynamic hook lifecycle. The mobile drawer is a **modal dialog**:
-  `docs/src/component/layout/drawer/` owns focus containment and restoration,
-  the `inert` boundary, and `Escape` handling that closes a nested locale menu
-  before the drawer.
-- Shell strings come from the locale tables in `docs/src/locale/const.rs`
-  (21 keys × 4 locales), not from hardcoded English: every control title is a
-  key there, and the search field paints its focus ring as a `box-shadow` over
-  `--ring-width` / `--ring-offset` / `--ring`, so focusing it moves no text.
+  `docs/src/component/layout/drawer/` owns focus containment and restoration, the
+  `inert` boundary, and `Escape` handling that closes a nested locale menu first.
+- Shell strings come from the locale tables in `docs/src/locale/const.rs` (21 keys
+  × 4 locales), not from hardcoded English; the search field paints its focus ring
+  as a `box-shadow` over `--ring-width` / `--ring-offset` / `--ring`. The nav row
+  is **compact** since 0.37.15: `nav-row-height: calc(control-height + space-xs)`
+  with `nav-row-padding: space-sm-md` in both scheme blocks.
 - The public catalog is **rendered in Rust**: `docs/src/component/catalog/`
   fetches `/api/page-artifacts` through the framework's own `fetch` primitive
-  and paints one card per stored project — the site ships no catalog script
-  and no catalog stylesheet of its own.
+  and paints one card per stored project — the site ships no catalog script and
+  no catalog stylesheet of its own. `parse_catalog` accepts a bare segment **or**
+  two safe segments joined by `/` (`ORG_REPO_SEPARATOR`); a third is refused.
 - A ```mermaid fence is **rendered at build time** into inline SVG by `merman`, a
   `[build-dependencies]` entry of `euv-docs`; the bundle links no diagram engine.
+  The theme sheet is **appended to the finished SVG**, each selector scoped to the
+  diagram id and after the engine's stylesheet, so it wins on source order.
 
 Details: [references/docs-build.md](references/docs-build.md).
 
@@ -117,19 +118,17 @@ The CLI's `bundle` module (`cli/src/bundle/`) adds a native build surface to `eu
   with no native deliverable.
 - The web build runs **once**; its output directory and the build mode reach every
   native builder through `EUV_WEB_DIST` and `EUV_NATIVE_MODE`. Builds are
-  sequential and a failing target stops the pipeline; `--dev`/`--profiling` stay
-  web-only.
+  sequential and a failing target stops the pipeline; `--dev`/`--profiling` stay web-only.
 - The client lives in `native/tauri/` and keeps an **independent Cargo
   workspace** (the root `Cargo.toml` excludes `native/tauri/src-tauri`), so its
   Android and desktop dependencies never enter the web workspace.
 
 **Release themes and the update channel.** `build_theme_variants.sh` builds all 18
 release variants (17 `theme-*` features plus `default`) and writes
-`example/www/euv-release.json`; the native client verifies that manifest before
-it flips the `active` pointer. The script **prunes retired themes** and refuses
-an output still carrying the `__euv_reload` bootstrap. The website copy is
-published by `example/scripts/publish_release.py` — one digest-bound request
-**per file** — see [references/native-release.md](references/native-release.md).
+`example/www/euv-release.json`; the native client verifies that manifest before it
+flips the `active` pointer. The script **prunes retired themes** and refuses an
+output still carrying the `__euv_reload` bootstrap. The website copy is published
+per file by `example/scripts/publish_release.py` — see [references/native-release.md](references/native-release.md).
 
 ## What CI runs
 
@@ -149,9 +148,9 @@ failed local guess. Every job runs `crate sync` first.
 
 ## Delivery constraints
 
-- Code changes in a publishable workspace include a version increment. Change
-  only the root `Cargo.toml` version; CI synchronizes member/dependency versions,
-  so never hand-edit dependency pins or run a second local version-sync path.
+- Code changes in a publishable workspace include a version increment. Change only
+  the root `Cargo.toml` version; CI synchronizes member/dependency versions, so
+  never hand-edit dependency pins or run a second local version-sync path.
 - Use existing public APIs for integration tests; never widen visibility solely
   for tests. Use constant-based paths/selectors instead of inlining literals.
 - Use `crate fmt` / `crate fmt --check` where the governing standards require it;

@@ -1,7 +1,7 @@
 # The hyperlane performance harness
 
 Source: `performance/` in the hyperlane workspace. Verified against the tree at
-`origin/master` (`5637ac1`, workspace version `22.8.1`).
+`origin/master` (`a1846f6`, workspace version `22.8.2`).
 
 **Name the binary.** The package publishes four binaries, so `cargo run -p
 hyperlane-performance` cannot pick one and fails with an ambiguity error. Every
@@ -12,7 +12,7 @@ invocation needs `--bin hyperlane-performance`. The CI workflow
 
 The harness is **one publishable crate**, `hyperlane-performance`, and it is a
 **member of the root workspace** — `cargo metadata --no-deps --format-version 1`
-lists it among the eleven packages. It is not a separate workspace: there is no
+lists it among the twelve packages. It is not a separate workspace: there is no
 second `Cargo.lock`, and a root `cargo test --workspace` builds and tests it.
 
 The crate produces **four binaries** from one package:

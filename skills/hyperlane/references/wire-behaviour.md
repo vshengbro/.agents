@@ -2,12 +2,14 @@
 
 Source: `type/src/response/impl.rs`, `type/src/chunked/`, `type/src/stream/`,
 `core/src/protocol/`, `request/src/request/parser/` at `origin/master`
-(workspace version `22.8.1`).
+(workspace version `22.8.2`).
 
 This page records the wire behaviour that the `22.6.0` release aligned with
 RFC 9110 and RFC 9112. Everything here was read in the source at that ref;
 the named test is the one that locks the behaviour. `22.7.0` and `22.8.0`
-changed no wire contract, and `22.8.1` changed no source file at all.
+changed no wire contract, `22.8.1` changed no source file at all, and `22.8.2`
+added only the opt-in `plugin/negotiate` middlewares — the wire contract is
+unchanged.
 
 ## Bodyless statuses
 

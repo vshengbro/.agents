@@ -1,7 +1,7 @@
 # hyperlane-macros complete proc_macro signatures (78)
 
-Source: `macros/src/lib.rs`。 Verified against `origin/master` (`5637ac1`,
-workspace version `22.8.1`).
+Source: `macros/src/lib.rs`。 Verified against `origin/master` (`a1846f6`,
+workspace version `22.8.2`).
 
 **`#[send]` and `#[try_send]` changed in `22.6.0`.** Without an attribute
 argument they now expand to `ctx.build_response()` instead of

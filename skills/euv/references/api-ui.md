@@ -595,9 +595,26 @@ Five tokens were added to both the light and the dark scheme blocks, so a card o
 |---|---|
 | `card-padding` | `var(--space-md)` |
 | `card-content-gap` | `var(--gap-component)` |
-| `nav-row-height` | `calc(var(--control-height) + var(--space-lg))` |
-| `nav-row-padding` | `var(--space-md)` |
+| `nav-row-height` | `calc(var(--control-height) + var(--space-xs))` |
+| `nav-row-padding` | `var(--space-sm-md)` |
 | `nav-item-inset` | `var(--space-xs)` |
+
+`nav-row-height` and `nav-row-padding` were **retuned in 0.37.15** (#357): the row
+reserved `control-height + space-lg` paired with the `space-md` padding, which
+measured 52px against 19px of content and pushed a one-row-per-page sidebar past
+a screen. The reserved minimum is now the binding constraint — `space-xs` plus
+the `space-sm-md` padding — so the row measures 40px. `ui/tests/theme/fn.rs`
+pins both token definitions with
+`the_nav_row_reserves_a_compact_height_and_a_matching_padding`, and
+`ui/tests/spacing_contract/fn.rs` pins the consuming pair
+(`var(--nav-row-height)` / `var(--nav-row-padding) var(--edge-gutter-nav)`).
+
+The consumers are the shell nav rows `c_nav_item_active` and
+`c_nav_item_inactive` (`ui/src/style/class/shell/fn.rs`): both declare
+`min-height: var!(nav-row-height)` and
+`padding: format!("{} {}", var!(nav-row-padding), var!(edge-gutter-nav))`, with
+the mobile `@media` block swapping `--edge-gutter-nav` for
+`--edge-gutter-mobile`.
 
 A sixth token, **`gap-caret`** (`8px`), was added later to both blocks. It is the
 **minimum distance between a caret-bearing trigger's label and its caret**, and

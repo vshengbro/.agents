@@ -2,7 +2,7 @@
 
 Source: `core/src/` — auto-extracted from `pub` and `pub(crate)` declarations.
 
-Verified against `origin/master` (`5637ac1`, workspace version `22.8.1`). The
+Verified against `origin/master` (`a1846f6`, workspace version `22.8.2`). The
 `22.6.0` release added `Context::build_response()` and the request-error helpers
 in `protocol::response::fn`; the `22.7.0`/`22.8.0` releases narrowed the public
 struct fields to `pub(crate)` without changing the public API. See

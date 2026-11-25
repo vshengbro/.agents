@@ -4,7 +4,7 @@ Source: `request/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-request` (the directory is still called `request/`).
 
-Verified against `origin/master` (`5637ac1`, workspace version `22.8.1`). The
+Verified against `origin/master` (`a1846f6`, workspace version `22.8.2`). The
 `22.6.0` release reworked the client's response framing: `ResponseFraming`
 replaces the loose `content_length` / `is_chunked` out-parameters, interim
 responses are skipped, and `HEAD` is supported as a request method. The

@@ -21,13 +21,15 @@ Every version must be identical. There is no second workspace and no second
 `Cargo.lock`: the harness crate `hyperlane-performance` is an ordinary member
 and its version is part of this invariant.
 
-The current workspace version at `origin/master` (`5637ac1`) is **`22.8.1`**,
-and all eleven packages resolve to it. The `22.7.0` release commit
+The current workspace version at `origin/master` (`a1846f6`) is **`22.8.2`**,
+and all twelve packages resolve to it. The `22.7.0` release commit
 (`91dfabc`) bumped only the root `Cargo.toml`; the follow-up commit
 (`35d6562`) synced the member path-dependency pins and applied the crate
 format. The `22.8.0` bump came with the public-field narrowing in
 (`3495f37`). The `22.8.1` bump (`1264060`) was a dependency upgrade only —
-no source file changed between `4d22b46` and `5637ac1`.
+no source file changed between `4d22b46` and `5637ac1`. The `22.8.2` bump
+(`a1846f6`) added the `plugin/negotiate` crate and the `Accept-Encoding`
+negotiation API in `http-compress`.
 
 ## Manual flow (what a developer does)
 
@@ -142,7 +144,7 @@ compile; commit just the root `Cargo.toml` bump, let CI sync do the rest, and
 verify on the auto-commit that lands.
 
 Every member of this workspace carries `publish = true`, so a version bump
-publishes all eleven crates — including the harness crate
+publishes all twelve crates — including the harness crate
 `hyperlane-performance`, which the release job's package list names last. A
 package with `publish = false` would be skipped instead, with `crate publish`
 logging `Skipping <name> (publish = false)` and continuing with the rest.

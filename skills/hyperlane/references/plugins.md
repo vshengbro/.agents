@@ -1,17 +1,18 @@
 # hyperlane plugin crates
 
-Source: `plugin/*/src/` in the hyperlane workspace. Two plugin crates are in the
-tree. Four others were in it until 2026-10-24 and are not any more.
+Source: `plugin/*/src/` in the hyperlane workspace. Three plugin crates are in
+the tree. Four others were in it until 2026-10-24 and are not any more.
 
 | crate | directory | published |
 |---|---|---|
-| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.8.1` |
-| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.8.1` |
+| `hyperlane-plugin-logger` | `plugin/logger` | yes, crates.io `22.8.2` |
+| `hyperlane-plugin-negotiate` | `plugin/negotiate` | yes, crates.io `22.8.2` |
+| `hyperlane-plugin-websocket` | `plugin/websocket` | yes, crates.io `22.8.2` |
 
-Both are workspace members and both depend on the `hyperlane` facade crate, so
-they compile against the workspace source, not against a released version.
-`cargo metadata --no-deps --format-version 1` is the authority for the member
-list.
+All three are workspace members and all depend on the `hyperlane` facade
+crate, so they compile against the workspace source, not against a released
+version. `cargo metadata --no-deps --format-version 1` is the authority for
+the member list.
 
 The four plugin crates that used to sit here — `hyperlane-plugin-compression`,
 `hyperlane-plugin-cors`, `hyperlane-plugin-shutdown` and
@@ -26,18 +27,33 @@ The last published versions of the removed plugin crates stay on crates.io at
 stay as they are: a yanked dependency would break the resolution of the
 packages that depend on it.
 
-The two plugin crates that remain are published with the rest of the workspace:
-both carry `publish = true` and are on crates.io at `22.8.1`.
+The three plugin crates that remain are published with the rest of the
+workspace: each carries `publish = true` and is on crates.io at `22.8.2`.
+`hyperlane-plugin-negotiate` is the newest, added at `22.8.2` in `a1846f6`.
 
 ## How a plugin attaches to the server
 
-A plugin is a crate whose hook structs are registered through the attribute
-macros. `#[hyperlane::request_middleware(N)]` and
+Two of the three plugin crates — logger and websocket — attach through the
+attribute macros. `#[hyperlane::request_middleware(N)]` and
 `#[hyperlane::response_middleware(N)]` expand into an `inventory::submit!` of a
 `HookType`, and `#[hyperlane(server: Server)]` collects every submitted hook,
-asserts the orders are unique, sorts them and installs them. A plugin therefore
+asserts the orders are unique, sorts them and installs them. Such a plugin
 needs no registration call of its own: it becomes active by being a dependency
 of the application.
+
+**`hyperlane-plugin-negotiate` is the exception.** It ships no attribute macro
+and no `inventory::submit!`, so being a dependency changes nothing. The
+application registers each of its middlewares explicitly and synchronously:
+
+```rust
+server
+    .response_middleware::<CompressMiddleware>()
+    .response_middleware::<ConditionalMiddleware>();
+```
+
+It is therefore also the only plugin whose hooks are ordered by the order the
+application registers them in, not by an attribute order. See
+[Negotiate](plugin-negotiate.md).
 
 The hook itself implements `ServerHook` with the usual two methods,
 `async fn new(&mut Stream, &mut Context) -> Self` and
@@ -47,7 +63,7 @@ The hook itself implements `ServerHook` with the usual two methods,
 
 Every plugin keeps its settings in a process-wide `OnceLock` behind a static,
 exposed through an `init` that takes the configuration and a `get` that returns
-it. The pattern is identical in the two crates:
+it. The pattern is identical in the three crates:
 
 ```rust
 PluginName::init(Config { .. })?;      // Result<(), String>, refuses a second set
@@ -63,6 +79,11 @@ and returns `Status::Continue` when the configuration is absent. Verify this
 when reading a plugin: a hook that reads the configuration without the `None`
 arm would break every application that does not use it.
 
+`hyperlane-plugin-negotiate` deviates deliberately: `CompressMiddleware`
+falls back to `CompressConfig::default()` (a `256` byte threshold) when no
+configuration was installed, so it still negotiates without one. Only its
+`init` is `OnceLock`-guarded, and it refuses a second set.
+
 ## Order and priorities
 
 The order lives in the attribute on the hook struct. Read the numbers from the
@@ -72,6 +93,8 @@ source, not from the README, and note the negative-literal trap:
 |---|---|---|---|
 | logger | `RequestLogger` | `#[hyperlane::request_middleware(-120)]` | none (see below) |
 | logger | `ResponseLogger` | `#[hyperlane::response_middleware(100)]` | `100` |
+| negotiate | `CompressMiddleware` | none — registered by `response_middleware::<T>()` | registration order |
+| negotiate | `ConditionalMiddleware` | none — registered by `response_middleware::<T>()` | registration order |
 | websocket | none | it is a trait and config surface, not a hook | — |
 
 The negative attribute is written as a negative **integer literal**. The
@@ -92,6 +115,10 @@ If the intended behaviour matters, write the order as a string
 which produces `Some(-110)`. Confirm the result by reading the compiled
 `HookType` rather than by trusting the attribute text.
 
+Register the negotiate middlewares with the coding one first: it declares
+`Vary: accept-encoding`, which the conditional middleware then preserves
+through a `304`.
+
 ## What each plugin does
 
 ### `hyperlane-plugin-logger`
@@ -108,6 +135,26 @@ The default level is `Info` and there is no file. The crate re-exports
 
 `init` calls `log::set_logger`, so it fails with "a logger was already
 installed" if the process already has one.
+
+### `hyperlane-plugin-negotiate`
+
+Two response middlewares, added at `22.8.2`:
+
+- `CompressMiddleware` declares the `Content-Encoding` the client accepts,
+  from every `Accept-Encoding` field, through
+  `Compress::from_accept_encoding`, and declares
+  `Vary: accept-encoding` on the responses it codes. It leaves alone a
+  response that already declares a coding, an event stream, a bodyless status
+  and a body below the threshold (`256` bytes by default). It never writes to
+  the stream — the sender applies the coding when it serializes.
+- `ConditionalMiddleware` declares a strong `ETag` — the quoted hex digest of
+  the body — on every body-carrying response under a safe method, unless the
+  application declared one, and answers `304 Not Modified` when
+  `If-None-Match` matches, keeping the representation metadata.
+
+Configuration: `CompressConfig::new(min_length)`, process wide, `256` by
+default. The conditional middleware takes no configuration. Full contract and
+wire tests: [Negotiate](plugin-negotiate.md).
 
 ### `hyperlane-plugin-websocket`
 

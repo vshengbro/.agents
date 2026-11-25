@@ -145,6 +145,27 @@ site ships no catalog script and no catalog stylesheet of its own.
   parser, and `docs/src/component/catalog/view/struct.rs` holds
   `DocsCatalogArtifact` (name, file count, total bytes, SHA-256, update time)
   and `DocsCatalog`.
+- The name rule accepts **one safe segment or two**
+  (`is_safe_artifact_name` in `docs/src/component/catalog/view/fn.rs`): a
+  published artifact is addressed either by its bare name (`docs`, a legacy
+  alias) or by its qualified `org/repo` name, which the server writes and the
+  catalog lists. The separator is `ORG_REPO_SEPARATOR` = `'/'`, a `pub const` in
+  `view/const.rs`.
+- Before **0.37.15** the rule accepted only a bare segment, so the qualified
+  names `docs-pages/docs` and `euv-dev/euv` were refused, the **whole payload
+  failed to parse**, and the component sat in its failure state with a retry
+  button instead of showing the projects. Widening the rule to two segments
+  (#356) is what makes the catalog render at all.
+- Each of the two segments must be safe **on its own**
+  (`is_safe_name_segment`): lowercase ASCII letters, digits and hyphens only,
+  non-empty, and no leading or trailing hyphen. A traversing segment, an empty
+  segment, an uppercase segment, a space, a leading or trailing hyphen and a
+  **third** segment are all still refused, so the widened rule did not weaken
+  the fail-closed parse.
+- `docs/tests/catalog/fn.rs` pins both directions: `docs-pages/docs` is an
+  accepted case, and `/repo`, `org/`, `org//repo`, `org/repo/extra`,
+  `ORG/repo`, `org/REPO`, `org/with space`, `../repo` and `org/..` must keep
+  failing.
 - The request goes through the framework's own `fetch` primitive
   (`core/src/fetch/`) against `CATALOG_URL` = `/api/page-artifacts`. That
   primitive is `#[cfg(target_arch = "wasm32")]`, so a host build has no page to
@@ -175,14 +196,40 @@ and no embedded font stack.
   `EuvMdBlock` gained a **`Diagram { svg: &'static str }`** variant for this.
 - A diagram is numbered per page (`docs-mermaid-<ordinal>`), so two diagrams on
   one page never share a marker id or a scoped CSS selector.
-- The colours come from a **scoped stylesheet** the engine appends to the SVG.
-  Every colour it names is a docs theme token, and CSS custom properties
-  inherit into an inline SVG, so the diagram follows the root theme class.
-- The engine's own default theme is **not** used: it paints the boxes with an
-  inline `style`, and an inline style beats every stylesheet rule, so the
-  diagram would ignore the page's tokens. A **preset** theme
-  (`ThemePreset::EditorLight`) is compiled instead, because a preset paints the
-  same boxes from the stylesheet.
+- The colours come from a **scoped stylesheet appended to the finished SVG** by
+  `apply_theme_sheet` (`docs/diagram/fn.rs`) — not from a stylesheet the engine
+  is asked to emit. Every colour it names is a docs theme token, and CSS custom
+  properties inherit into an inline SVG, so the diagram follows the root theme
+  class — light or dark — without a re-render and without `!important`.
+- `scope_theme_sheet` prefixes **every selector of every rule** with the
+  diagram id, so `.messageLine0,.messageLine1` becomes
+  `#docs-mermaid-0 .messageLine0,#docs-mermaid-0 .messageLine1`. The engine
+  writes its own rules scoped to the diagram id with literal colours, and an
+  unscoped `.actor` cannot override `#docs-mermaid-0 .actor`.
+- The sheet is appended **after** the engine's own `<style>` and before
+  `</svg>`, so where the two declare the same selector it wins on **source
+  order** rather than on a specificity the engine could still raise.
+- A caller-supplied `scoped_css` is **not** handed to the engine
+  (`SvgOutputPolicy { scoped_css: None, .. }`): a caller-supplied scoped
+  stylesheet never reached the rendered output, which is exactly why the sheet
+  is appended to the SVG instead. The pipeline keeps
+  `SvgPipelinePreset::Parity` and `CssOverridePolicy::StripExistingImportant`,
+  because an `!important` declaration beats a later rule of any specificity.
+- A plain **text label** rule (`text.text>tspan`) joins the sheet, because the
+  engine paints that role with the same literal fill.
+- The engine's own default theme is still **not** used: it paints the boxes
+  with an inline `style`, and an inline style beats every stylesheet rule, so
+  the diagram would ignore the page's tokens. A **preset** theme
+  (`ThemePreset::EditorLight`, compiled by `fallback_theme()`) is the fallback
+  instead, because a preset paints the same boxes from the stylesheet.
+- Before **0.37.15** the sheet was handed to the engine as that caller-supplied
+  `scoped_css`, so it never reached the output: the diagram painted eighteen of
+  its seventy-five labels with a literal fill that did not invert, and the
+  sequence diagram's actor labels were dark on the dark background and
+  invisible (#358).
+- `docs/tests/mermaid/fn.rs` is fail-closed on the fix: the sheet must be id
+  scoped, carry the page tokens, land after the engine's stylesheet, and
+  reintroduce no literal colour.
 - `docs/src/component/mermaid/` is the runtime component: `docs_mermaid` renders
   a `<figure>` with a frame class and a sideways-scrolling inner frame, and
   writes the finished SVG through an `inner_html` attribute.
