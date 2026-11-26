@@ -39,6 +39,32 @@ Register the coding middleware **before** the conditional middleware: the
 coding middleware declares `Vary: accept-encoding`, and the conditional
 middleware can then turn the answer into a `304` that keeps it.
 
+### The README example names a middleware the crate does not export
+
+The crate README's snippet ends with `.response_middleware::<SendMiddleware>()`,
+but `plugin/negotiate/src/lib.rs` re-exports `struct::*` only —
+`CompressConfig`, `CompressMiddleware`, `ConditionalMiddleware` and `EntityTag`.
+There is **no `SendMiddleware` in this crate**; the only `SendMiddleware` in the
+workspace is the one `performance/src/bin/server/main.rs` defines for its own
+harness. The README block is `rust,ignore`, so nothing compiles it and the name
+never broke a build. Copying it verbatim fails to compile.
+
+The application supplies its own sender. `SenderMiddleware` in
+`plugin/negotiate/tests/negotiate/impl.rs` is the shape to copy — build the
+response, send it, keep going:
+
+```rust
+async fn handle(self, stream: &mut Stream, ctx: &mut Context) -> Status {
+    let data: Vec<u8> = ctx.build_response();
+    let _: Result<(), ResponseError> = stream.try_send(data).await;
+    Status::Continue
+}
+```
+
+Register it **last**: the coding and conditional middlewares run before it, and
+a `#[hyperlane::send]` route writes the bytes itself and leaves nothing to
+negotiate.
+
 ## `CompressMiddleware`
 
 Declares the negotiated coding on the response and lets the response builder

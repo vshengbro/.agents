@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 18,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -1217,16 +1217,8 @@
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-25T14:22:29.393Z",
-      "skillFolderHash": "54aef03a1cc66e87f520b73e2f206ecdb1ac5356"
-    },
-    "euv-engine-renderer-api": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/euv/euv-engine-renderer-api/SKILL.md",
-      "installedAt": "2026-10-18T14:49:19.132Z",
-      "updatedAt": "2026-11-05T14:50:25.138Z",
-      "skillFolderHash": "da65f4cfbbb2444a136cc4c2044178f2c2776686"
+      "updatedAt": "2026-11-26T14:15:29.445Z",
+      "skillFolderHash": "0d59727360773cfeed69becaf582aa70bc5c89c9"
     },
     "euv-ui-standards": {
       "source": "local",
@@ -1297,8 +1289,8 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-25T14:22:29.393Z",
-      "skillFolderHash": "b908763eeb8cca6450b9e2141acfdbbabca21d0e"
+      "updatedAt": "2026-11-26T14:15:29.445Z",
+      "skillFolderHash": "6d45d7307eccd3b2362240d92918a88bc8fc8db4"
     },
     "hyperlane-upload": {
       "source": "local",

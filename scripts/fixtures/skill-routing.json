@@ -101,13 +101,13 @@
   },
   {
     "id": "renderer-zh",
-    "prompt": "补全 euv-engine 的 WebGpuRenderer 描述符和异步缓冲区回读接口。",
-    "expected": "euv-engine-renderer-api"
+    "prompt": "为 euv 应用选择 software 或 hardware 渲染模式，并核验两种后端在不同平台的帧哈希一致性。",
+    "expected": "euv"
   },
   {
     "id": "renderer-en",
-    "prompt": "Add a WebGL/WebGPU renderer API to euv-engine and prove backend parity.",
-    "expected": "euv-engine-renderer-api"
+    "prompt": "Pick the software or hardware render mode for an euv app and prove frame parity between the backends.",
+    "expected": "euv"
   },
   {
     "id": "euv-ui-zh",

@@ -1,296 +1,59 @@
 # euv-docs full pub API
 
-Source: `docs/src/` — auto-extracted from `pub` declarations.
+Source: `docs/src/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1), extracted from
+`pub` declarations.
+
+The docs crate is a **native euv application** plus a static-site generator:
+`parser` reads Markdown into a `DocSite`, `generator` renders HTML, `viewer`
+mounts the same pages as a native/wasm window. There is no `build.rs`, no
+locale table and no mermaid engine any more — the old multi-locale
+`docs/build.rs` pipeline was removed with the rewrite.
+
+### generator
+- (fn) pub fn build_docs_bundle( src_dir: &Path, out_dir: &Path, options: &DocsBuildOptions, ) -> io::Result<GeneratedSiteReport> {
+- (fn) pub fn generate_static_docs(site: &DocSite, out_dir: &Path) -> io::Result<GeneratedSiteReport> {
+- (fn) pub fn generate_static_docs_with_options( site: &DocSite, out_dir: &Path, options: &DocsBuildOptions, ) -> io::Result<GeneratedSiteReport> {
+- (fn) pub fn render_page_html(site: &DocSite, page: &DocPage, generated_at: &str) -> String {
+- (mod) pub use {r#fn::*, r#struct::*};
+- (struct) pub struct GeneratedSiteReport {
+- (struct) pub struct DocsBuildOptions {
+
+### crate root
+- (lib) pub use {generator::*, model::*, parser::*, viewer::*};
+
+### model
+- (const) pub const DEFAULT_DOC_TITLE: &str = "Untitled Document";
+- (const) pub const DOCS_SITE_TITLE: &str = "Euv Documentation";
+- (const) pub const DOCS_SITE_TAGLINE: &str = "Cross-platform native Rust UI framework across Web, Android, iOS, iPadOS, macOS, Windows, and Linux.";
+- (enum) pub enum DocBlock {
+- (impl) pub fn search(&self, query: &str) -> Vec<&DocPage> {
+- (impl) pub fn find_by_route(&self, route: &str) -> Option<&DocPage> {
+- (impl) pub fn search_entries(&self) -> Vec<SearchIndexEntry> {
+- (impl) pub fn matches_query(&self, needle: &str) -> bool {
+- (mod) pub use {r#const::*, r#enum::*, r#struct::*};
+- (struct) pub struct DocSiteFrontmatter {
+- (struct) pub struct DocFrontmatter {
+- (struct) pub struct SearchIndexEntry {
+- (struct) pub struct DocTocItem {
+- (struct) pub struct DocPage {
+- (struct) pub struct DocSite {
+
+### parser
+- (fn) pub fn parse_markdown_page(route: &str, default_section: &str, raw: &str) -> DocPage {
+- (fn) pub fn load_doc_site(root_dir: &Path) -> io::Result<DocSite> {
+- (fn) pub fn load_doc_site_with_options( root_dir: &Path, title_override: Option<&str>, ) -> io::Result<DocSite> {
+- (mod) pub use r#fn::*;
+
+### viewer
+- (const) pub const DOCS_WINDOW_TITLE: &str = "euv Documentation Viewer";
+- (const) pub const DOCS_WINDOW_WIDTH: u32 = 1200;
+- (const) pub const DOCS_WINDOW_HEIGHT: u32 = 800;
+- (const) pub const DOCS_FLAG_HEADLESS: &str = "--headless";
+- (const) pub const DOCS_FLAG_GENERATE: &str = "--generate";
+- (const) pub const DOCS_FLAG_INTERACTIVE: &str = "--interactive";
+- (fn) pub fn mount_docs_viewer( site: &DocSite, active_route: Signal<String>, search_query: Signal<String>, tokens: ThemeTokens, ) -> NodeId {
+- (fn) pub fn mount_doc_page(page: &DocPage, tokens: ThemeTokens) -> NodeId {
+- (fn) pub fn render_docs_smoke(site: &DocSite, headless: bool) -> Result<FrameStats, PlatformError> {
+- (fn) pub fn render_docs_app( site: &DocSite, headless: bool, interactive: bool, ) -> Result<FrameStats, PlatformError> {
+- (mod) pub use {r#const::*, r#fn::*};
 
-### `lib`
-
-- `fn` **`main`** — `pub fn main() {...}`
-
-### `data::struct`
-
-- `struct` **`DocsFeature`** — `pub(crate) struct DocsFeature {`
-- `struct` **`DocsStat`** — `pub(crate) struct DocsStat {`
-- `struct` **`DocsPage`** — `pub(crate) struct DocsPage {`
-- `struct` **`DocsLocale`** — `pub(crate) struct DocsLocale {`
-- `struct` **`DocsSite`** — `pub(crate) struct DocsSite {`
-- `struct` **`DocsLanguageLink`** — `pub(crate) struct DocsLanguageLink {`
-- `struct` **`DocsRedirect`** — `pub(crate) struct DocsRedirect {`
-
-### `document_html::fn`
-
-- `fn` **`localize_document_html`** — `pub(crate) fn localize_document_html(html: &str, language: &str) -> Option<String> {...}`
-- `fn` **`localize_document_output`** — `pub(crate) fn localize_document_output(out_dir: &Path) -> Result<(), String> {...}`
-
-### `document_language::fn`
-
-- `fn` **`document_language_for_label`** — `pub(crate) fn document_language_for_label(label: &str) -> &'static str {...}`
-
-### `locale::const`
-
-- `const` **`PW_GATE_KEY_HINT`** — `pub(crate) const PW_GATE_KEY_HINT: &str = "docs.password_gate.hint"`
-- `const` **`PW_GATE_KEY_IDLE`** — `pub(crate) const PW_GATE_KEY_IDLE: &str = "docs.password_gate.idle"`
-- `const` **`PW_GATE_KEY_BUSY`** — `pub(crate) const PW_GATE_KEY_BUSY: &str = "docs.password_gate.busy"`
-- `const` **`PW_GATE_KEY_ERROR`** — `pub(crate) const PW_GATE_KEY_ERROR: &str = "docs.password_gate.error"`
-- `const` **`PW_GATE_KEY_LABEL`** — `pub(crate) const PW_GATE_KEY_LABEL: &str = "docs.password_gate.label"`
-- `const` **`PW_GATE_KEY_PLACEHOLDER`** — `pub(crate) const PW_GATE_KEY_PLACEHOLDER: &str = "docs.password_gate.placeholder"`
-- `const` **`DOCS_KEY_DRAWER_OPEN`** — `pub(crate) const DOCS_KEY_DRAWER_OPEN: &str = "docs.drawer.open"`
-- `const` **`DOCS_KEY_DRAWER_CLOSE`** — `pub(crate) const DOCS_KEY_DRAWER_CLOSE: &str = "docs.drawer.close"`
-- `const` **`DOCS_KEY_DRAWER_TITLE`** — `pub(crate) const DOCS_KEY_DRAWER_TITLE: &str = "docs.drawer.title"`
-- `const` **`DOCS_KEY_THEME_TOGGLE`** — `pub(crate) const DOCS_KEY_THEME_TOGGLE: &str = "docs.theme.toggle"`
-- `const` **`DOCS_KEY_SEARCH_LABEL`** — `pub(crate) const DOCS_KEY_SEARCH_LABEL: &str = "docs.search.label"`
-- `const` **`DOCS_KEY_SEARCH_EMPTY`** — `pub(crate) const DOCS_KEY_SEARCH_EMPTY: &str = "docs.search.empty"`
-- `const` **`DOCS_KEY_SEARCH_NONE`** — `pub(crate) const DOCS_KEY_SEARCH_NONE: &str = "docs.search.none"`
-- `const` **`DOCS_KEY_SEARCH_PLACEHOLDER`** — `pub(crate) const DOCS_KEY_SEARCH_PLACEHOLDER: &str = "docs.search.placeholder"`
-- `const` **`DOCS_KEY_SEARCH_COUNT`** — `pub(crate) const DOCS_KEY_SEARCH_COUNT: &str = "docs.search.count"`
-- `const` **`DOCS_SEARCH_COUNT_TOKEN`** — `pub(crate) const DOCS_SEARCH_COUNT_TOKEN: &str = "{count}"`
-- `const` **`DOCS_KEY_CATALOADING`** — `pub(crate) const DOCS_KEY_CATALOADING: &str = "docs.catalog.loading"`
-- `const` **`DOCS_KEY_CATALOG_ERROR`** — `pub(crate) const DOCS_KEY_CATALOG_ERROR: &str = "docs.catalog.error"`
-- `const` **`DOCS_KEY_CATALOG_FILES`** — `pub(crate) const DOCS_KEY_CATALOG_FILES: &str = "docs.catalog.files"`
-- `const` **`DOCS_KEY_CATALOG_SIZE`** — `pub(crate) const DOCS_KEY_CATALOG_SIZE: &str = "docs.catalog.size"`
-- `const` **`DOCS_KEY_CATALOG_UPDATED`** — `pub(crate) const DOCS_KEY_CATALOG_UPDATED: &str = "docs.catalog.updated"`
-- `const` **`DOCS_KEY_CATALOG_RETRY`** — `pub(crate) const DOCS_KEY_CATALOG_RETRY: &str = "docs.catalog.retry"`
-- `const` **`LOCALE_TAGS`** — `pub(crate) const LOCALE_TAGS: [(&str, &str); 4] = [...]`
-- `const` **`PW_GATE_LOCALE_TAG_ZH`** — `pub(crate) const PW_GATE_LOCALE_TAG_ZH: &str = "zh-CN"`
-- `const` **`PW_GATE_LOCALE_TAG_EN`** — `pub(crate) const PW_GATE_LOCALE_TAG_EN: &str = "en-US"`
-- `const` **`PW_GATE_LOCALE_TAG_JA`** — `pub(crate) const PW_GATE_LOCALE_TAG_JA: &str = "ja-JP"`
-- `const` **`PW_GATE_LOCALE_TAG_KO`** — `pub(crate) const PW_GATE_LOCALE_TAG_KO: &str = "ko-KR"`
-- `const` **`LOCALE_TAG_DEFAULT`** — `pub(crate) const LOCALE_TAG_DEFAULT: &str = PW_GATE_LOCALE_TAG_EN`
-- `const` **`LOCALE_LABEL_ZH`** — `pub(crate) const LOCALE_LABEL_ZH: &str = "简体中文"`
-- `const` **`LOCALE_LABEL_EN`** — `pub(crate) const LOCALE_LABEL_EN: &str = "English"`
-- `const` **`LOCALE_LABEL_JA`** — `pub(crate) const LOCALE_LABEL_JA: &str = "日本語"`
-- `const` **`LOCALE_LABEL_KO`** — `pub(crate) const LOCALE_LABEL_KO: &str = "한국어"`
-
-### `locale::fn`
-
-- `fn` **`locale_tag_for`** — `pub fn locale_tag_for(route: &str) -> &'static str {...}`
-- `fn` **`locale_text`** — `pub fn locale_text(route: &str, key: &str) -> String {...}`
-- `fn` **`lookup_table`** — `pub fn lookup_table(tag: &str, key: &str) -> Option<String> {...}`
-- `fn` **`table_for`** — `pub fn table_for(tag: &str) -> &'static [(&'static str, &'static str)] {...}`
-- `fn` **`supported_locale_tags`** — `pub fn supported_locale_tags() -> &'static [&'static str] {...}`
-- `fn` **`gate_translation_keys`** — `pub fn gate_translation_keys() -> &'static [&'static str] {...}`
-- `fn` **`gate_key_hint`** — `pub fn gate_key_hint() -> &'static str {...}`
-- `fn` **`gate_fallback_tag`** — `pub fn gate_fallback_tag() -> &'static str {...}`
-- `fn` **`locale_tag_bindings`** — `pub fn locale_tag_bindings() -> &'static [(&'static str, &'static str)] {...}`
-
-### `route::fn`
-
-- `fn` **`normalize_route`** — `pub fn normalize_route(route: &str) -> String {...}`
-- `fn` **`route_stem`** — `pub fn route_stem(route: &str) -> String {...}`
-- `fn` **`route_candidates`** — `pub fn route_candidates(path: &str) -> Vec<String> {...}`
-- `fn` **`route_variants`** — `pub fn route_variants(route: &str) -> Vec<String> {...}`
-- `fn` **`route_without_locale_prefix`** — `pub fn route_without_locale_prefix(route: &str, locale_prefix: &str) -> String {...}`
-- `fn` **`route_root`** — `pub fn route_root() -> &'static str {...}`
-- `fn` **`route_variant_capacity`** — `pub fn route_variant_capacity() -> usize {...}`
-
-### `route::impl`
-
-- `fn` **`get_route`** — `pub fn get_route(&self) -> &'static str {...}`
-- `fn` **`get_prefix`** — `pub fn get_prefix(&self) -> &'static str {...}`
-- `fn` **`get_locale`** — `pub fn get_locale(&self, route: &str) -> &'static RouteLocale {...}`
-- `fn` **`get_locales`** — `pub fn get_locales(&self) -> &'static [RouteLocale] {...}`
-- `fn` **`get_pages`** — `pub fn get_pages(&self) -> &'static [RoutePage] {...}`
-- `fn` **`new`** — `pub fn new(locales: &'static [RouteLocale], pages: &'static [RoutePage]) -> RouteSite {...}`
-- `fn` **`locale_of`** — `pub fn locale_of(&self, route: &str) -> Option<&'static RouteLocale> {...}`
-- `fn` **`find_page`** — `pub fn find_page(&self, request: &str) -> Option<&'static RoutePage> {...}`
-- `fn` **`audit_route_variants`** — `pub fn audit_route_variants(&self, route: &str) -> Vec<(String, bool)> {...}`
-- `fn` **`find_page_without_locale_prefix`** — `pub fn find_page_without_locale_prefix( &self, route: &str, locale_prefix: &str, ) -> Option<&'static RoutePage> {...}`
-- `fn` **`audit_all_route_variants`** — `pub fn audit_all_route_variants(&self) -> Vec<String> {...}`
-
-### `route::static`
-
-- `static` **`ROUTE_LOCALE_ROOT`** — `pub(crate) static ROUTE_LOCALE_ROOT: RouteLocale = RouteLocale { prefix: ROUTE_ROOT };`
-
-### `route::struct`
-
-- `struct` **`RouteSite`** — `pub struct RouteSite {`
-- `struct` **`RouteLocale`** — `pub struct RouteLocale {`
-- `struct` **`RoutePage`** — `pub struct RoutePage {`
-
-### `router::fn`
-
-- `fn` **`decode_anchor`** — `pub(crate) fn decode_anchor(encoded: &str) -> String {...}`
-- `fn` **`parse_route`** — `pub fn parse_route(raw: &str) -> (String, Option<String>) {...}`
-- `fn` **`same_route_anchor`** — `pub fn same_route_anchor(left: &str, right: &str) -> bool {...}`
-- `fn` **`route_page_matches`** — `pub(crate) fn route_page_matches(path: &str, hash: &str) -> bool {...}`
-- `fn` **`locale_of`** — `pub(crate) fn locale_of(route: &str) -> &'static DocsLocale {...}`
-- `fn` **`find_page`** — `pub(crate) fn find_page(route: &str) -> Option<&'static DocsPage> {...}`
-- `fn` **`flatten_links`** — `pub fn flatten_links(items: &'static [EuvSidebarItem]) -> Vec<&'static EuvSidebarItem> {...}`
-- `fn` **`sidebar_group_key`** — `pub fn sidebar_group_key(prefix: &str, text: &str) -> String {...}`
-- `fn` **`all_group_keys`** — `pub fn all_group_keys(items: &'static [EuvSidebarItem]) -> Vec<String> {...}`
-- `fn` **`site_root`** — `pub(crate) fn site_root() -> String {...}`
-- `fn` **`redirect_foreign_route`** — `pub(crate) fn redirect_foreign_route() -> bool {...}`
-- `fn` **`build_route_site`** — `pub(crate) fn build_route_site() -> RouteSite {...}`
-- `fn` **`leak_locales`** — `pub(crate) fn leak_locales(locales: &'static [DocsLocale]) -> &'static [RouteLocale] {...}`
-- `fn` **`leak_pages`** — `pub(crate) fn leak_pages(pages: &'static [DocsPage]) -> &'static [RoutePage] {...}`
-- `fn` **`route_site`** — `pub fn route_site() -> RouteSite {...}`
-- `fn` **`locale_prefix_for`** — `pub fn locale_prefix_for(route: &str) -> &'static str {...}`
-- `fn` **`locale_label_for`** — `pub fn locale_label_for(route: &str) -> &'static str {...}`
-
-### `router::impl`
-
-- `static` **`ROUTE_SITE`** — `pub static ROUTE_SITE: RouteSite = build_route_site();`
-
-### `bin::docs::fn`
-
-- `fn` **`parse_args`** — `pub(crate) fn parse_args() -> Result<Args, String> {...}`
-- `fn` **`run`** — `pub(crate) fn run(args: &Args) -> Result<(), String> {...}`
-- `fn` **`print_usage`** — `pub(crate) fn print_usage() {...}`
-
-### `bin::docs::struct`
-
-- `struct` **`Args`** — `pub(crate) struct Args {`
-- `struct` **`LocaleManifestEntry`** — `pub(crate) struct LocaleManifestEntry {`
-
-### `component::code_block::view::fn`
-
-- `fn` **`docs_code_block`** — `pub(crate) fn docs_code_block(node: VirtualNode<DocsCodeBlockProps>) -> VirtualNode {...}`
-
-### `component::code_block::view::struct`
-
-- `struct` **`DocsCodeBlockProps`** — `pub(crate) struct DocsCodeBlockProps {`
-
-### `component::doc_page::view::fn`
-
-- `fn` **`docs_main`** — `pub(crate) fn docs_main(node: VirtualNode<DocsPageProps>) -> VirtualNode {...}`
-- `fn` **`docs_doc_page`** — `pub(crate) fn docs_doc_page(node: VirtualNode<DocsPageProps>) -> VirtualNode {...}`
-
-### `component::doc_page::view::struct`
-
-- `struct` **`DocsPageProps`** — `pub(crate) struct DocsPageProps {`
-
-### `component::catalog::view::const`
-
-- `const` **`ERROR_CATALOG_ENCODING`** — `pub const ERROR_CATALOG_ENCODING: &str = "The catalog response is not UTF-8"`
-- `const` **`ERROR_CATALOG_SHAPE`** — `pub const ERROR_CATALOG_SHAPE: &str = "The catalog response has an unexpected shape"`
-- `const` **`CATALOG_URL`** — `pub const CATALOG_URL: &str = "/api/page-artifacts"`
-- `const` **`CATALOG_CARD_CLASS`** — `pub const CATALOG_CARD_CLASS: &str = "docs-catalog-card"`
-- `const` **`CATALOG_LINK_TEMPLATE`** — `pub const CATALOG_LINK_TEMPLATE: &str = "/pages/{name}/"`
-- `const` **`HYPHEN`** — `pub const HYPHEN: u8 = b'-'`
-- `const` **`HYPHEN_CHAR`** — `pub const HYPHEN_CHAR: char = '-'`
-- `const` **`ORG_REPO_SEPARATOR`** — `pub const ORG_REPO_SEPARATOR: char = '/'` (added in 0.37.15: the separator a safe artifact name may carry between its organization and its repository; `is_safe_artifact_name` splits on it and accepts at most two segments)
-- `const` **`CATALOG_ROLE_STATUS`** — `pub const CATALOG_ROLE_STATUS: &str = "status"`
-- `const` **`CATALOG_BUTTON_TYPE`** — `pub const CATALOG_BUTTON_TYPE: &str = "button"`
-
-### `component::catalog::view::fn`
-
-- `fn` **`docs_catalog`** — `pub(crate) fn docs_catalog(node: VirtualNode<DocsCatalogProps>) -> VirtualNode {...}`
-- `fn` **`parse_catalog`** — `pub fn parse_catalog(bytes: &[u8]) -> Result<DocsCatalog, String> {...}`
-
-### `component::catalog::view::struct`
-
-- `struct` **`DocsCatalogArtifact`** — `pub struct DocsCatalogArtifact {`
-- `struct` **`DocsCatalog`** — `pub struct DocsCatalog {`
-- `struct` **`DocsCatalogProps`** — `pub(crate) struct DocsCatalogProps {`
-
-### `component::mermaid::view::fn`
-
-- `fn` **`docs_mermaid`** — `pub(crate) fn docs_mermaid(node: VirtualNode<DocsMermaidProps>) -> VirtualNode {...}`
-
-### `component::mermaid::view::struct`
-
-- `struct` **`DocsMermaidProps`** — `pub(crate) struct DocsMermaidProps {` — carries the rendered inline SVG of one diagram.
-
-### `component::header::view::fn`
-
-- `fn` **`docs_header`** — `pub(crate) fn docs_header( locale: &'static DocsLocale, route_signal: Signal<String>, theme_signal: Signal<String>, search_query: Signal<String>, mobile_signal: Signal<bool>, ) -> VirtualNode {...}`
-
-### `component::home_page::view::fn`
-
-- `fn` **`docs_home_page`** — `pub(crate) fn docs_home_page(node: VirtualNode<DocsPageProps>) -> VirtualNode {...}`
-- `fn` **`docs_stats_row`** — `pub(crate) fn docs_stats_row(node: VirtualNode<DocsStatsRowProps>) -> VirtualNode {...}`
-- `fn` **`docs_feature_card`** — `pub(crate) fn docs_feature_card(node: VirtualNode<DocsFeatureProps>) -> VirtualNode {...}`
-- `fn` **`docs_feature_grid`** — `pub(crate) fn docs_feature_grid(node: VirtualNode<DocsFeatureGridProps>) -> VirtualNode {...}`
-
-### `component::home_page::view::struct`
-
-- `struct` **`DocsFeatureProps`** — `pub(crate) struct DocsFeatureProps {`
-- `struct` **`DocsFeatureGridProps`** — `pub(crate) struct DocsFeatureGridProps {`
-- `struct` **`DocsStatsRowProps`** — `pub(crate) struct DocsStatsRowProps {`
-
-### `component::layout::drawer::fn`
-
-- `fn` **`use_docs_responsive_scope`** — `pub(crate) fn use_docs_responsive_scope(context: HookContext, mobile: Signal<bool>, owner: bool) {...}`
-- `fn` **`use_docs_drawer_modal`** — `pub(crate) fn use_docs_drawer_modal( drawer_open: Signal<bool>, locale_menu_open: Signal<bool>, mobile: Signal<bool>, ) {...}`
-- `fn` **`dismiss_docs_drawer`** — `pub(crate) fn dismiss_docs_drawer(drawer_open: Signal<bool>) {...}`
-
-### `component::layout::drawer::type`
-
-- `type` **`DocsDrawerModalState`** — `pub(crate) type DocsDrawerModalState = Rc<( Cell<bool>, RefCell<Option<HtmlElement>>, Cell<Option<i32>>, Cell<Option<i32>>, )>;`
-
-### `component::layout::view::fn`
-
-- `fn` **`app`** — `pub(crate) fn app() -> VirtualNode {...}`
-- `fn` **`docs_desktop_shell`** — `pub(crate) fn docs_desktop_shell(node: VirtualNode<DocsShellProps>) -> VirtualNode {...}`
-- `fn` **`docs_mobile_shell`** — `pub(crate) fn docs_mobile_shell(node: VirtualNode<DocsShellProps>) -> VirtualNode {...}`
-- `fn` **`theme_icon_node`** — `pub(crate) fn theme_icon_node(theme_signal: Signal<String>) -> VirtualNode {...}`
-
-### `component::layout::view::struct`
-
-- `struct` **`DocsShellProps`** — `pub(crate) struct DocsShellProps {`
-
-### `component::markdown::view::fn`
-
-- `fn` **`docs_markdown`** — `pub(crate) fn docs_markdown(blocks: &'static [EuvMdBlock]) -> VirtualNode {...}`
-
-### `component::not_found::view::fn`
-
-- `fn` **`docs_not_found`** — `pub(crate) fn docs_not_found(node: VirtualNode<DocsPageProps>) -> VirtualNode {...}`
-
-### `component::password_gate::view::fn`
-
-- `fn` **`docs_password_gate`** — `pub(crate) fn docs_password_gate(node: VirtualNode<DocsPasswordGateProps>) -> VirtualNode {...}`
-- `fn` **`is_unlocked`** — `pub(crate) fn is_unlocked(route: &str) -> bool {...}`
-
-### `component::password_gate::view::struct`
-
-- `struct` **`DocsPasswordGateProps`** — `pub(crate) struct DocsPasswordGateProps {`
-
-### `component::site_footer::view::fn`
-
-- `fn` **`docs_footer_props`** — `pub(crate) fn docs_footer_props( locale: &DocsLocale, page: Option<&DocsPage>, site: &DocsSite, ) -> EuvFooterProps {...}`
-- `fn` **`docs_site_footer`** — `pub(crate) fn docs_site_footer(node: VirtualNode<DocsSiteFooterProps>) -> VirtualNode {...}`
-
-### `component::site_footer::view::struct`
-
-- `struct` **`DocsSiteFooterProps`** — `pub(crate) struct DocsSiteFooterProps {`
-
-### `description::fn`
-
-- `fn` **`description_for_slug`** — `pub(crate) fn description_for_slug(slug: &str) -> Option<&'static str> {...}`
-- `fn` **`route_slug`** — `pub(crate) fn route_slug(route: &str) -> &str {...}`
-- `fn` **`description_for_route`** — `pub(crate) fn description_for_route(route: &str) -> Option<&'static str> {...}`
-
-### `highlight::enum`
-
-- `enum` **`CodeTokenKind`** — `pub(crate) enum CodeTokenKind {`
-- `enum` **`CodeLanguage`** — `pub(crate) enum CodeLanguage {`
-
-### `highlight::fn`
-
-- `fn` **`tokenize`** — `pub(crate) fn tokenize(lang: &str, code: &str) -> Vec<CodeToken> {...}`
-- `fn` **`highlighted_html`** — `pub(crate) fn highlighted_html(lang: &str, code: &str) -> String {...}`
-- `fn` **`token_class`** — `pub(crate) fn token_class(kind: CodeTokenKind) -> Option<&'static str> {...}`
-
-### `highlight::struct`
-
-- `struct` **`CodeToken`** — `pub(crate) struct CodeToken {`
-
-### `component::header::preview::fn`
-
-- `fn` **`header_search_preview`** — `pub(crate) fn header_search_preview( route_signal: Signal<String>, query: Signal<String>, state: Signal<HeaderSearchState>, input_id: String, target: NodeRef<Element>, ) -> VirtualNode {...}`
-
-### `component::header::search::fn`
-
-- `fn` **`header_search_matches`** — `pub(crate) fn header_search_matches(pages: &[DocsPage], query: &str) -> Vec<DocsPage> {...}`
-- `fn` **`header_search_focus`** — `pub(crate) fn header_search_focus(state: Signal<HeaderSearchState>) {...}`
-- `fn` **`header_search_select`** — `pub(crate) fn header_search_select( route_signal: Signal<String>, query: Signal<String>, state: Signal<HeaderSearchState>, route: &'static str, ) {...}`
-
-### `component::header::search::impl`
-
-- `fn` **`focus`** — `pub(crate) fn focus(&mut self) {...}`
-- `fn` **`dismiss`** — `pub(crate) fn dismiss(&mut self) {...}`
-- `fn` **`key`** — `pub(crate) fn key( &mut self, key: &str, composing: bool, results: &[DocsPage], ) -> (bool, Option<&'static str>) {...}`
-
-### `component::header::search::struct`
-
-- `struct` **`HeaderSearchState`** — `pub(crate) struct HeaderSearchState {`

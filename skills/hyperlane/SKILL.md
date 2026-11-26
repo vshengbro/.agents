@@ -55,7 +55,7 @@ the last is what a consumer can install.
 `hyperlane-performance` is the harness crate and a **workspace member** (twelve
 packages in total) — see [Benchmark](references/bench.md). `hyperlane-macros` has
 a second, older release line: `23.0.21` depends on `hyperlane ^21.3.6` and
-`syn ^2.0.119` while the workspace uses `syn ^3.0.6`, and `23.0.21` is the highest
+`syn ^2.0.119` while the workspace pins `syn 3.0.10`, and `23.0.21` is the highest
 number on the registry, so a plain `cargo add hyperlane-macros` resolves to that
 stale line — pin the workspace version.
 

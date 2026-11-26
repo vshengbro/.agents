@@ -1,107 +1,89 @@
----
-synced_from: docs-pages/src/euv/usage-introduction/platform.md@0c74235
-sync_method: scripts/sync-references.sh
-sync_date: 2026-08-16
----
+# Platforms, window and OS integration
 
-<!--
-This file is auto-synced from the upstream docs-pages repo.
-Manual edits will be overwritten on the next sync. To pin a custom version
-of this reference, add "# manual override:" to its mapping line and the
-script will leave it alone.
--->
+Source: `core/src/platform/`, `core/src/window/`, `core/src/system/` at
+`origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
 
+euv talks to the OS **directly** — no WebView, no browser shell, no Tauri. One
+`euv-core` runtime compiles for all seven targets and swaps only the
+`PlatformBackend` implementation.
 
-<Share colorful />
+## `PlatformKind` and the backends
 
-euv 框架基于 `web-sys` 和 `wasm-bindgen` 提供浏览器 API 访问能力。浏览器 API 类型需通过 `use euv::*` 使用，无需单独引入 `web-sys`、`js-sys`、`wasm-bindgen`、`wasm-bindgen-futures` 或 `console_error_panic_hook`。
+| `PlatformKind` | triple | backend / API |
+|---|---|---|
+| `Web` | `wasm32-unknown-unknown` | DOM Canvas 2D / WebGPU / WebGL2 via `web-sys` |
+| `Android` | `aarch64-linux-android` | NDK `ANativeWindow` + `AInput`, Vulkan / GLES |
+| `Ios` | `aarch64-apple-ios` | `libobjc` + UIKit, Metal |
+| `IpadOs` | `aarch64-apple-ios` | UIKit + Stage Manager / Apple Pencil, Metal |
+| `MacOs` | `aarch64-apple-darwin`, `x86_64-apple-darwin` | `libobjc` + AppKit `NSWindow`, CoreGraphics, `CAMetalLayer` |
+| `Windows` | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | Win32 `user32`/`gdi32`/`kernel32`, Direct3D 12/11 |
+| `Linux` | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | runtime `dlopen` of Wayland and X11, Vulkan / OpenGL |
+| `Headless` | any | deterministic offscreen surface for parity tests and benchmarks |
 
-## euv 重新导出的依赖
+`DeviceFormFactor` (`Desktop`, `Tablet`, `Phone`, `Browser`, `Headless`) drives
+adaptive layout; on iPadOS the UIKit idiom is detected through
+`UIDevice.userInterfaceIdiom`.
 
-`euv` crate 重新导出了 WASM 生态常用的所有 crate，所有内容可通过 `use euv::*` 直接访问：
+## Window handles
 
-| 路径                            | 来源 crate                                    | 说明                                                                                                    |
-| ------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `euv::*`                        | 框架核心（`App`、`Signal`、`VirtualNode` 等） | 框架核心类型和宏                                                                                        |
-| `euv::wasm_bindgen::prelude::*` | `wasm-bindgen`                                | `#[wasm_bindgen]` 宏、`JsCast` 等                                                                       |
-| `euv::wasm_bindgen_futures::*`  | `wasm-bindgen-futures`                        | `spawn_local`、`JsFuture`、`future_to_promise` 等                                                       |
-| `euv::js_sys::*`                | `js-sys`                                      | `Promise`、`Function`、`Array`、`JSON`、`Date`、`Math`、`Object` 等 JS 绑定类型                         |
-| `euv::web_sys::*`               | `web-sys`                                     | `Window`、`Document`、`HtmlElement`、`Event`、`Storage`、`Location`、`Navigator` 等 DOM/浏览器 API 类型 |
-| `euv::console_error_panic_hook` | `console_error_panic_hook`                    | `set_once()` 在浏览器控制台显示 panic 信息，开发时必须调用                                              |
+`App::raw_window_handle()` returns a `RawWindowHandle` — `AppKit { ns_window,
+ns_view, metal_layer }`, `UiKit { ui_window, ui_view, metal_layer, is_ipad }`,
+`Win32 { hwnd, hinstance }`, `Xlib { window, display }`, `Wayland { surface,
+display }`, `AndroidNdk { native_window }`, `WebCanvas { canvas_id }` or
+`Headless`. It exists so a caller can create its own GPU surface; it is **not**
+a raw-window-handle crate dependency.
 
-```rust
-use euv::*;
-
-// 框架核心
-let signal: Signal<i32> = App::use_signal(|| 0);
-
-// wasm-bindgen
-use euv::wasm_bindgen::prelude::*;
-
-// wasm-bindgen-futures
-spawn_local(async move { /* ... */ });
-
-// js-sys
-let promise: Promise = window.fetch_with_str("...");
-
-// web-sys
-let document: Document = window().unwrap().document().unwrap();
-
-// console_error_panic_hook
-console_error_panic_hook::set_once();
-```
-
-## Window 和 Document
+## `AppConfig` / `WindowConfig` / `WindowState`
 
 ```rust
-use euv::{web_sys::*, *};
-
-let win: Window = window().expect("no global window exists");
-let doc: Document = win.document().expect("should have a document");
+let mut window: WindowConfig = WindowConfig::default();
+window
+    .set_title("Hello euv".to_string())
+    .set_size(1024, 720)
+    .set_render(RenderConfig::default());
+let mut config: AppConfig = AppConfig::default();
+config.set_window(window);
+let mut app: App = App::new(config)?;          // native host backend
+let mut app: App = App::headless(config)?;     // deterministic offscreen
+let mut app: App = App::with_platform(config, Box::new(HeadlessPlatform::emulating(
+    PlatformKind::Android, 1.0, SafeAreaInsets::default(),
+)))?;                                          // emulate another platform
 ```
 
-## 导航与路由
+`WindowConfig` carries `title`, `width`/`height`, `min_size`/`max_size`,
+`position`, `resizable`, `decorations`, `transparent`, `always_on_top`,
+`fullscreen: FullscreenMode`, `immersive`, `visible`, `render: RenderConfig`,
+`orientation: OrientationLock`, `status_bar: StatusBarStyle`,
+`preferred_theme: Option<ThemeMode>`, `icon`/`icon_path`. Setters are generated
+by `lombok-macros` and return `&mut Self` for chaining.
 
-```rust
-let win: Window = window().expect("no global window exists");
-let location: Location = win.location();
+`App` exposes live state through the same generated getters:
+`get_window_state()`, `get_platform_kind()`, `get_platform_capabilities()`,
+`get_running()`, `get_last_rendered_revision()`, `get_deep_link()`.
 
-// 获取当前 hash 路由
-let hash: String = location.hash().unwrap_or_default();
+## Imperative window commands
 
-// 设置 hash 路由（页面导航）
-let _ = location.set_hash("#/about");
-```
+`App::queue_window_command(WindowCommand)` defers OS work to the frame loop
+(never mutate the OS window from inside a render closure):
 
-## 本地存储
+`SetTitle`, `SetSize`, `SetPosition`, `SetResizable`, `SetDecorations`,
+`SetAlwaysOnTop`, `SetFullscreen`, `SetVisible`, `SetCursor`, `SetIme`,
+`SetStatusBarStyle`, `RequestRedraw`, `SetRenderMode`, `Close` — each takes the
+target `WindowId`.
 
-```rust
-let win: Window = window().expect("no global window exists");
-let storage: Option<Storage> = win.local_storage().unwrap_or_default();
+## Services and system integration
 
-if let Some(storage) = storage {
-    // 写入
-    let _ = storage.set_item("key", "value");
-    // 读取
-    let value: Option<String> = storage.get_item("key").unwrap_or_default();
-    // 删除
-    let _ = storage.remove_item("key");
-}
-```
+`core/src/system/` holds `a11y` (`A11yTree`, `A11yProps`, `A11yRole`),
+`capabilities`, `permissions` and `protocol` (custom scheme / universal link
+registration). `App::a11y_tree()` snapshots the semantic tree, and incoming
+deep links arrive on the `deep_link` signal.
 
-## 异步操作
+`PlatformServiceHub` covers the platform-native extras: Dynamic Island,
+haptics, tray, protocol registration and permission prompts.
 
-使用 `spawn_local`（`euv` 重新导出的 `wasm_bindgen_futures::spawn_local`）在 WASM 中执行异步任务：
+## Safe areas and DPI
 
-```rust
-spawn_local(async move {
-    // 异步操作，如 fetch 请求
-    // 完成后通过信号更新 UI
-});
-```
-
-> [!tip]
->
-> 所有浏览器 API 通过 `web-sys` crate 访问，`euv` 在 `Cargo.toml` 中已预启用 60+ 个 `web-sys` 特性（包括 `Window`、`Document`、`Storage`、`Clipboard`、`Navigator`、`FileReader`、`FileList`、`IntersectionObserver`、`console` 等），并通过 `use euv::{web_sys::*, *}` 统一导出。
-
-<Bottom />
+`SafeAreaInsets` and `DisplayInfo` ride on `WindowState`; `euv-ui`'s
+`use_window()` hook returns `(Signal<SafeAreaInsets>, Signal<ThemeMode>)` so a
+view can pad itself without reading the platform directly. DPI scaling is
+applied by the layout engine — pass **logical** pixels to `set_size`.
