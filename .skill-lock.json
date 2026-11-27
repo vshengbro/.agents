@@ -14,8 +14,8 @@
       "sourceType": "well-known",
       "skillPath": "skills/agently-mail/SKILL.md",
       "installedAt": "2026-10-07T12:04:08.990Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "40f9d9883a528839115f20e0325d56d054f9345f",
+      "updatedAt": "2026-11-27T12:08:02.457Z",
+      "skillFolderHash": "03b6b8275524c2fd3a3e1bfc4e2ef55547355867",
       "sourceUrl": "https://agent.qq.com/.well-known/skills/agently-mail/SKILL.md"
     },
     "android-native-dev": {
@@ -33,8 +33,8 @@
       "sourceType": "local",
       "skillPath": "skills/apple/apple-notes/SKILL.md",
       "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "fc8182662f3e176b276cfcf2fe0af8446db16cb8"
+      "updatedAt": "2026-11-27T12:08:02.457Z",
+      "skillFolderHash": "1e25b2ebf5d2b8975cd621f280f90ae7c4edddc8"
     },
     "blender": {
       "source": "local",
