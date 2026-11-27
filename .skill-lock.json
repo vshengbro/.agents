@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -1204,6 +1204,14 @@
       "subpath": ".claude/skills",
       "upstreamCommit": "904f095d8f36a6e72adaebb08d07f884a074743d"
     },
+    "commerce-suite": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/commerce-suite/SKILL.md",
+      "installedAt": "2026-11-27T02:25:56.210Z",
+      "updatedAt": "2026-11-27T02:25:56.210Z",
+      "skillFolderHash": "b57ea6b00a03cd6cf4eb5c533db1a3280e7c4bce"
+    },
     "computer-use": {
       "source": "local",
       "sourceType": "local",
@@ -1212,13 +1220,21 @@
       "updatedAt": "2026-10-23T03:29:33.126Z",
       "skillFolderHash": "66c55d211e20bfc1cfdf461ab536aa0a27a0bd85"
     },
+    "ctares": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/ctares/SKILL.md",
+      "installedAt": "2026-11-27T02:25:56.210Z",
+      "updatedAt": "2026-11-27T02:25:56.210Z",
+      "skillFolderHash": "1e210bbed5a0eb01f43b734c63ae36898f857d1b"
+    },
     "euv": {
       "source": "local",
       "sourceType": "local",
       "skillPath": "skills/euv/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-26T14:15:29.445Z",
-      "skillFolderHash": "0d59727360773cfeed69becaf582aa70bc5c89c9"
+      "updatedAt": "2026-11-27T02:25:56.210Z",
+      "skillFolderHash": "d44cc600eea51e669417fc51edfae691edc0d5ed"
     },
     "euv-ui-standards": {
       "source": "local",
@@ -1289,8 +1305,16 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-26T14:15:29.445Z",
-      "skillFolderHash": "6d45d7307eccd3b2362240d92918a88bc8fc8db4"
+      "updatedAt": "2026-11-27T02:25:56.210Z",
+      "skillFolderHash": "6c00c250b60f480b59f3338ab53915c4fb6f65a2"
+    },
+    "hyperlane-quick-start": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/hyperlane-quick-start/SKILL.md",
+      "installedAt": "2026-11-27T02:25:56.210Z",
+      "updatedAt": "2026-11-27T02:25:56.210Z",
+      "skillFolderHash": "c325104417ea9936a4ba23683b37a6dece3aacdd"
     },
     "hyperlane-upload": {
       "source": "local",
@@ -1665,8 +1689,8 @@
       "sourceType": "local",
       "skillPath": "skills/rust-standards/SKILL.md",
       "installedAt": "2026-07-10T13:50:00.000Z",
-      "updatedAt": "2026-11-21T14:50:31.266Z",
-      "skillFolderHash": "7fc62192d989d2e359da71cf4d83108b5d7e77f7"
+      "updatedAt": "2026-11-27T02:25:56.210Z",
+      "skillFolderHash": "3ab2a90d27217eaba5c73bfafed4900d452c2800"
     },
     "rust-standards-directory-move-contradiction": {
       "source": "local",

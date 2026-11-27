@@ -7,113 +7,59 @@ metadata:
     related_skills: [rust-standards, euv-ui-standards, git-standards]
 ---
 
-# euv framework entry
+# euv workspace standards and workflow
 
-## Shortest path
+## Mandatory Standards
 
-1. Resolve the target version and workspace with `cargo metadata --no-deps
-   --format-version 1`; do not assume unreleased local APIs exist in a
-   published package. `origin/master` is at **0.39.1** (`aac1c450`).
-2. Load `rust-standards` plus exactly the relevant row below, not the whole
-   API corpus.
-3. euv is a **7-platform direct-OS-API framework** since #359: no WebView, no
-   DOM, no CSS and no virtual DOM. `view!` builds a retained scene graph;
-   `html!`/`class!`/`vars!` no longer exist and HTML tags are a compile error.
-4. `App::new(AppConfig)?` / `App::headless(…)` / `App::with_platform(…)` create
-   the runtime; `app.mount(|| -> NodeId)` takes a closure returning `NodeId`
-   (not a selector string). `Signal::new(v)` is a plain constructor — there is
-   no `use_signal` associated method any more.
-5. Read the component and `view!` expansion before editing
-   (`core/src/scene/tree/impl.rs`, `macros/src/view/`), and follow a
-   neighboring shape; never invent props or syntax from another framework.
-6. Verify the rendered path, not only a unit test: `cargo run -p euv-example --
-   --headless --software` and compare `FrameStats::frame_hash` across platforms.
+1. Load `rust-standards` before editing any `.rs` or `Cargo.toml` file; load `euv-ui-standards` for `euv-ui` work. Resolve authoritative crate membership and version from `Cargo.toml` / `cargo metadata --no-deps --format-version 1`.
+2. `euv` is a **7-platform direct-OS-API native Rust UI framework** (Web, Android, iOS, iPadOS, macOS, Windows, Linux) with zero WebView, zero DOM, and zero virtual DOM. `euv-ui` is a separate crate not re-exported by root `euv`.
+3. Enforce declarative macro discipline (`AGENTS.md` §1):
+   - Never embed multi-line business logic, event handlers, canvas painters, or reactive closures inline inside `view!` or other macros; bind them to sibling `let` variables or helper `fn`s first.
+   - `style! { ... }` uses one rule per line with **no semicolons** (`;` is a compile error).
+   - Preserve IDE go-to-definition bindings (`euv::view_elements`, `euv::style_props`, direct component type spans) and never emit `use` statements inside proc-macro bodies (`TextNodeContent` UFCS only).
+   - Use ambient framework-managed `Context` (zero explicit `in ctx`), `#[component(retention = Freeze)]`, and `PageRetention::Freeze` for inactive routes.
+4. Enforce UI & rendering invariants (`AGENTS.md` §2):
+   - Zero-overshoot monotonic easing (`EaseOutQuint`/`EaseOutCubic`) and floating interactive drag grabbers on drawers and sheets.
+   - Unified full-width dropdown triggers matching popup menu widths 1:1.
+   - `Overflow::Hidden` on card/bubble/alert containers and explicit width/shrink constraints on wrapped text so zero horizontal overflow occurs from `360px` to `4K`.
+   - Native monospace glyphs and exact VS Code Eva Light/Dark Bold styling in `EuvCodeBlock`; zero `#[inline]` in WASM `cdylib` crates.
+5. Keep `euv fmt` layered on `crate-cli`: `euv fmt` MUST invoke `crate_cli::execute_unified_fmt` (Prettier-aligned `.md`/`.yml`/`.json`/`.toml` + Rust derives + `cargo fmt`) first, then `format_workspace_macros` and `cargo fmt --all`.
 
-## Load by task
+## Verification Workflow
 
-| Task | Reference |
-|---|---|
-| `view!`/`style!`/`tokens!`/`watch!`/`computed!`/`euv_main!` syntax | [Macros](references/api-macros.md) |
-| Signal, Memo, Effect, Scope, Selector, batch | [Reactivity](references/reactive.md) |
-| Scene graph, `BuildContext`, events, dynamic OTA slots | [Scene](references/scene.md) |
-| Deterministic layout, `Style`, `Length`, breakpoints | [Layout](references/layout.md) |
-| `RenderMode`, backends, frame loop, pixel parity | [Rendering](references/render.md) |
-| `PlatformKind`, window config/commands, safe area, services | [Platform](references/platform.md) |
-| `euv-ui` schemes, tokens, components, hooks, router | [UI](references/theme.md) |
-| Core runtime full pub API | [Core API](references/api-core.md) |
-| `euv-ui` full pub API | [UI API](references/api-ui.md) |
-| CLI subcommands, targets, dev/OTA server | [CLI API](references/api-cli.md) |
-| Docs crate and static site generation | [Docs API](references/api-docs.md) |
-| Dev automation and the AI schema protocol | [Automation API](references/api-automation.md) |
-| Benchmark suite | [Performance API](references/api-performance.md) |
-| Symptom-first diagnosis | [Pitfalls](references/pitfalls.md) |
-| euv UI layout, class registry and visual verification | [UI standards](../euv-ui-standards/SKILL.md) |
+Run every gate locally before committing or pushing:
 
-Reference pages are cached documentation, **not authority over the source or compiler**.
+```sh
+cargo run -p euv-cli -- fmt
+cargo run -p euv-cli -- fmt
+cargo run -p euv-cli -- fmt --check
+cargo fmt --all -- --check
+cargo clippy -p euv-ui --no-default-features --all-targets -- -D warnings
+cargo clippy --all-features --workspace --all-targets -- -D warnings
+cargo clippy --manifest-path performance/Cargo.toml --all-targets -- -D warnings
+cargo test -p euv-ui --no-default-features
+cargo test -p euv-ui --features theme-shadcn
+cargo test --all-features --workspace
+cargo test --manifest-path performance/Cargo.toml
+python3 ~/.agents/skills/rust-standards/scripts/staged_file_gate.py .
+python3 ~/.agents/skills/rust-standards/scripts/verify_dep_order.py .
+```
 
-## Workspace shape
+Also run 7-target `RUSTFLAGS="-D warnings" cargo check -p euv-core -p euv -p euv-ui`, headless smokes (`euv-example --headless --software`, `euv-docs --headless`, `euv-cli doctor`), and visual screenshot verification on Web/Android/iOS for UI changes.
 
-`cargo metadata` is authoritative for membership. Nine packages: the root `euv`
-facade (`src/lib.rs` = `pub use {euv_core::*, euv_macros::*}`) plus `euv-core`,
-`euv-macros`, `euv-ui`, `euv-automation`, `euv-docs`, `euv-cli`, `euv-example`
-and `euv-performance`.
+## Release Workflow
 
-- `euv-core` owns the runtime: `app`, `dynamic`, `font`, `game`, `layout`,
-  `media`, `platform`, `reactive`, `render`, `scene`, `style`, `system`,
-  `window`. It depends only on `serde`, `serde_json`, `lombok-macros` and
-  (wasm-only) `js-sys`/`web-sys`/`wasm-bindgen`.
-- **`euv-ui` is not re-exported by the root crate** — add it separately.
-  It ships 17 `theme-*` features plus `default`; there is no `theme-custom`.
-  Features only pick the compile-time default scheme (`active_feature_scheme`);
-  all 17 resolve at runtime through `ThemeTokens::resolve`.
-- **Gone in 0.39:** the `euv-engine` and `euv-chart` crates (game/3D code now
-  lives in `euv_core::game`), the DOM `fetch` module, the `html!`/`class!`/
-  `vars!`/`component` macros, the CLI `bundle`/`--all`/`--platforms` surface,
-  the multi-locale `docs/build.rs` pipeline, and the lombok re-export from the
-  `euv` root.
+`euv` is **Tier 2** (depends on published `ctares` crates `crate-cli` and `lombok-macros`):
 
-**Check the registry before pinning a version.** CI publishes each member
-separately with `crate publish`, so a new member is not installable until its
-own publish step ran. The committed tree and the registry agree right now:
-`origin/master` is `0.39.1` and all nine members are published at `0.39.1`
-(crates.io API, checked one by one). `euv-chart` and `euv-engine` are frozen at
-`0.37.15`.
+1. Wait until upstream `ctares` is live on `crates.io`, then upgrade `crate-cli` and `lombok-macros` in root `Cargo.toml`.
+2. Bump `[workspace.package].version`, internal `[workspace.dependencies]` pins, and mobile/web build scripts (`scripts/build/build-android-apk.sh`, `build-ios-sim.sh`, `build-web.sh`).
+3. Verify all local gates pass, validate English-only commit/PR text via `verify_english_only.py`, ship to `master`, and wait until `.github/workflows/rust.yml` (`check`, `tests`, `clippy`, `build`, `publish`, `release`) completes green.
 
-## CLI and scripts
+## Documentation & Skill Governance
 
-`cargo run -p euv-cli -- <cmd>`: `run`, `dev`, `docs`, `build`, `check`, `fmt`,
-`doctor`, `new`. Targets are `--target <web|android|ios|ipad|macos|windows|
-linux|native|all>`; `--render <auto|software|hardware|hybrid>`; every command
-that spawns Cargo accepts `--plan` to print the plan instead. `dev` serves HMR
-at `/__euv_hmr` and Dynamic-WASM OTA at `/__euv_ota/manifest.json`.
+- Update root `README.md`, `<crate>/README.md`, `docs/`, and `AGENTS.md` whenever adding crates, macros, UI components, CLI flags, or scripts.
+- Keep `.agents/skills/euv/SKILL.md` and `~/.agents/skills/euv/SKILL.md` synchronized and strictly limited to standards, requirements, and workflows (`<= 160` lines); run `audit_skills.py` and `update_skill_lock.py` after edits.
 
-`scripts/` holds the environment and delivery helpers: `env/setup-{rust,web,
-apple,android,all}.sh`, `env/doctor.sh`, `build/build-{web,ios-sim,
-android-apk}.sh`, `test/e2e-all.sh`, `bench/stress-bench.sh`.
+## Reference Index
 
-## What CI runs
-
-`.github/workflows/rust.yml` defines the jobs; knowing which covers a change
-saves a failed local guess.
-
-| Job | What it runs |
-|---|---|
-| **setup** | reads the root `Cargo.toml` version and derives the `v<version>` tag |
-| **check** | `cargo fmt --all -- --check` |
-| **tests** | `cargo test -p euv-ui`, then `--no-default-features`, then `--features theme-shadcn`; `cargo test --all-features --workspace`; the performance crate via its own manifest |
-| **clippy** | `cargo clippy -p euv-ui --no-default-features --all-targets -- -D warnings`, `--all-features --workspace --all-targets`, and the performance crate |
-| **build** | `RUSTFLAGS="-D warnings" cargo check -p euv-core -p euv -p euv-ui` for all 7 triples, then headless smoke (`euv-example`, `euv-docs`), `euv-cli doctor`, `euv-cli build --target all --plan`, `scripts/bench/stress-bench.sh` and the release benchmark report |
-| **package-*** | `build-apk.yml` (Android arm64 APK) and `build-clients.yml` (macOS/Windows/Linux, Web WASM, iOS-Simulator) attach release assets |
-| **publish / release** | a tagged `master` push after `check`, `tests`, `clippy`, `build`: `crate publish` in dependency order, then a GitHub release with the multi-platform installers |
-
-## Delivery constraints
-
-- Code changes in a publishable workspace include a version increment. Change
-  only the root `Cargo.toml` version; CI synchronizes members and dependencies,
-  so never hand-edit dependency pins or run a second local version-sync path.
-- Keep host-only checks honest: wasm-gated modules compile only for
-  `wasm32-unknown-unknown`, which is one of the 7 triples CI checks.
-- Use existing public APIs for integration tests; never widen visibility solely
-  for tests. Use constant-based paths, routes and selectors.
-- Follow [Git policy](../git-standards/SKILL.md) for delivery. Pure Git, generic
-  Rust or Hyperlane work with no euv UI implementation is not this entry point.
+Consult cached reference docs only as secondary lookup (source and compiler remain authoritative): [Macros](references/api-macros.md) · [Reactivity](references/reactive.md) · [Scene](references/scene.md) · [Layout](references/layout.md) · [Rendering](references/render.md) · [Platform](references/platform.md) · [UI](references/theme.md) · [Core API](references/api-core.md) · [UI API](references/api-ui.md) · [CLI API](references/api-cli.md) · [Docs API](references/api-docs.md) · [Automation](references/api-automation.md) · [Performance](references/api-performance.md) · [Pitfalls](references/pitfalls.md) · [UI Standards](../euv-ui-standards/SKILL.md).
