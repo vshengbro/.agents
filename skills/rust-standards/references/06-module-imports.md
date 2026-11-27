@@ -7,12 +7,13 @@
 - 空行分隔不同类型的导入
 - 同类需要聚合(当前 crate / 本地其他 crate / 标准库 / 第三方)
 - 按顺序书写导入:
-  1. `mod` 声明(普通子模块名)**—— 这一组内禁止空行**(所有 `mod xxx;` 紧贴,不分段)
-  2. `pub use`(子模块 glob)
-  3. `pub use`(外部 crate glob)
-  4. `pub(crate) use`
-  5. `pub(super) use`
-  6. `use` 私有导入
+  1. `mod` 声明(普通子模块名)**—— 这一组内禁止空行**(所有普通 `mod xxx;` 紧贴,不分段;含非测试条件属性如 `#[cfg(target_os = "linux")] mod uring;`、`#[cfg(not(test))] mod prod;`)
+  2. `#[cfg(test)]` 模块声明(如 `#[cfg(test)] #[path = "../tests/mod.rs"] mod tests;`)**—— 必须紧跟在所有普通 `mod` 声明之后,且与普通 `mod` 之间有且仅有一个空行**;多个 `#[cfg(test)]` 模块彼此紧贴,其后与 `pub use` / `use` 之间保留一个空行
+  3. `pub use`(子模块 glob)
+  4. `pub use`(外部 crate glob)
+  5. `pub(crate) use`
+  6. `pub(super) use`
+  7. `use` 私有导入
 - 每组按当前 crate / 标准库 / 外部库顺序排列
   - **第 6 组(private use)内部还要细分**:
     - 私有 `use std::{...}`(或 `use current_crate::*;` 如果当前 crate 是 workspace 成员)在前
@@ -53,7 +54,7 @@ warning: glob import doesn't reexport anything with visibility `pub` because no 
 
 ### Audit 覆盖范围
 
-`scripts/audit_rust_standards.py` 当前 **不检查** §6.1 的顺序违规(只检查 mod.rs 三段式 + sub-file `use super::*;`)。**lib.rs use/pub use 组顺序是 user-review-only 项** —— review reject 之前 agent 不会自动发现。 是 user 主动指出后才修。
+`scripts/verify_lib_rs_order.py` 自动扫描仓库中所有 `lib.rs`、`mod.rs`、`main.rs`,并已接入 `scripts/audit_rust_standards.py` 与 `scripts/staged_file_gate.py`(git pre-commit hook),校验完整顺序、跨可见性组空行以及 `#[cfg(test)]` 模块位于普通 `mod` 之后且中间恰好一个空行。可使用 `scripts/fix_lib_rs_order.py --write` 自动归位 `#[cfg(test)]` 模块。
 
 > 完整模板见 `templates/lib-rs.md`
 

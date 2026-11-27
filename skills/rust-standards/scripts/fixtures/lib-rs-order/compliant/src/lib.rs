@@ -1,7 +1,11 @@
-//! §6.1-compliant: mod -> pub use local -> pub use external -> pub(crate) -> private.
+//! §6.1-compliant: mod -> #[cfg(test)] mod -> pub use local -> pub use external -> pub(crate) -> private.
 
 mod first;
 mod second;
+
+#[cfg(test)]
+#[path = "../tests/mod.rs"]
+mod tests;
 
 pub use {first::*, second::*};
 

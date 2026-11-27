@@ -81,6 +81,14 @@ AUTO_FIXERS: list[tuple[str, list[str], str]] = [
         "Cargo.toml §13.7 round 4 dep-block order (write mode)",
     ),
     (
+        "fix_lib_rs_order",
+        [
+            "python3", str(SCRIPT_DIR / "fix_lib_rs_order.py"),
+            "--write", "{root}", "--files", "{rs_files}",
+        ],
+        "lib.rs / mod.rs / main.rs §6.1 #[cfg(test)] mod placement (write mode)",
+    ),
+    (
         "strictify_tests_layout",
         [
             "python3", str(SCRIPT_DIR / "strictify_tests_layout.py"),

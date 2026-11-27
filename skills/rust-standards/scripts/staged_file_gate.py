@@ -83,7 +83,7 @@ VERIFIERS = {
     "verify_no_test_comments": "comments in test files §14.5",
     "verify_ci_no_bump": "CI version bump / version write §17",
     "verify_module_imports_centralized": "module imports centralized §6.1/§6.3/§6.4",
-    "verify_lib_rs_order": "lib.rs import group order §6.1",
+    "verify_lib_rs_order": "lib.rs / mod.rs / main.rs import & #[cfg(test)] mod order §6.1",
     # §1.3 / §1.4. Was missing here, which is why cli/src/build/inline.rs
     # survived every commit: the audit script ran the check and the
     # pre-commit hook did not. A rule enforced in one caller and not the

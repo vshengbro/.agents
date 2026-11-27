@@ -50,3 +50,22 @@ mod r#fn;
 
 use super::*;
 ```
+
+## 含 `#[cfg(test)]` 外部测试模块版
+
+`#[cfg(test)]` 模块声明必须紧跟在所有普通 `mod ...;` 声明之后,且中间**恰好隔一个空行**(多个 `#[cfg(test)]` 模块之间不留空行),位于 `pub use` / `use` 之前:
+
+```rust
+mod r#const;
+mod r#fn;
+mod r#impl;
+mod r#struct;
+
+#[cfg(test)]
+#[path = "../../../tests/example/mod.rs"]
+mod tests;
+
+pub(crate) use {r#const::*, r#fn::*, r#impl::*, r#struct::*};
+
+use super::*;
+```

@@ -128,7 +128,10 @@ audit check 8 + check 4,**两个都已注册进 `staged_file_gate.py`**):
 
 两个脚本都 **tree-wide** 扫(不是 diff-scoped):production file 里**早就存在**的违规
 也要报,别人改同一个文件时它不能继续躺着。`#[path]` include 形状
-(`#[cfg(test)] #[path = "../tests/mod.rs"] mod tests;`)**不得误报**。
+(`#[cfg(test)] #[path = "../tests/mod.rs"] mod tests;`)**不得误报**,但该声明在
+`lib.rs` / `mod.rs` / `main.rs` 中必须放在所有普通 `mod ...;` 声明**之后**、
+与普通 `mod` 声明之间**恰好隔一个空行**,且位于 `pub use` / `use` 导入块之前
+(参见 `references/06-module-imports.md` §6.1,由 `verify_lib_rs_order.py` 与 pre-commit hook 强制校验,可用 `fix_lib_rs_order.py --write` 自动修复)。
 
 ### 检测(每个 PR 改动的 sub-file)
 

@@ -613,10 +613,10 @@ exit "$exit_code"
     # check 27 — §6.1 lib.rs / mod.rs three-stage import order.
     # (2026-09-26 user tightening).  Companion script:
     # verify_lib_rs_order.py.
-    ('lib.rs / mod.rs three-stage import order (§6.1)', '''
+    ('lib.rs / mod.rs / main.rs import & #[cfg(test)] mod order (§6.1)', '''
 cd {{target}}
 python3 "{{audit_script_dir}}/verify_lib_rs_order.py" "{{target}}" \
-    | grep -v -E '^(=== |OK: 0 lib)'
+    | grep -v -E '^(=== |OK: [0-9]+ lib)'
 exit_code=${PIPESTATUS[0]}
 if [ "$exit_code" -ne 0 ]; then
     echo "FAIL: verify_lib_rs_order.py exited $exit_code" >&2
