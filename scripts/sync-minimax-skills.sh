@@ -54,7 +54,7 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/agents-sync/minimax-skills"
 # usage audit (18 .usage.json files) showed zero recorded uses; the local
 # copies were removed. android-native-dev is skipped because the local
 # skills/android-native-dev/ already provides it.
-SKIP_SKILLS="android-native-dev buddy-sings flutter-dev gif-sticker-maker minimax-docx minimax-music-gen minimax-music-playlist minimax-xlsx pptx-generator react-native-dev"
+SKIP_SKILLS="android-native-dev buddy-sings flutter-dev fullstack-dev gif-sticker-maker minimax-docx minimax-music-gen minimax-music-playlist minimax-pdf minimax-xlsx mmx-cli pptx-generator react-native-dev shader-dev"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in

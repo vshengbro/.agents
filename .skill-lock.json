@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -8,15 +8,6 @@
       "installedAt": "2026-08-15T01:08:07.343Z",
       "updatedAt": "2026-10-23T03:29:33.126Z",
       "skillFolderHash": "812166968e888a9b822cd6d93ec3698f27154ab1"
-    },
-    "agently-mail": {
-      "source": "agent.qq.com",
-      "sourceType": "well-known",
-      "skillPath": "skills/agently-mail/SKILL.md",
-      "installedAt": "2026-10-07T12:04:08.990Z",
-      "updatedAt": "2026-11-27T12:08:02.457Z",
-      "skillFolderHash": "03b6b8275524c2fd3a3e1bfc4e2ef55547355867",
-      "sourceUrl": "https://agent.qq.com/.well-known/skills/agently-mail/SKILL.md"
     },
     "android-native-dev": {
       "source": "MiniMax-AI/skills",
@@ -27,14 +18,6 @@
       "skillFolderHash": "7e2504180ffe3de147bf1fc249de2958956bb4f7",
       "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
       "ref": "main"
-    },
-    "apple-notes": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/apple/apple-notes/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-11-27T12:08:02.457Z",
-      "skillFolderHash": "1e25b2ebf5d2b8975cd621f280f90ae7c4edddc8"
     },
     "blender": {
       "source": "local",
@@ -275,18 +258,6 @@
       "subpath": "skills",
       "upstreamCommit": "60aaae52bb2af8162732751a4332f62a5fef518b"
     },
-    "fullstack-dev": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/minimax-skills/fullstack-dev/SKILL.md",
-      "installedAt": "2026-10-28T14:25:52.640Z",
-      "updatedAt": "2026-10-28T14:25:52.640Z",
-      "skillFolderHash": "4db63aaa4c2f3625d22332e42cc534bdf022cf4a",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main",
-      "subpath": "skills",
-      "upstreamCommit": "60aaae52bb2af8162732751a4332f62a5fef518b"
-    },
     "ios-application-dev": {
       "source": "MiniMax-AI/skills",
       "sourceType": "github",
@@ -294,42 +265,6 @@
       "installedAt": "2026-10-28T14:25:52.640Z",
       "updatedAt": "2026-10-28T14:25:52.640Z",
       "skillFolderHash": "3349f9a9ca139e6ce2eb28c9e10fdcfd6697a835",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main",
-      "subpath": "skills",
-      "upstreamCommit": "60aaae52bb2af8162732751a4332f62a5fef518b"
-    },
-    "minimax-pdf": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/minimax-skills/minimax-pdf/SKILL.md",
-      "installedAt": "2026-10-28T14:25:52.640Z",
-      "updatedAt": "2026-10-28T14:25:52.640Z",
-      "skillFolderHash": "3d28640a1d35bf3b75c5cb4dab6dde084e3c8cf4",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main",
-      "subpath": "skills",
-      "upstreamCommit": "60aaae52bb2af8162732751a4332f62a5fef518b"
-    },
-    "mmx-cli": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/minimax-skills/mmx-cli/SKILL.md",
-      "installedAt": "2026-10-28T14:25:52.640Z",
-      "updatedAt": "2026-10-28T14:25:52.640Z",
-      "skillFolderHash": "1cb340115cc2df13f7286f3b62389caf4102b1fb",
-      "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
-      "ref": "main",
-      "subpath": "skills",
-      "upstreamCommit": "60aaae52bb2af8162732751a4332f62a5fef518b"
-    },
-    "shader-dev": {
-      "source": "MiniMax-AI/skills",
-      "sourceType": "github",
-      "skillPath": "skills/minimax-skills/shader-dev/SKILL.md",
-      "installedAt": "2026-10-28T14:25:52.640Z",
-      "updatedAt": "2026-10-28T14:25:52.640Z",
-      "skillFolderHash": "19ecd11c86b7b4b8cd0a5e0d0124330429cd28f0",
       "sourceUrl": "https://github.com/MiniMax-AI/skills.git",
       "ref": "main",
       "subpath": "skills",

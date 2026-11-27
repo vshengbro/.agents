@@ -28,6 +28,10 @@ Local edits belong in a separate skill.
   `pptx-generator`, `react-native-dev` — removed 2026-11-27 after a
   cross-profile usage audit showed zero recorded uses; listed in
   `SKIP_SKILLS` so a sync does not restore them.
+- `fullstack-dev`, `minimax-pdf`, `mmx-cli`, `shader-dev` — removed
+  2026-11-28: last recorded use 2026-10-01..11-03, i.e. no activity in
+  the 3+ weeks during which the rest of the library was in daily use;
+  listed in `SKIP_SKILLS` so a sync does not restore them.
 
 ## Licensing
 
