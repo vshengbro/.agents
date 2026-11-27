@@ -1,13 +1,13 @@
 ---
 name: agently-mail
-description: "Use when reading, searching, sending or organizing email through an authorized agently-cli account. For installation or OAuth setup, use agently-mail-setup."
+description: "Use when reading, searching, sending or organizing email through an authorized agently-cli account. For installation or OAuth setup, run agently-cli auth login directly."
 version: 1.1.0
 ---
 
 # Agently Mail
 
-只处理用户授权的邮件操作；安装、更新或 OAuth 授权走
-[`agently-mail-setup`](../agently-mail-setup/SKILL.md)，不要为每次收发重新安装工具或覆盖本地 skill。
+只处理用户授权的邮件操作；安装、更新或 OAuth 授权直接跑
+`agently-cli auth login`，不要为每次收发重新安装工具或覆盖本地 skill。
 ## Index
 
 最短路径 · 写入与确认 · 下载与监听 · 错误与验收 · 信任边界

@@ -23,6 +23,11 @@ Local edits belong in a separate skill.
   version of the same upstream skill under `skills/android-native-dev/`.
   Skill names must be unique across the library, so the upstream copy is
   skipped here.
+- `buddy-sings`, `flutter-dev`, `gif-sticker-maker`, `minimax-docx`,
+  `minimax-music-gen`, `minimax-music-playlist`, `minimax-xlsx`,
+  `pptx-generator`, `react-native-dev` — removed 2026-11-27 after a
+  cross-profile usage audit showed zero recorded uses; listed in
+  `SKIP_SKILLS` so a sync does not restore them.
 
 ## Licensing
 

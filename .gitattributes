@@ -3,5 +3,4 @@
 # or the next sync would show them as drift.
 skills/minimax-skills/** -whitespace -text
 skills/mcode-stack/** -whitespace -text
-skills/blender-skills/** -whitespace -text
 

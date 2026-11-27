@@ -257,30 +257,3 @@ description budgets, the entry line budget and the relative-link / anchor
 checks for this subtree; frontmatter shape, name/folder match and global
 name uniqueness still apply.
 
-## `sync-blender-skills.sh` — vendor `arjun988/blender-skills`
-
-`skills/blender-skills/` contains the upstream `.claude/skills/` tree verbatim,
-including shared `references/`, alongside its `LICENSE` and `UPSTREAM.md`.
-The existing local `skills/blender/` remains separate and unchanged.
-
-```shell
-bash scripts/sync-blender-skills.sh                 # update from main
-bash scripts/sync-blender-skills.sh --ref TAG       # select a branch or tag
-bash scripts/sync-blender-skills.sh --source-dir DIR # reuse a local clone
-bash scripts/sync-blender-skills.sh --dry-run        # preview without changes
-bash scripts/sync-blender-skills.sh --check          # exit 1 on drift
-```
-
-The sync records source, ref, subpath and upstream commit in `.skill-lock.json`.
-Do not hand-edit this vendored tree: updates replace it with the upstream copy.
-As with MiniMax, structural audits retain frontmatter and name-uniqueness checks
-but waive local writing budgets and upstream relative-link checks.
-
-## Why a custom script instead of git submodules / symlinks?
-
-docs-pages is a **private** VuePress monorepo with hundreds of pages, nested subdirs, and VuePress-specific frontmatter. Submodules drag in the whole tree; symlinks break on Windows + confuse the `read_file` tool. A flat curated list under each skill:
-
-- keeps the skill repo small and reviewable
-- lets each skill pick exactly the pages it needs
-- survives docs-pages' upstream restructuring (just update the mapping)
-- makes the relationship explicit (the `synced_from` line in every synced file)

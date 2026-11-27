@@ -15,8 +15,7 @@ prerequisites:
 # Apple Notes
 
 `memo` drives Notes.app over AppleScript. Notes sync to iPhone/iPad through
-iCloud. Sibling skills: Reminders → `apple-reminders`, messages → `imessage`,
-device tracking → `findmy`.
+iCloud.
 ## Index
 
 Prerequisites · When NOT to use · Command surface · Workflow · Limitations and rules

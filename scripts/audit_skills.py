@@ -74,7 +74,7 @@ DEFAULT_PROTECTED_PREFIXES = ("skills/rust-standards/",)
 # description length and keyword dump, the entry line budget, and the
 # relative-link and anchor checks (upstream links may be broken upstream).
 DEFAULT_VENDORED_PREFIXES = (
-    "skills/mcode-stack/", "skills/minimax-skills/", "skills/blender-skills/",
+    "skills/mcode-stack/", "skills/minimax-skills/",
 )
 
 # Relative links carrying any of these are documentation placeholders, not
