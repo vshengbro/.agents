@@ -1,5 +1,5 @@
 {
-  "version": 23,
+  "version": 24,
   "skills": {
     "agent-skills-source-sync": {
       "source": "local",
@@ -88,8 +88,8 @@
       "sourceType": "local",
       "skillPath": "skills/github/github-auth/SKILL.md",
       "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "544fe0f502362c66ed6d8158ec099d3b549740dd"
+      "updatedAt": "2026-11-27T12:26:55.416Z",
+      "skillFolderHash": "25ee030787e3cd5da9b5e784a6a55b9942ae7423"
     },
     "github-code-review": {
       "source": "local",
@@ -98,14 +98,6 @@
       "installedAt": "2026-09-30T14:23:40.504Z",
       "updatedAt": "2026-10-23T03:29:33.126Z",
       "skillFolderHash": "69f943116595749ace276b4697c139c22b7ced6d"
-    },
-    "github-issues": {
-      "source": "local",
-      "sourceType": "local",
-      "skillPath": "skills/github/github-issues/SKILL.md",
-      "installedAt": "2026-09-30T14:23:40.504Z",
-      "updatedAt": "2026-10-23T03:29:33.126Z",
-      "skillFolderHash": "1514ce8cccef1c8179582c30e6f1b280cd4dfddd"
     },
     "github-repo-management": {
       "source": "local",
