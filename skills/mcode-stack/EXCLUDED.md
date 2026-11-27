@@ -13,9 +13,18 @@ One skill name per line. Lines starting with `#` are comments.
 subagent-split-check
 # Removed 2026-11-27: zero recorded uses across all 18 profile .usage.json
 # trackers. Their subject matter is covered by the harness skills that are
-# still vendored (harness-experiment, long-command-check, independent-review).
+# still vendored (harness-experiment, independent-review).
 context-tax-audit
 engineering-review-comments
 long-session-check
 tool-budget-audit
 trajectory-review
+# Removed 2026-11-28: bottom usage tier of the whole library (4-16 recorded
+# uses, last activity 2026-11-18..11-20, nothing since). The vendored
+# engineering-code-review (658), engineering-small-prs (54),
+# engineering-review-feedback (72), harness-experiment (148, live) and
+# independent-review (234) cover the same PR/change workflow.
+engineering-emergency-changes
+engineering-change-descriptions
+long-command-check
+handoff-doc
