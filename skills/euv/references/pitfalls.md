@@ -1,6 +1,7 @@
 # euv pitfalls (symptom → cause)
 
 Verified against `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 Every "where" is a real path in that tree.
 
 ## Compile errors after the 0.39 rewrite
@@ -8,10 +9,14 @@ Every "where" is a real path in that tree.
 | Symptom | Cause / fix |
 |---|---|
 | `HTML tag \`div\` is not part of native euv \`view!\`` | The old DOM vocabulary is gone; use `column`/`row`/`view`/`grid`, `text`, or an `euv-ui` component (`macros/src/view/fn.rs`, `legacy_html_tag_error`) |
-| `view! manages BuildContext automatically` | The legacy `view!(ctx, …)` form; write `view! { … }` (`ERR_LEGACY_VIEW_CTX`) |
+| `view! manages Context automatically` | The legacy `view!(ctx, …)` form; write `view! { … }` (`ERR_LEGACY_VIEW_CTX`) |
 | `unknown property` with a "did you mean" list | Property keywords are checked against `KNOWN_VIEW_PROPS`; values are Rust expressions, not CSS strings |
+| `component parameters must be passed as named attributes inside \`Component { prop: value }\` instead of positional \`(...)\` arguments` | A custom component was invoked positionally; derive `Props` on it and use `MyComp { prop: value }` (`ERR_COMPONENT_POSITIONAL_ARGS`) |
+| `#[derive(Props)] can only be derived on structs with named fields` | `Props` needs named fields; a tuple struct or enum cannot carry named props (`ERR_PROPS_NAMED_STRUCT_ONLY`) |
+| `unsupported #[prop(...)] option; expected \`custom\` or \`default = <expr>\`` | Field-attribute namespace typo inside a `Props` struct (`ERR_PROPS_UNKNOWN_OPTION`) |
 | `unresolved import euv::lombok_macros` | 0.39.1 dropped the lombok re-export from the `euv` root (`src/lib.rs`); add `lombok-macros` as a direct dependency |
 | `unresolved import euv_chart` / `euv_engine` | Both crates were removed from the workspace in #359; charting has no replacement and the game/3D code now lives in `euv_core::game` |
+| `cannot find trait \`Mountable\` in this scope` / `no function or associated item named \`mount_current\` found` | The legacy `Mountable` trait and `Style::empty()` were removed; implement `Component` (or use `#[component]`) and `Style::default()` |
 | `use euv::*` does not bring in `EuvButton` | `euv-ui` is a separate crate and is **not** re-exported by the root; `cargo add euv-ui` + `use euv_ui::*` |
 | `feature \`theme-custom\` does not exist` | Removed; `euv-ui` ships 17 `theme-*` features plus `default` |
 

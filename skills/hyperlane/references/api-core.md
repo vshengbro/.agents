@@ -2,11 +2,19 @@
 
 Source: `core/src/` — auto-extracted from `pub` and `pub(crate)` declarations.
 
-Verified against `origin/master` (`a1846f6`, workspace version `22.8.2`). The
+Verified against `origin/master` (`04dee24`, workspace version `22.13.0`). The
 `22.6.0` release added `Context::build_response()` and the request-error helpers
 in `protocol::response::fn`; the `22.7.0`/`22.8.0` releases narrowed the public
-struct fields to `pub(crate)` without changing the public API. See
-[Wire behaviour](wire-behaviour.md).
+struct fields to `pub(crate)` without changing the public API.
+
+**Re-verified at `22.13.0`.** No `pub` item was removed: the public API surface
+is unchanged from `22.8.2`. The only removals since `a1846f6` are four
+`pub(crate)` internals — `AT_SIGN`, `H2RequestEnv`, `H3RequestEnv` and
+`poll_once_protocol` — replaced by the HTTP/2 and HTTP/3 stream-pool work
+(`H2StreamPool`, `H3StreamPool`, `PooledH2Stream`, `PooledH3Stream`,
+`H2StreamGuard`, `H3StreamGuard`, `H2DirectStateHandle`, `H3DirectStateHandle`,
+`poll_with_timeout_protocol`, `TCP_ACCEPT_BACKOFF_MS`,
+`TLS_MAX_OUTGOING_BUFFER`). See [Wire behaviour](wire-behaviour.md).
 
 Re-exported at root via `hyperlane-core::*` (then `hyperlane::*` re-exports it).
 
@@ -255,7 +263,6 @@ item stay unreachable.
 - `const` **`HTTP_QUOTED_FIELD_ESCAPE`** — `pub(crate) const HTTP_QUOTED_FIELD_ESCAPE : u8 = b'\\'`
 - `const` **`PSEUDO_HEADER_PREFIX`** — `pub(crate) const PSEUDO_HEADER_PREFIX : &str = ":"`
 - `const` **`QUESTION_MARK`** — `pub(crate) const QUESTION_MARK : char = '?'`
-- `const` **`AT_SIGN`** — `pub(crate) const AT_SIGN : char = '@'`
 - `const` **`TRAILER_HEADER`** — `pub(crate) const TRAILER_HEADER : &str = "trailer"`
 - `const` **`HTTP_SCHEME`** — `pub(crate) const HTTP_SCHEME : &str = "http"`
 - `const` **`HTTPS_SCHEME`** — `pub(crate) const HTTPS_SCHEME : &str = "https"`
@@ -331,7 +338,6 @@ item stay unreachable.
 
 - `struct` **`H2DirectState`** — `pub(crate) struct H2DirectState`;
 - `struct` **`H2DirectTransport`** — `pub(crate) struct H2DirectTransport`;
-- `struct` **`H2RequestEnv`** — `pub(crate) struct H2RequestEnv`;
 
 ### `protocol::http3::stream::fn`
 
@@ -350,7 +356,6 @@ item stay unreachable.
 - `struct` **`H3DirectState`** — `pub(crate) struct H3DirectState`;
 - `struct` **`H3DirectTransport`** — `pub(crate) struct H3DirectTransport`;
 - `struct` **`H3ControlState`** — `pub(crate) struct H3ControlState`;
-- `struct` **`H3RequestEnv`** — `pub(crate) struct H3RequestEnv`;
 
 ### `protocol::pump::const`
 
@@ -368,7 +373,6 @@ item stay unreachable.
 - `fn` **`return_target_buffer`** — `pub(crate) fn return_target_buffer(mut buffer: String)`;
 - `fn` **`take_route_param_entry`** — `pub(crate) fn take_route_param_entry() -> (String, String)`;
 - `fn` **`return_route_param_entry`** — `pub(crate) fn return_route_param_entry(mut pair: (String, String))`;
-- `fn` **`poll_once_protocol`** — `pub(crate) fn poll_once_protocol<F>(mut future: Pin<&mut F>) -> Option<F::Output> where F: Future`;
 - `fn` **`hides_entity_length`** — `pub(crate) fn hides_entity_length(status_code: usize, _is_head: bool) -> bool`;
 - `fn` **`check_body_budget`** — `pub(crate) fn check_body_budget( announced_len: Option<usize>, forwarded: usize, incoming: usize, ) -> bool`;
 - `fn` **`validate_status_code`** — `pub(crate) fn validate_status_code(status_code: usize) -> Result<(), ResponseError>`;

@@ -2,6 +2,7 @@
 
 Source: `core/src/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1), extracted from
 `pub` declarations in the committed tree.
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 `euv-core` is re-exported at the `euv` crate root (`pub use {euv_core::*,
 euv_macros::*}` in `src/lib.rs`), so every item below is reachable as
@@ -37,7 +38,7 @@ render and font backends.
 - (impl) pub fn fps_limit(&self) -> Option<u32> {
 - (impl) pub fn attach_game_host(&mut self, host: GameEngineHost) {
 - (impl) pub fn has_active_animations(&self) -> bool {
-- (impl) pub fn mount<F, M>(&mut self, builder: F) -> NodeId where F: FnOnce() -> M, M: Mountable, {
+- (impl) pub fn mount<F, C>(&mut self, builder: F) -> NodeId where F: FnOnce() -> C, C: Component, {
 - (impl) pub fn platform_kind(&self) -> PlatformKind {
 - (impl) pub fn platform_capabilities(&self) -> PlatformCapabilities {
 - (impl) pub fn raw_window_handle(&self) -> RawWindowHandle {
@@ -1079,6 +1080,7 @@ render and font backends.
 - (enum) pub enum Easing {
 - (impl) pub fn eval(&self, t: f32) -> f32 {
 - (impl) pub fn for_node(node: NodeId) -> Self {
+- (impl) pub fn with_delay(mut self, delay_secs: f32) -> Self {
 - (impl) pub fn with_duration(mut self, duration_secs: f32) -> Self {
 - (impl) pub fn with_easing(mut self, easing: Easing) -> Self {
 - (impl) pub fn with_opacity(mut self, from: f32, to: f32) -> Self {
@@ -1086,6 +1088,8 @@ render and font backends.
 - (impl) pub fn with_scale(mut self, from: f32, to: f32) -> Self {
 - (impl) pub fn with_hide_on_complete(mut self, hide: bool) -> Self {
 - (impl) pub fn route_enter(node: NodeId) -> Self {
+- (impl) pub fn route_slide_enter(node: NodeId, start_tx: f32) -> Self {
+- (impl) pub fn route_slide_exit(node: NodeId, end_tx: f32) -> Self {
 - (impl) pub fn fade(node: NodeId, from: f32, to: f32, duration: f32, hide_on_complete: bool) -> Self {
 - (impl) pub fn slide_fade( node: NodeId, from_offset: Point, to_offset: Point, from_opacity: f32, to_opacity: f32, duration: f32, hide_on_complete: bool, ) -> Self {
 - (impl) pub fn modal_enter(node: NodeId) -> Self {
@@ -1150,8 +1154,21 @@ render and font backends.
 - (struct) pub struct ImageBuffer {
 - (struct) pub struct InputNodeState {
 
+### scene::lifecycle
+- (enum) pub enum PageRetention {
+- (enum) pub enum LifecyclePhase {
+- (fn) pub fn mount_component<C>(component: C) -> NodeId
+- (fn) pub fn dispatch_lifecycle_freeze(observers: &[(NodeId, Rc<dyn Lifecycle>)]) {
+- (fn) pub fn dispatch_lifecycle_resume(observers: &[(NodeId, Rc<dyn Lifecycle>)]) {
+- (fn) pub fn dispatch_lifecycle_activate(observers: &[(NodeId, Rc<dyn Lifecycle>)]) {
+- (fn) pub fn dispatch_lifecycle_update(observers: &[(NodeId, Rc<dyn Lifecycle>)]) {
+- (fn) pub fn finalize_disposed_subtree(scopes: Vec<Scope>, observers: Vec<(NodeId, Rc<dyn Lifecycle>)>) {
+- (trait) pub trait Lifecycle {
+- (trait) pub trait Component: Lifecycle + Sized + 'static {
+- (trait) pub trait ComponentProps: Sized {
+
 ### scene
-- (mod) pub use {animation::*, event::*, flags::*, focus::*, id::*, kind::*, node::*, tree::*};
+- (mod) pub use {animation::*, event::*, flags::*, focus::*, id::*, kind::*, lifecycle::*, node::*, tree::*};
 
 ### scene::node
 - (impl) pub fn new(generation: u32, kind: NodeKind, style: Style) -> Self {
@@ -1167,11 +1184,11 @@ render and font backends.
 - (struct) pub struct SceneNode {
 
 ### scene::tree
-- (fn) pub fn with_build_context<F, R>(ctx: BuildContext, operation: F) -> R where F: FnOnce() -> R, {
-- (fn) pub fn current_build_context() -> BuildContext {
-- (fn) pub fn has_build_context() -> bool {
+- (fn) pub fn with_context<F, R>(ctx: Context, operation: F) -> R where F: FnOnce() -> R, {
+- (fn) pub fn current_context() -> Context {
+- (fn) pub fn has_context() -> bool {
 - (fn) pub fn current_platform() -> PlatformKind {
-- (fn) pub fn mount_current<M>(mountable: M) -> NodeId where M: Mountable, {
+- (fn) pub fn into_text<T>(value: T) -> String where T: Into<String>, {
 - (impl) pub fn create_node(&mut self, kind: NodeKind, style: Style) -> NodeId {
 - (impl) pub fn create_view(&mut self, style: Style) -> NodeId {
 - (impl) pub fn create_text(&mut self, content: String, style: Style) -> NodeId {
@@ -1233,11 +1250,14 @@ render and font backends.
 - (impl) pub fn set_scroll_offset(&mut self, node_id: NodeId, offset: Point) {
 - (impl) pub fn start_transition(&mut self, transition: NodeTransition) {
 - (impl) pub fn bind_children<F>(&mut self, host: NodeId, mut builder: F) where F: FnMut() -> Vec<NodeId> + 'static, {
-- (mod) pub use {r#fn::*, r#struct::*, r#trait::*};
+- (mod) pub use {r#fn::*, r#struct::*, r#trait::*, r#type::*};
 - (struct) pub struct SceneTree {
 - (struct) pub struct SceneHandle {
-- (struct) pub struct BuildContext {
-- (trait) pub trait Mountable {
+- (struct) pub struct Context {
+- (struct) pub struct ContextGuard {
+- (type) pub type DisposedSubtreePayload = (Vec<Scope>, Vec<(NodeId, Rc<dyn Lifecycle>)>);
+- (trait) pub trait NodeRefTarget {
+- (trait) pub trait TextNodeContent {
 
 ### style::color
 - (const) pub const COLOR_TRANSPARENT: Color = Color {

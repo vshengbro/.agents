@@ -1,7 +1,7 @@
 # The hyperlane performance harness
 
 Source: `performance/` in the hyperlane workspace. Verified against the tree at
-`origin/master` (`a1846f6`, workspace version `22.8.2`).
+`origin/master` (`04dee24`, workspace version `22.13.0`).
 
 **Name the binary.** The package publishes four binaries, so `cargo run -p
 hyperlane-performance` cannot pick one and fails with an ambiguity error. Every

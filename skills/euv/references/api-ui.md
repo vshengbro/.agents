@@ -2,6 +2,7 @@
 
 Source: `ui/src/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1), extracted from
 `pub` declarations.
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 `euv-ui` is **not** re-exported through the `euv` root crate — add it as its
 own dependency (`cargo add euv-ui`) and `use euv_ui::*`. Its only dependency is
@@ -9,8 +10,9 @@ own dependency (`cargo add euv-ui`) and `use euv_ui::*`. Its only dependency is
 `default`; there is no `theme-custom` feature.
 
 Modules: `component` (16 component groups), `hook`, `overlay_stack`,
-`router`, `theme`. Components implement `Mountable`, so they compose inside
-`view!` as `{ EuvButton::new(...) }` and mount with `.mount_current()`.
+`router`, `theme`. Components derive `Props` and implement `Component`, so
+they compose inside `view!` as named attributes (`{ EuvButton { label: … } }`)
+and mount with `Component::mount(...)`.
 
 ### component::button
 - (enum) pub enum EuvButtonVariant {

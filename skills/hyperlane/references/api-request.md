@@ -4,13 +4,30 @@ Source: `request/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-request` (the directory is still called `request/`).
 
-Verified against `origin/master` (`a1846f6`, workspace version `22.8.2`). The
+Verified against `origin/master` (`04dee24`, workspace version `22.13.0`). The
 `22.6.0` release reworked the client's response framing: `ResponseFraming`
 replaces the loose `content_length` / `is_chunked` out-parameters, interim
 responses are skipped, and `HEAD` is supported as a request method. The
 `22.8.0` release narrowed `RequestConfig`'s fields to `pub(crate)` — the
-generated `get_*` / `set_*` accessors are unchanged and stay public. See
-[Wire behaviour](wire-behaviour.md).
+generated `get_*` / `set_*` accessors are unchanged and stay public.
+
+**Re-verified at `22.13.0`.** No `pub` item was removed; the only removals since
+`a1846f6` are the `pub(crate)` helpers `protocol_lower` and `body_bytes`, plus
+eight `pub(crate)` wire constants (`HEADER_TERMINATOR`, `HTTP_1_0_OK_PREFIX`,
+`HTTP_1_1_OK_PREFIX`, `HTTP_METHOD_POST`, `METHOD_NOT_ALLOWED`,
+`REDIRECT_NOT_ENABLED`). The client gained a large public surface in `02a26b8`:
+HTTP/2 exchange (`H2ExchangeTarget`, `H2SendRequest`, `ALPN_H2`,
+`H2_ALPN_MISMATCH`), connection pooling (`ASYNC_H1_POOL`, `ASYNC_H2_POOL`,
+`AsyncH1PoolMap`, `AsyncH2PoolMap`, `POOL_MAX_IDLE_PER_HOST`,
+`POOL_IDLE_TTL_SECS`, `CLIENT_BUFFER_POOL`), bounded retries
+(`BASE_RETRY_BACKOFF_MS`, `MAX_RETRY_BACKOFF_MS`), auth/multipart constants
+(`HEADER_AUTHORIZATION`, `HEADER_COOKIE`, `HEADER_PROXY_AUTHORIZATION`,
+`BASIC_PREFIX`, `BEARER_PREFIX`, `MULTIPART_BOUNDARY_PREFIX`,
+`FORM_URLENCODED_CONTENT_TYPE`) and response caps
+(`MAX_RESPONSE_BODY_BYTES`, `MAX_RESPONSE_HEAD_BYTES`, `MAX_INTERIM_RESPONSES`,
+`MAX_CONNECT_HEAD_BYTES`). The `parser::fn` module still holds the
+`pub(crate)` parsing helpers — see the E0603 note in
+[pitfalls](pitfalls.md). See [Wire behaviour](wire-behaviour.md).
 
 
 
@@ -69,9 +86,7 @@ generated `get_*` / `set_*` accessors are unchanged and stay public. See
 - `fn` **`send_bodyless_request_sync`** — `fn send_bodyless_request_sync( &mut self, stream: &mut BoxReadWrite, is_head: bool, ) -> Result<HttpResponse, RequestError> {...}`
 - `fn` **`send_bodyless_request_async`** — `async fn send_bodyless_request_async( &mut self, stream: &mut BoxAsyncReadWrite, is_head: bool, ) -> Result<HttpResponse, RequestError> {...}`
 - `fn` **`full_path`** — `pub(crate) fn full_path(&self) -> Result<String, RequestError> {...}`
-- `fn` **`protocol_lower`** — `pub(crate) fn protocol_lower(config: &RequestConfig) -> String {...}`
 - `fn` **`header_bytes`** — `pub(crate) fn header_bytes(&self, body_length: usize) -> Result<Vec<u8>, RequestError> {...}`
-- `fn` **`body_bytes`** — `pub(crate) fn body_bytes(&self) -> Vec<u8> {...}`
 - `fn` **`send_sync`** — `pub(crate) fn send_sync(&mut self) -> RequestResult {...}`
 - `fn` **`get`** — `pub fn get<T: Into<String>>(url: T) -> Self {...}`
 - `fn` **`post`** — `pub fn post<T: Into<String>>(url: T) -> Self {...}`

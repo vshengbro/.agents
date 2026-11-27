@@ -37,23 +37,23 @@
 
 | # | Pitfall | Detail |
 |---|---|---|
-| 23 | `hyperlane-cli` has only `watch / new / template / help / version`; **do not** look for `hyperlane fmt` | `references/api-cli.md` |
-| 24 | `bump / sync / fmt / publish` live in the external `crate-cli` (`~/.cargo/bin/crate`), not in `hyperlane-cli` | `references/release-bump-flow.md` |
-| 25 | A bump commit touches only the root `Cargo.toml`; **do not** sed any of the 11 workspace members | `references/release-bump-flow.md` |
-| 26 | The CI `publish` job runs `crate sync` + `crate fmt` to bring the member versions in line; there is **no** separate `sync_workspace_version` job | `references/release-bump-flow.md` |
-| 27 | Publish order: `http-compress → http-constant → http-type → http-request → hyperlane-core → hyperlane-macros → hyperlane-cli → hyperlane → hyperlane-plugin-logger → hyperlane-plugin-websocket → hyperlane-performance` (measured from the crates.io 22.2.0 publish timestamps; `http-type` depends on constant+compress; `hyperlane-macros` does **not** depend on core — its path-only dev-dep on the root crate imposes no ordering constraint; both plugin crates depend on the `hyperlane` facade, so both publish after it) | `references/release-bump-flow.md` |
+| 23 | `hyperlane-cli` has six subcommands — `watch / new / template / fmt / help / version` — plus `-h`/`--help` and `-v`/`--version`; **`fmt` exists since `9e5b0fc`** and is the `hyperlane fmt` entry point (`--check`, `--path`). `bump / sync / publish` still live in the external `crate-cli` | `references/api-cli.md` |
+| 24 | `bump / sync / publish` live in the external `crate-cli` (`~/.cargo/bin/crate`), not in `hyperlane-cli`; `hyperlane fmt` is the one sub-command that *wraps* `crate_cli::execute_unified_fmt` | `references/release-bump-flow.md` |
+| 25 | A bump commit touches only the root `Cargo.toml`; **do not** sed any of the 28 workspace members | `references/release-bump-flow.md` |
+| 26 | The CI `publish` job runs `crate sync` + `crate fmt` (plus `./target/release/hyperlane fmt`) to bring the member versions in line; there is **no** separate `sync_workspace_version` job | `references/release-bump-flow.md` |
+| 27 | Publish order, from the release job's `PACKAGES` array: `http-compress → http-constant → http-type → http-request → hyperlane-core → hyperlane-macros → hyperlane → hyperlane-cli →` the twenty `hyperlane-plugin-*` crates `→ hyperlane-performance` (29 packages; `http-type` depends on constant+compress; `hyperlane-macros` does **not** depend on core — its path-only dev-dep on the root crate imposes no ordering constraint; every plugin depends on the `hyperlane` facade, so all publish after it). `crate publish` derives the order from `[workspace.members]` and skips `publish = false` | `references/release-bump-flow.md` |
 | 28 | The monorepo switch: the old 21.3.x single-crate layout had no path-deps; the 21.7.x+ monorepo requires them | the old hyperlane-standards migration list (removed) |
 | 29 | The `readme = "../../README.md"` trap: a wrong path in a member crate makes the crates.io publish fail | `references/release-bump-flow.md` |
 | 30 | The `http-request` parser helpers are `pub(crate)` and **invisible outside the crate** (E0603); `crate::request::parser::fn::split_*` does **not** compile either (the `parser` module is private and `fn` is a keyword). The only usable path is the crate-internal re-export `crate::request::split_*`; the file is `fn.rs`, not `wire.rs` | `api-request.md` |
 
-## The plugin and bench pitfalls (verified 2026-10-23)
+## The plugin and bench pitfalls (re-verified at `22.13.0`, `04dee24`)
 
 | # | Pitfall | Detail |
 |---|---|---|
-| 31 | **Hook priority runs the smaller value first**: the framework sorts with `sort_by_key(try_get_order())` over an `Option<isize>` (in `macros/src/hyperlane/fn.rs`), so `None` comes before every `Some`. The 21.14.0 docs said higher values execute first; **22.0.2 corrected that to the smaller value running earlier**, and 22.2.0 still does it that way | `references/plugins.md` |
-| 32 | **A negative integer literal is swallowed**: `#[response_middleware(-110)]` compiles to `None`, not `Some(-110)` — `expr_to_isize` accepts integer and string literals only, and `-110` is a unary expression. A negative priority has to be written as the string `"-110"`. The `hyperlane-plugin-logger` request hook still writes `#[hyperlane::request_middleware(-120)]`, so **it registers with no order at all** and runs before every ordered hook | `references/plugins.md` |
-| 33 | `assert_unique_order` panics only for the **same hook type with the same order** (it compares the factory function pointer); two **different** hook types sharing a number do not panic | `references/plugins.md` |
-| 34 | Only **three** plugin crates are in the tree, and all are published: `hyperlane-plugin-logger`, `hyperlane-plugin-negotiate` and `hyperlane-plugin-websocket` carry `publish = true` and are on crates.io at `22.8.2`. The other four (`-compression`, `-cors`, `-shutdown`, `-static-files`) left the tree and stay on crates.io at their last version, `22.0.6` | `references/plugins.md` |
+| 31 | **Hook priority runs the smaller value first**: the framework sorts with `sort_by_key(try_get_order())` over an `Option<isize>` (in `macros/src/hyperlane/fn.rs`), so `None` comes before every `Some`. The 21.14.0 docs said higher values execute first; **22.0.2 corrected that to the smaller value running earlier**, and the tree still does it that way at `22.13.0` | `references/plugins.md` |
+| 32 | **A negative integer literal used to be swallowed — it is not any more.** Before `02a26b8`, `expr_to_isize` accepted integer and string literals only, so `#[response_middleware(-110)]` compiled to `None` and the hook registered with no order at all. `02a26b8` added an `Expr::Unary` / `UnOp::Neg` arm, so **every negative order in the plugin table is live at `22.13.0`** (e.g. `RequestLogger` really does run at `-120`). The string form `"-110"` still parses | `references/plugins.md` |
+| 33 | `assert_unique_order` panics only for the **same hook type with the same order** (it compares the kind tag and the order); two **different** hook types sharing a number do not panic, and hooks without an order are not checked at all | `references/plugins.md` |
+| 34 | **Twenty** plugin crates are in the tree at `22.13.0`, and all twenty carry `publish = true`, are `[workspace] members` and are named in the release job's `PACKAGES` array — so a bump publishes twenty-nine crates, not three. `hyperlane-plugin-compression`, `-cors`, `-shutdown` and `-static-files` left the tree on 2026-10-24 and stay on crates.io at `22.0.6`; `267dac7` then re-added cors, shutdown and static-files as new crates, and only compression stayed gone (negotiate does its job) | `references/plugins.md` |
 | 35 | An unconfigured plugin **must** pass the request through: the hook reads its own `OnceLock` first and returns `Status::Continue` when it is `None`, otherwise every application that does not use the plugin changes behaviour | `references/plugins.md` |
 | 36 | The harness is the crate `hyperlane-performance`, a **member of the root workspace**, not a separate one: a root `cargo test --workspace` builds and tests it, and there is no second `Cargo.lock` | `references/bench.md` |
 | 37 | The harness crate is `publish = true` and is published as `hyperlane-performance`; it produces four binaries (`hyperlane-performance`, `-server`, `-loadgen`, `-control`) from one package | `references/bench.md` |
@@ -63,16 +63,20 @@
 | 42 | **A request for a route that does not exist gets no response at all** — not a 404, and not the `RequestError` hook. The route matcher finds no hook and the pipeline finishes without writing bytes. Verified on `origin/master` (`22.6.0`) by driving a real socket: `GET /missing` returned zero bytes with and without a registered `RequestError` hook | `references/wire-behaviour.md` |
 | 43 | **`Transfer-Encoding: chunked` is accepted on HTTP/1.1 request bodies since `22.6.0`**, and the handler receives the **decoded** bytes plus a `Content-Length`. It is refused on HTTP/1.0, refused together with `Content-Length`, and a coding the server does not implement is `501` | `references/wire-behaviour.md` |
 | 44 | **A `205` response declares `Content-Length: 0`; `1xx`, `204` and `304` declare no length at all** and carry no `Transfer-Encoding`. A `304` keeps its representation metadata (`ETag`) | `references/wire-behaviour.md` |
-| 45 | **A public struct's fields are crate-internal since `22.8.0`** — read them through the generated `get_*` / `set_*` accessors, not `response.status_code`. The accessors stay public, and the rustdoc JSON of all seven crates shows 0 items removed and 0 items added, so the published API did not change | `references/api-core.md` |
+| 45 | **A public struct's fields are crate-internal since `22.8.0`** — read them through the generated `get_*` / `set_*` accessors, not `response.status_code`. The accessors stay public. Re-verified at `22.13.0`: the `pub` surface of `core`, `type`, `request` and `macros` has **0 items removed** since `22.8.2` — the only removals are `pub(crate)` internals | `references/api-core.md` |
 | 46 | **A field that only a Linux-gated path touches is not covered by a macOS test run.** `core/src/protocol/uring/` is `#[cfg(target_os = "linux")]`, so narrowing `Stream`'s transport field broke the Linux build silently; the fix is `Stream::shutdown()`, which reaches the transport through the accessor. The workspace is now checked and tested on Linux too | `references/api-core.md` |
-| 41 | The `Transport` trait is public, but the framework's `Stream` **does not implement it** — `tokio::net::TcpStream` does | `references/api-type.md` |
+| 41 | The `Transport` trait is public, but the framework's `Stream` **does not implement it** — `tokio::net::TcpStream` does | `api-type.md` |
+| 47 | The `http-type` request-head parser is **inlined in `type/src/request/impl.rs`** as `pub(crate) fn parse_http_head_from_slice(...)`, not in a `parser/` submodule — that layout is `http-request`'s (`request/src/request/parser/fn.rs`). Looking for `type/src/request/parser/` finds nothing | `api-type.md` |
+| 48 | `CompressMiddleware` leaves a response plain when it carries **`Cache-Control: no-transform`**, and `ConditionalMiddleware` leaves any non-`2xx` answer alone — so a redirect is never rewritten into a `304`. Both guards are newer than `22.8.2` | `plugin-negotiate.md` |
+| 49 | `EntityTag` is not strong-only: `weak()`, `is_weak()`, `opaque_tag()`, `weak_eq()` and `strong_eq()` implement the RFC 9110 §8.8.3.2 comparisons. The middleware itself only ever computes a strong tag | `plugin-negotiate.md` |
+| 50 | `hyperlane fmt` is `cli::fmt::execute_fmt(target_root, check)`: it runs `crate_cli::execute_unified_fmt` first, then `cargo fmt --all`, then the Hyperlane attribute normalizer, then `cargo fmt --all` again when the normalizer changed a file. It is **not** a thin alias for `crate fmt` | `api-cli.md` |
 
 ## Tool conflict quick map
 
 | Tool | Provides | Does not provide |
 |---|---|---|
-| `hyperlane-cli` | `watch / new / template / help / version` | `bump / sync / fmt / publish` |
-| `crate-cli` (`~/.cargo/bin/crate`) | `bump / sync / fmt / publish` | starting a server / generating a template |
+| `hyperlane-cli` | `watch / new / template / fmt / help / version` | `bump / sync / publish` |
+| `crate-cli` (`~/.cargo/bin/crate`) | `bump / sync / publish` | starting a server / generating a template; `hyperlane fmt` only *wraps* its `execute_unified_fmt` |
 | `cargo fmt` | impl code | (no hyperlane-specific macro reordering) |
 
 ## Keyword quick reference
@@ -83,8 +87,8 @@
 - **a missing route gets no answer** → pitfall #42 (the route matcher finds no hook)
 - **build / publish fails** → pitfall #24 (the wrong tool), pitfall #25 (sed on the wrong file), pitfall #27 (the publish order)
 - **a route does not match** → pitfall #11 (RouteParams ownership), pitfall #12 (a wrong `/users/:id`), pitfall #13 (a doubled backslash in a regex)
-- **the hook order is wrong** → pitfall #31 (the smaller value runs first), pitfall #32 (a negative literal is swallowed), pitfall #33 (uniqueness is only checked per hook type)
-- **a plugin does nothing / affects others** → pitfall #34 (not published, path dependency only), pitfall #35 (an unconfigured plugin must pass through)
+- **the hook order is wrong** → pitfall #31 (the smaller value runs first), pitfall #32 (a negative literal used to be swallowed), pitfall #33 (uniqueness is only checked per hook type)
+- **a plugin does nothing / affects others** → pitfall #34 (all twenty plugins are published workspace members), pitfall #35 (an unconfigured plugin must pass through)
 - **the bench does not run / the verdict is untrustworthy** → pitfall #36 (a separate workspace), pitfall #38 (the verdict never blocks the build)
 
 

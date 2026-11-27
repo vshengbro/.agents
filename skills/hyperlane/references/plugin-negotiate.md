@@ -1,12 +1,15 @@
 # hyperlane-plugin-negotiate
 
-Source: `plugin/negotiate/src/` at `22.8.2`. The crate description: "A
-response negotiation plugin for the Hyperlane framework, answering with the
-content coding the client accepts and with 304 Not Modified while a validator
-still matches."
+Source: `plugin/negotiate/src/` at `origin/master` (`04dee24`, workspace
+version `22.13.0`). The crate description: "A response negotiation plugin for
+the Hyperlane framework, answering with the content coding the client accepts
+and with 304 Not Modified while a validator still matches."
 
-Published to crates.io at `22.8.2` (its only release line so far). It is a
-workspace member — `plugin/negotiate` — and depends on the `hyperlane` facade
+Published with the workspace: it is a workspace member, carries `publish = true`
+and is named in `.github/workflows/rust.yml`'s `PACKAGES` array, so it ships at
+whatever version the workspace is at. The newest crates.io release confirmed
+while writing this page was `22.8.2`; the workspace has since moved to
+`22.13.0`. It depends on the `hyperlane` facade
 plus `http-compress`, so it compiles against workspace source, not against a
 released version. `cargo metadata --no-deps --format-version 1` is the
 authority for the member list; the root `hyperlane` package counts too.
@@ -83,6 +86,7 @@ A response is left alone — no coding, no `Vary` — when any of these holds:
 |---|---|
 | The client accepts no implemented coding | `negotiated_coding` returned `None` |
 | The response already declares a coding | `headers.contains_key(CONTENT_ENCODING)` |
+| The response forbids transformation | `has_no_transform(response)` — any `Cache-Control` field carrying the `no-transform` directive |
 | The body is below the threshold | `body.len() < config.min_length` |
 | The status carries no body | `has_no_body(status)` |
 | It is an event stream | `is_event_stream(response)` |
@@ -98,7 +102,9 @@ Every coded response declares `Vary: accept-encoding`. An existing `Vary` is
 second field entry (`add_header`), so a wire response can carry both
 `vary: origin` and `vary: accept-encoding`. If the response already declares
 `accept-encoding` among its `Vary` entries (comma-split, case-insensitive),
-nothing is added.
+nothing is added — and **neither is anything added when the response declares
+`Vary: *`**, because a wildcard variance already covers every request header,
+`accept-encoding` included.
 
 ### Configuration
 
@@ -131,17 +137,33 @@ better than a digest of the bytes it happens to produce". Otherwise it
 computes `EntityTag::strong(body)`.
 
 `EntityTag::strong(&[u8])` is the quoted hexadecimal digest of the data:
-`XxHash3_64` over the body, `format!("{:016x}")`, wrapped in `"`. The same
+`XxHash3_64` over the body, `format!("{:016x}")` rendered into an 18-byte ASCII
+buffer without `format!`, wrapped in `"`. The same
 body therefore always produces the same tag, across processes and across
 restarts. `EntityTag::as_str()` renders it as the `ETag` field carries it.
-The field name is `ETAG` and the tag is always **strong** (no `W/` prefix).
+The field name is `ETAG` and the tag the middleware computes is always
+**strong** (no `W/` prefix).
+
+**A weak tag is a first-class value, not a string the middleware invents.**
+`EntityTag::weak(&[u8])` builds `W/"<hex>"`, `is_weak()` reports the prefix,
+`opaque_tag()` returns the quoted portion without it, and `weak_eq()` /
+`strong_eq()` perform the RFC 9110 §8.8.3.2 weak and strong comparisons.
+`ConditionalMiddleware` itself only ever computes a strong tag — an application
+that wants a weak validator calls `EntityTag::weak` itself and declares the
+field, and `existing_etag` then keeps it, because "the application knows what
+its representation is better than a digest of the bytes it happens to produce".
 
 `handle` skips when:
 
 | Skip | Check in source |
 |---|---|
 | The method is unsafe | `!method.is_get() && !method.is_head()` |
+| The status is not a success | `!(200..300).contains(&status_code)` |
 | The status carries no body | `has_no_body(status)` |
+
+The `200..300` guard is the newer of the three: a redirect or an error answer
+carries no representation to validate, so the middleware leaves it alone. It
+also means the middleware never rewrites a `3xx` into a `304`.
 
 On a match — `ctx.get_request().matches_if_none_match(etag.as_str())`, the
 public `http-type` helper — it sets the status to `304 NotModified` and
@@ -179,3 +201,7 @@ loopback and asserts on the exact bytes. The routes it registers are
   `If-None-Match: <that tag>` answers `304` with no body and the same `ETag`.
 - A request carrying a non-matching `If-None-Match` answers `200` with the
   plain body.
+- `test_security_conditional_never_turns_error_status_into_304_and_honors_no_transform`
+  locks the two newer guards: a non-`2xx` answer is never rewritten into a
+  `304`, and a response that declares `Cache-Control: public, no-transform` is
+  answered plain.

@@ -4,11 +4,20 @@ Source: `type/src/` — auto-extracted from `pub` declarations.
 
 Crate name: `http-type` (the directory is still called `type/`); use as `hyperlane::http_type::*` or `http_type::*`.
 
-Verified against `origin/master` (`a1846f6`, workspace version `22.8.2`). The
+Verified against `origin/master` (`04dee24`, workspace version `22.13.0`). The
 `22.6.0` release added the `chunked` module, `Response::build_head`,
 `Request::matches_if_none_match` and `Context::build_response()`'s
 counterpart `RequestFraming`. The `22.8.0` release narrowed the public struct
-fields to `pub(crate)` — the generated accessors stay public. See
+fields to `pub(crate)` — the generated accessors stay public.
+
+**Re-verified at `22.13.0`.** No `pub` item was removed; the only removals since
+`a1846f6` are the `pub(crate)` internals `build_full_frame` and `poll_once`,
+replaced by the bounded line reader (`read_http_line_bounded`,
+`HTTP_BODY_READ_CHUNK_SIZE`, `HTTP_HEADER_LINE_OVERHEAD`,
+`HTTP_REQUEST_LINE_OVERHEAD`, `HTTP_MAX_QUERY_PARAM_COUNT`) and the checked
+WebSocket frame decoder (`WebSocketParseStep`, `decode_ws_frame_checked`,
+`WEBSOCKET_FRAME_TOO_LARGE_ERROR`). The `WIRE_VERSION_0_9` / `WIRE_VERSION_2` /
+`WIRE_VERSION_3` `pub(crate)` byte-slice constants are gone with them. See
 [Wire behaviour](wire-behaviour.md).
 
 
@@ -434,7 +443,6 @@ fields to `pub(crate)` — the generated accessors stay public. See
 
 - `fn` **`take_header_entry`** — `pub(crate) fn take_header_entry() -> Option<(String, VecDeque<String>)> {...}`
 - `fn` **`return_header_entry`** — `pub(crate) fn return_header_entry(entry: (String, VecDeque<String>)) {...}`
-- `fn` **`poll_once`** — `pub(crate) async fn poll_once<F>(mut future: Pin<&mut F>) -> Option<F::Output> where F: Future, {...}`
 
 ### `stream::impl`
 
@@ -533,7 +541,6 @@ fields to `pub(crate)` — the generated accessors stay public. See
 - `fn` **`is_ping_opcode`** — `pub fn is_ping_opcode(&self) -> bool {...}`
 - `fn` **`is_pong_opcode`** — `pub fn is_pong_opcode(&self) -> bool {...}`
 - `fn` **`is_reserved_opcode`** — `pub fn is_reserved_opcode(&self) -> bool {...}`
-- `fn` **`build_full_frame`** — `pub(crate) fn build_full_frame( &self, full_frame: &mut Vec<u8>, ) -> Result<Option<RequestBody>, RequestError> {...}`
 
 ### `websocket_frame::struct`
 

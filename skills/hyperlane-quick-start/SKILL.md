@@ -1,6 +1,6 @@
 ---
 name: hyperlane-quick-start
-description: "Use when maintaining hyperlane-quick-start: layered workspace boundaries (application, bootstrap, config, plugin, resources), Docker/musl delivery, dependency upgrades, and doc governance."
+description: 'Use when maintaining hyperlane-quick-start: layered workspace boundaries (application, bootstrap, config, plugin, resources), Docker/musl delivery, dependency upgrades, and doc governance.'
 license: MIT
 metadata:
   hermes:
@@ -13,11 +13,12 @@ metadata:
 
 1. Load `rust-standards` and `hyperlane` before modifying any Rust or Cargo file.
 2. Enforce strict 5-member layered workspace boundaries:
-   - `config/` (`hyperlane_config`): static application and framework configuration types only; zero database or HTTP business logic.
-   - `resources/` (`hyperlane_resources`): environment templates (`env/`), SQL migrations (`sql/`), Dockerfiles (`docker/`), and static/template assets; never commit production secrets.
-   - `plugin/` (`hyperlane_plugin`): infrastructure adapters (`mysql`, `postgresql`, `redis`, `database`, `env`, `logger`, `process`, `shutdown`); no HTTP route controllers.
-   - `application/` (`hyperlane_application`): business layers (`controller`, `service`, `repository`, `mapper`, `domain`, `model`, `middleware`, `exception`, `utils`, `view`).
-   - `bootstrap/` (`hyperlane_bootstrap`): composition root wiring config, plugins, routes, and server lifecycle.
+  - `config/` (`hyperlane_config`): static application and framework configuration types only; zero database or HTTP business logic.
+  - `resources/` (`hyperlane_resources`): environment templates (`env/`), SQL migrations (`sql/`), Dockerfiles (`docker/`), and static/template assets; never commit production secrets.
+  - `plugin/` (`hyperlane_plugin`): infrastructure adapters (`mysql`, `postgresql`, `redis`, `database`, `env`, `logger`, `process`, `shutdown`); no HTTP route controllers.
+  - `application/` (`hyperlane_application`): business layers (`controller`, `service`, `repository`, `mapper`, `domain`, `model`, `middleware`, `exception`, `utils`, `view`).
+  - `bootstrap/` (`hyperlane_bootstrap`): composition root wiring config, plugins, routes, and server lifecycle.
+
 3. Preserve all `hyperlane` wire and `ServerHook` contracts: synchronous route/middleware registration, `ctx.build_response()` for HEAD-aware output, explicit error propagation from `Server::run().await`.
 4. Never commit generated runtime artifacts (`data/`, `*.log`, `*.pid`, untracked `resources/static/` outputs).
 5. Keep all code, comments, commit messages, docs, and skills strictly English-only.

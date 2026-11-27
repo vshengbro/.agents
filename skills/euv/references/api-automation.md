@@ -2,6 +2,7 @@
 
 Source: `automation/src/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1),
 extracted from `pub` declarations.
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 Dev-only: every hook compiles to a no-op outside `debug_assertions`
 (`#[cfg(not(debug_assertions))]`), so release builds carry no automation code.

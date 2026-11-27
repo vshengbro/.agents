@@ -2,15 +2,32 @@
 
 Source: `cli/src/` — auto-extracted from `pub` declarations.
 
-**Note**: `hyperlane-cli` provides only the five subcommands `watch / new / template / help / version`. `bump / sync / fmt / publish` come from the external `crate-cli`.
+**Note**: `hyperlane-cli` provides six subcommands — `watch / new / template /
+fmt / help / version` — plus the `-h`/`--help` and `-v`/`--version` flags.
+`bump / sync / publish` come from the external `crate-cli`. The `fmt`
+sub-command (added in `9e5b0fc`) is the `hyperlane fmt` entry point: it takes
+`--check` and `--path <PATH>`, and it delegates to `crate_cli::execute_unified_fmt`
+before applying Hyperlane attribute normalization. See
+[SKILL.md](../SKILL.md) §Mandatory Standards item 4.
 
 ### `command::enum`
 
 - `enum` **`CommandType`** — `pub enum CommandType {`
 
+### `fmt::fn`
+
+- `fn` **`execute_fmt`** — `pub async fn execute_fmt(target_root: &Path, check: bool) -> io::Result<HyperlaneFmtReport> {...}`
+- `fn` **`format_hyperlane_attributes_in_source`** — `pub fn format_hyperlane_attributes_in_source(source: &str) -> (String, usize) {...}`
+- `fn` **`format_hyperlane_attributes_in_workspace`** — `pub fn format_hyperlane_attributes_in_workspace( root: &Path, check: bool, ) -> io::Result<(usize, Vec<String>)> {...}`
+
+### `fmt::struct`
+
+- `struct` **`HyperlaneFmtReport`** — `pub struct HyperlaneFmtReport {`
+
 ### `config::fn`
 
 - `fn` **`parse_args`** — `pub fn parse_args() -> Args {...}`
+- `fn` **`parse_args_from`** — `pub fn parse_args_from(raw_args: &[String]) -> Args {...}`
 
 ### `config::struct`
 

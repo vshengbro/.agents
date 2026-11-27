@@ -1,6 +1,7 @@
 # Reactivity: Signal, Memo, Effect, Scope, Selector, batch
 
 Source: `core/src/reactive/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 The runtime is an **arena of generation-indexed slots**; every handle is a
 `Copy` id plus a `PhantomData<fn() -> T>` marker. There is no `Rc<RefCell<…>>`
@@ -45,7 +46,7 @@ Rules that bite:
 
 ## Binding scene nodes
 
-`BuildContext` / `SceneHandle` expose the two reactive bridges:
+`Context` / `SceneHandle` expose the two reactive bridges:
 
 ```rust
 ctx.bind_children(host, move || { /* rebuild subtree on dependency change */ });

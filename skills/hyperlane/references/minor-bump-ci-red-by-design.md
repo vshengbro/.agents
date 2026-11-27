@@ -2,14 +2,16 @@
 
 > Verified by bumping the root `Cargo.toml` of a scratch copy of each repository
 > and running `cargo metadata` (full resolution) on it. The hyperlane rows were
-> re-measured against the current `22.8.1` pins (at `origin/master`, `5637ac1`);
-> the euv rows against the current `0.34.2` pins:
+> originally measured against the `22.8.1` pins (at `origin/master`, `5637ac1`);
+> the pins are now `^22.13.0` (at `origin/master`, `04dee24`) and the same caret
+> rule applies, so the rows below are restated against the current pins. The euv
+> rows are against the current `0.34.2` pins:
 >
 > | repo | old pin | bumped to | result |
-> |---|---|---|---|
-> | hyperlane | `^22.8.1` | `22.8.2` | resolves |
-> | hyperlane | `^22.8.1` | `22.9.0` | **resolves** |
-> | hyperlane | `^22.8.1` | `23.0.0` | fails: `failed to select a version for the requirement `http-compress = "^22.8.1"`` |
+>|---|---|---|---|
+> | hyperlane | `^22.13.0` | `22.13.1` | resolves |
+> | hyperlane | `^22.13.0` | `22.14.0` | **resolves** |
+> | hyperlane | `^22.13.0` | `23.0.0` | fails: `failed to select a version for the requirement `http-compress = "^22.13.0"`` |
 > | euv | `^0.34.2` | `0.34.3` | resolves |
 > | euv | `^0.34.2` | `0.35.0` | fails: `failed to select a version for the requirement `euv-core = "^0.34.2"`` |
 > | euv | `^0.34.2` | `1.0.0` | fails: same requirement error |
@@ -17,7 +19,7 @@
 > **The rule is not "a minor bump breaks".** A caret requirement `^X.Y.Z` means
 > `>=X.Y.Z, <(X+1).0.0` when `X >= 1`, but `>=X.Y.Z, <X.(Y+1).0` when `X == 0`.
 > So a **minor** bump breaks a `0.x` repository (euv: `0.34.2` → `0.35.0`) and
-> leaves a `1.x`-or-higher repository alone (hyperlane: `22.8.1` → `22.9.0`).
+> leaves a `1.x`-or-higher repository alone (hyperlane: `22.13.0` → `22.14.0`).
 > Only a bump that crosses the caret's upper bound fails. A **major** bump
 > always crosses it.
 >
@@ -31,8 +33,8 @@
 After the root `Cargo.toml` version is bumped past the range the member
 `[workspace.dependencies]` path-dep pins still carry:
 
-- the member pins still carry the old range (`^22.8.1` in hyperlane, `^0.34.2`
-  in euv);
+- the member pins still carry the old range (`^22.13.0` in hyperlane,
+  `^0.34.2` in euv);
 - cargo fails during **version resolution**, before any compilation;
 - the error looks like `failed to select a version for the requirement ...`;
 - **the diff is one line in the root `Cargo.toml`. This is not a code problem, so

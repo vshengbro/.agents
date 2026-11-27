@@ -1,6 +1,6 @@
 ---
 name: ctares
-description: "Use when maintaining the ctares 24-crate Rust workspace, crate-cli unified formatter, lombok-macros, or coordinating Tier 1 dependency-ordered releases."
+description: 'Use when maintaining the ctares 24-crate Rust workspace, crate-cli unified formatter, lombok-macros, or coordinating Tier 1 dependency-ordered releases.'
 license: MIT
 metadata:
   hermes:
@@ -44,9 +44,9 @@ When changing `crate-cli/src/fmt/`, also verify differential parity against the 
 3. Validate commit/PR text with `~/.agents/skills/git-standards/scripts/verify_english_only.py`.
 4. Merge/push to `master` and wait until `.github/workflows/rust.yml` (`setup`, `check`, `tests`, `clippy`, `build`, `publish`, `release`) finishes green and the new version is live on `crates.io`.
 5. Cascade upgrades in strict order:
-   - Tier 2: `euv` (`crate-cli`, `lombok-macros`) and `hyperlane` (`crate-cli`, `color-output`, `lombok-macros`, `tokio-broadcast`).
-   - Tier 3: `hyperlane-quick-start` and `commerce-suite`.
-   - Tier 4: `web-frameworks`.
+  - Tier 2: `euv` (`crate-cli`, `lombok-macros`) and `hyperlane` (`crate-cli`, `color-output`, `lombok-macros`, `tokio-broadcast`).
+  - Tier 3: `hyperlane-quick-start` and `commerce-suite`.
+  - Tier 4: `web-frameworks`.
 
 ## Documentation & Skill Governance
 

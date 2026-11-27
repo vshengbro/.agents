@@ -1,15 +1,22 @@
 # hyperlane-macros complete proc_macro signatures (78)
 
-Source: `macros/src/lib.rs`。 Verified against `origin/master` (`a1846f6`,
-workspace version `22.8.2`).
+Source: `macros/src/lib.rs`. Verified against `origin/master` (`04dee24`,
+workspace version `22.13.0`).
 
 **`#[send]` and `#[try_send]` changed in `22.6.0`.** Without an attribute
 argument they now expand to `ctx.build_response()` instead of
 `ctx.get_mut_response().build()`, so a wire `HEAD` request gets the status
 line and headers only, with no body. With an attribute argument the
-expression is sent unchanged — an explicit raw write is not affected. The
-`Response::build_head` counterpart is public on `http-type`; see
+expression is sent unchanged — an explicit raw write is not affected.
+The `Response::build_head` counterpart is public on `http-type`; see
 [Wire behaviour](wire-behaviour.md).
+
+**`expr_to_isize` accepts a negative integer literal since `02a26b8`.**
+`macros/src/common/fn.rs` now matches `Expr::Unary` with `UnOp::Neg` over an
+integer literal and emits `Some(-N)`, so `#[request_middleware(-120)]` and
+`#[response_middleware("-120")]` produce the same order. Before `02a26b8` a
+negative literal fell through to `None`. The error constant was also renamed
+`FAILED_TO_PARSE_MACRO_ATTRIBUTES` → `UNSUPPORTED_MACRO_FORMAT`.
 
 ## Full list
 

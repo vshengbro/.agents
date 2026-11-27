@@ -2,6 +2,7 @@
 
 Source: `core/src/platform/`, `core/src/window/`, `core/src/system/` at
 `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 euv talks to the OS **directly** — no WebView, no browser shell, no Tauri. One
 `euv-core` runtime compiles for all seven targets and swaps only the
@@ -58,8 +59,9 @@ let mut app: App = App::with_platform(config, Box::new(HeadlessPlatform::emulati
 by `lombok-macros` and return `&mut Self` for chaining.
 
 `App` exposes live state through the same generated getters:
-`get_window_state()`, `get_platform_kind()`, `get_platform_capabilities()`,
-`get_running()`, `get_last_rendered_revision()`, `get_deep_link()`.
+`get_window_state()`, `platform_kind()`, `platform_capabilities()`,
+`get_running()`, `get_last_rendered_revision()`, `get_deep_link()`,
+`get_scene()`, `get_renderer()`, `get_context()`, `get_input_state()`.
 
 ## Imperative window commands
 

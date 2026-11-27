@@ -1,6 +1,7 @@
 # `euv-ui`: design system, components, hooks and routing
 
 Source: `ui/src/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 `euv-ui` is a **separate crate** — it is not re-exported by `euv`, so
 `use euv::*` does not bring components in. Add it (`cargo add euv-ui`) and
@@ -26,17 +27,33 @@ what a root view reads to pass `tokens` into components.
 ## Components
 
 16 component groups under `ui/src/component/`: `button`, `card`,
-`data_display`, `display`, `form`, `form_extra`, `layout`, `media`,
-`nav_extra`, `navigation`, `overlay`, `overlay_extra`, `shadcn_complete`,
-`shadcn_extra`, `surface`.
+`data_display`, `display`, `form`, `form_extra`, `layout`, `markdown`,
+`media`, `nav_extra`, `navigation`, `overlay`, `overlay_extra`,
+`shadcn_complete`, `shadcn_extra`, `surface`.
 
-Every component is a **builder that implements `Mountable`**:
+Every component is a **builder that implements `Component`** (declare it with
+`#[component]` or hand-write `impl Component`), and mounts through
+`Component::mount(self)`:
 
 ```rust
-let cmd: NodeId = EuvCommand::new(cmd_items, cmd_sel, tokens)
-    .query(cmd_query)
-    .placeholder("Type a route or action...")
-    .mount_current();
+let cmd: NodeId = Component::mount(
+    EuvCommand::new(cmd_items, cmd_sel, tokens)
+        .query(cmd_query)
+        .placeholder("Type a route or action..."),
+);
+```
+
+Inside `view!` the same component is written with named attributes — never
+positionally:
+
+```rust
+view! {
+    EuvButton {
+        label: BTN_SAVE
+        tokens: tokens
+        outline()
+    }
+}
 ```
 
 `EuvButton` shows the shape: `EuvButton::new(label, tokens)` then

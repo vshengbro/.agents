@@ -1,6 +1,7 @@
 # Rendering: modes, backends and parity
 
 Source: `core/src/render/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 `Renderer` owns one software, one hardware and one hybrid pipeline plus a
 reusable `DisplayList`, and resolves `RenderMode::Auto` to a concrete

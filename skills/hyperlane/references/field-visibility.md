@@ -1,6 +1,6 @@
 # Public-field narrowing and the `protocol/` layout
 
-Source: `origin/master` (`a1846f6`, workspace version `22.8.2`) of
+Source: `origin/master` (`04dee24`, workspace version `22.13.0`) of
 `hyperlane-dev/hyperlane`. Verified against the committed tree and the
 crates.io API, not against a local branch.
 

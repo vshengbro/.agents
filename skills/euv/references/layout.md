@@ -2,6 +2,7 @@
 
 Source: `core/src/layout/`, `core/src/style/` at `origin/master`
 (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
 Layout is a **deterministic Flexbox/Grid engine** implemented in Rust — there
 is no CSS cascade, no selector matching and no style sheet. Every style value
@@ -9,7 +10,7 @@ is a typed Rust value; `Style` is a plain builder struct.
 
 ## `Style`
 
-`Style::empty()` plus chained setters (all `#[must_use]`, all take `self` by
+`Style::default()` plus chained setters (all `#[must_use]`, all take `self` by
 value and return `Self`):
 
 `display`, `position`, `row`, `column`, `grid(columns)`, `wrap`, `justify`,
@@ -51,7 +52,7 @@ behind responsive styles (`Style::resolve(Breakpoint::Compact)`).
 `LayoutEngine::compute(&mut self, tree: &mut SceneTree, viewport: Size) ->
 LayoutStats` is the single entry point: it walks the retained graph, skips
 clean subtrees (O(1) cached pass) and fills each node's `LayoutBox`. Damage
-tracking is explicit — `BuildContext::collect_paint_damage(scale)` returns the
+tracking is explicit — `Context::collect_paint_damage(scale)` returns the
 `DamageRegion` to rasterize, and `FrameStats::pixels_shaded` reports how much
 of the framebuffer actually changed.
 

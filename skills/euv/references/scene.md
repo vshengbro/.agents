@@ -1,8 +1,9 @@
-# Scene graph, build context and events
+# Scene graph, ambient context and events
 
 Source: `core/src/scene/` at `origin/master` (`aac1c450d6e8317c50c01dd6225dea7a29265495`, version 0.39.1).
+Re-verified against `origin/master` (`6ccb8599`, euv 0.43.0) on 2026-11-27: every declared API name below still resolves in that tree.
 
-There is **no virtual DOM**. `view!` emits `BuildContext` calls that create
+There is **no virtual DOM**. `view!` emits `Context` calls that create
 nodes in a flat, retained scene graph; only the changed nodes are re-laid-out
 and re-painted (clean-subtree caching, ~23 ns for a cached pass).
 
@@ -11,9 +12,9 @@ and re-painted (clean-subtree caching, ~23 ns for a cached pass).
 `View`, `Text(String)`, `Image(ImageBuffer)`, `Canvas`, `Input(InputNodeState)`,
 `ScrollView`, `Portal`, `Fragment`.
 
-## `BuildContext`
+## `Context`
 
-`view!` opens one implicitly via `current_build_context()`; `App::mount`
+`view!` opens one implicitly via `current_context()`; `App::mount`
 binds it for the whole root closure. Construction API (each returns `NodeId`):
 
 | method | node |
@@ -39,8 +40,8 @@ Per-node state: `set_style`, `set_text`, `set_scroll_offset`,
 Reactive bridges: `bind_text(node, producer) -> Effect`,
 `bind_style(node, producer) -> Effect`, `bind_children(parent, builder)`.
 
-Threading helpers: `with_build_context(ctx, op)`, `has_build_context()`,
-`current_platform()`.
+Threading helpers: `with_context(ctx, op)`, `has_context()`,
+`current_platform()`, `into_text(value)`.
 
 ## `SceneHandle`
 
@@ -50,6 +51,12 @@ A cloneable handle to the tree shared with the `App`:
 `start_transition`, `mark_dirty`, `has_active_transitions`. The read/write
 entry points exist so non-UI threads (services, OTA fetchers) can touch the
 tree without holding a borrow across a callback.
+
+The `PageRetention::Freeze` router drives the subtree through
+`freeze_subtree(root)`, `freeze_subtree_animated(root, exit_transition)`,
+`resume_subtree(root)` and `activate_subtree(root)`: a frozen route keeps its
+nodes hidden (`Display::None`) with every reactive effect and animation
+suspended, then coalesces the accumulated updates atomically on resume.
 
 ## Events
 
@@ -64,11 +71,13 @@ calls. `UiEventHandler` and `UiEvent` are the concrete event types;
 
 ## Transitions
 
-`NodeTransition` + `Easing` (`Linear`, `EaseOutCubic`, `EaseInOutCubic`,
-`EaseOutBack`) drive animated property changes; `start_transition`,
+`NodeTransition` + `Easing` drive animated property changes. The full curve set
+is `Linear`, `EaseOutCubic` (default), `EaseInOutCubic`, `EaseOutBack`,
+`EaseOutQuint`, `EaseInCubic`, `SpringGentle` and `SpringSnappy`; `start_transition`,
 `tick_transitions(dt)` and `has_active_transitions()` advance them, and
 `App::has_active_animations()` reports whether the frame loop must keep
-rendering.
+rendering. Overlays, drawers and sheets must stay strictly monotonic — reach
+for `EaseOutQuint` / `EaseOutCubic` and never an overshooting spring.
 
 ## Dynamic (OTA) slots
 

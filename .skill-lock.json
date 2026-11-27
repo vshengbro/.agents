@@ -48,8 +48,8 @@
       "sourceType": "local",
       "skillPath": "skills/ctares/SKILL.md",
       "installedAt": "2026-11-27T02:25:56.210Z",
-      "updatedAt": "2026-11-27T02:25:56.210Z",
-      "skillFolderHash": "1e210bbed5a0eb01f43b734c63ae36898f857d1b"
+      "updatedAt": "2026-11-27T14:16:20.666Z",
+      "skillFolderHash": "7271f89a5d2d3527466f26dd1c13605a5b9a0d2d"
     },
     "euv": {
       "source": "local",
@@ -112,8 +112,8 @@
       "sourceType": "local",
       "skillPath": "skills/hyperlane-quick-start/SKILL.md",
       "installedAt": "2026-11-27T02:25:56.210Z",
-      "updatedAt": "2026-11-27T02:25:56.210Z",
-      "skillFolderHash": "c325104417ea9936a4ba23683b37a6dece3aacdd"
+      "updatedAt": "2026-11-27T14:16:20.666Z",
+      "skillFolderHash": "2c88e6e434c88bc073f8a924c295e99c8a2d00f2"
     },
     "hyperlane-upload": {
       "source": "local",
