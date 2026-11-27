@@ -142,6 +142,14 @@ bash scripts/relink-references.sh
 It reports `unchanged` for a page with nothing to fix and `rewritten` for one
 it changed, and leaves hand-written pages (no `synced_from` header) alone.
 
+### `rewrite_reference_links.py` — the link rewriter both shells call
+
+Not a standalone entry point: `sync-references.sh` and `relink-references.sh`
+invoke it per page. It resolves every relative link in a vendored page against
+that page's upstream source path and re-points it — a link to a page the
+mapping vendors becomes a sibling file name; anything else becomes the page's
+published URL on the docs site. Editing link behavior means editing this file.
+
 ### Verifying
 
 ```shell
