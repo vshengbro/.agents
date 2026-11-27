@@ -6,9 +6,9 @@ license: MIT
 # github-auth
 
 Get GitHub working, then verify with a real command — not with `gh auth status`
-alone. Auth setup is a prerequisite for `github-code-review`,
-`github-repo-management` and `gh-pr-creation-workflow`, but those skills assume
-it already works; load this one when it does not.
+alone. Auth setup is a prerequisite for `github-repo-management` and
+`gh-pr-creation-workflow`, but those skills assume it already works; load this
+one when it does not.
 ## Index
 
 §1 gh CLI (preferred) · §2 Token without gh · §3 SSH · §4 Git identity is separate from GitHub auth

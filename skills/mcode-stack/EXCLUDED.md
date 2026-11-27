@@ -19,12 +19,18 @@ engineering-review-comments
 long-session-check
 tool-budget-audit
 trajectory-review
-# Removed 2026-11-28: bottom usage tier of the whole library (4-16 recorded
-# uses, last activity 2026-11-18..11-20, nothing since). The vendored
-# engineering-code-review (658), engineering-small-prs (54),
-# engineering-review-feedback (72), harness-experiment (148, live) and
-# independent-review (234) cover the same PR/change workflow.
+# Removed 2026-11-27: bottom usage tier of the whole library (4-16 recorded
+# uses, last activity 2026-11-18..11-20, nothing since). engineering-code-review
+# (658), harness-experiment (148, live) and independent-review (234) remain.
 engineering-emergency-changes
 engineering-change-descriptions
 long-command-check
 handoff-doc
+# Removed 2026-11-27 (second pass): the tier below the next 2x gap
+# (engineering-small-prs 54, engineering-review-feedback 72 recorded uses,
+# last activity 2026-11-18..11-19). The criterion is usage frequency, so the
+# tier below the gap goes even though each covers a distinct PR leg;
+# engineering-code-review (658), harness-experiment (148, live) and
+# independent-review (234) remain.
+engineering-small-prs
+engineering-review-feedback
